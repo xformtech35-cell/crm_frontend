@@ -1,0 +1,28 @@
+# ========================
+# FRONTEND
+# ========================
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/*.log
+
+# ========================
+# BACKEND (Spring Boot)
+# ========================
+backend/target/
+backend/.env
+backend/*.log
+
+# Ignore ZIP files
+*.zip
+
+# Ignore SQL (optional if not needed)
+*.sql
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,1146 @@
+@import "@fontsource/inter/300.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/inter/800.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-gray-900 font-sans;
+  }
+  * {
+    @apply scroll-smooth;
+    scrollbar-width: none;        /* Firefox */
+    -ms-overflow-style: none;     /* IE / Edge */
+  }
+  *::-webkit-scrollbar {
+    display: none;                /* Chrome / Safari / Opera */
+  }
+}
+
+@layer components {
+  /* ─── Buttons ─────────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
+  }
+  .btn-primary {
+    @apply btn bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-600 shadow-none;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-400;
+  }
+  .btn-danger {
+    @apply btn bg-red-500 text-white hover:bg-red-600 focus:ring-red-500 shadow-none;
+  }
+  .btn-success {
+    @apply btn bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:from-emerald-700 hover:to-green-700 focus:ring-emerald-500;
+  }
+  .btn-warning {
+    @apply btn bg-gradient-to-r from-amber-500 to-yellow-500 text-white hover:from-amber-600 hover:to-yellow-600 focus:ring-amber-400;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .btn-icon {
+    @apply p-2 rounded-lg transition-all duration-200 hover:bg-gray-100 text-gray-500 hover:text-gray-700;
+  }
+
+  /* ─── Form elements ───────────────────────────── */
+  .form-input {
+    @apply block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm shadow-sm ring-0 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all duration-200;
+  }
+  .form-label {
+    @apply block text-sm font-semibold text-gray-700 mb-1.5;
+  }
+  .form-select {
+    @apply form-input appearance-none cursor-pointer pr-10 bg-no-repeat bg-[right_0.75rem_center] bg-[length:1.25rem_1.25rem];
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M7 9l3 3 3-3' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  .form-group {
+    @apply space-y-1.5;
+  }
+
+  /* ─── Cards ───────────────────────────────────── */
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100;
+  }
+  .card-header {
+    @apply px-6 py-4 border-b border-gray-100 flex items-center justify-between;
+  }
+  .card-body {
+    @apply p-6;
+  }
+  .card-glass {
+    @apply backdrop-blur-sm bg-white/80 rounded-2xl border border-white/60 shadow-lg;
+  }
+
+  /* ─── Badges ──────────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+
+  .input-field {
+    @apply block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20;
+  }
+
+  .slide-panel {
+    @apply relative w-full max-w-[480px] h-full bg-white shadow-2xl border-l border-gray-100 flex flex-col;
+  }
+
+  /* ─── Tables ──────────────────────────────────── */
+  .table-wrapper {
+    @apply overflow-x-auto rounded-xl shadow-sm border border-gray-100 bg-white;
+  }
+  .table-toolbar {
+    @apply bg-white px-3 sm:px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-100;
+  }
+  .table-base {
+    @apply w-full table-fixed text-sm text-left text-gray-700;
+  }
+  table {
+    @apply w-full text-sm text-left text-gray-700;
+  }
+  thead {
+    @apply bg-gradient-to-r from-slate-50 to-gray-50 text-gray-500 text-xs uppercase tracking-wider;
+  }
+  thead th {
+    @apply px-3 sm:px-4 py-2.5 font-semibold border-b border-gray-100 sticky top-0 z-10 backdrop-blur-sm;
+  }
+  tbody tr {
+    @apply border-b border-gray-100 hover:bg-blue-50 transition-colors duration-150;
+  }
+  tbody tr:nth-child(even) {
+    @apply bg-gray-50;
+  }
+  tbody td {
+    @apply px-3 sm:px-4 py-2;
+  }
+
+  /* ─── Sidebar ─────────────────────────────────── */
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative;
+  }
+  .sidebar-link.active {
+    @apply bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-200;
+  }
+  .sidebar-link:not(.active) {
+    @apply text-slate-600 hover:bg-indigo-50 hover:text-indigo-700;
+  }
+
+  /* ─── Stat cards ──────────────────────────────── */
+  .stat-card {
+    @apply relative overflow-hidden rounded-2xl p-5 text-white shadow-lg transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-xl;
+  }
+
+  /* ─── Page header ─────────────────────────────── */
+  .page-header {
+    @apply flex items-center justify-between mb-6;
+  }
+  .page-title {
+    @apply text-2xl font-bold text-gray-900;
+  }
+  .page-subtitle {
+    @apply text-sm text-gray-500 mt-0.5;
+  }
+
+  /* ─── Section label ───────────────────────────── */
+  .nav-section-label {
+    @apply px-3.5 text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 mt-4 first:mt-0;
+  }
+
+  /* ─── Divider ─────────────────────────────────── */
+  .divider {
+    @apply h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4;
+  }
+
+  /* ─── Modal ───────────────────────────────────── */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+  }
+  .modal-box {
+    @apply bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto;
+  }
+  .modal-header {
+    @apply px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10;
+  }
+
+  /* ─── Alerts ──────────────────────────────────── */
+  .alert {
+    @apply flex items-start gap-3 rounded-xl px-4 py-3 text-sm font-medium border;
+  }
+  .alert-success {
+    @apply alert bg-emerald-50 text-emerald-800 border-emerald-200;
+  }
+  .alert-error {
+    @apply alert bg-red-50 text-red-800 border-red-200;
+  }
+  .alert-warning {
+    @apply alert bg-amber-50 text-amber-800 border-amber-200;
+  }
+  .alert-info {
+    @apply alert bg-indigo-50 text-indigo-800 border-indigo-200;
+  }
+
+  /* ─── Skeleton loader ─────────────────────────── */
+  .skeleton {
+    @apply animate-pulse bg-gray-200 rounded-lg;
+  }
+
+  /* ─── Search input ────────────────────────────── */
+  .search-input {
+    @apply pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-xl w-full sm:w-60 bg-white shadow-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all duration-200;
+  }
+
+  .workspace-panel {
+    @apply rounded-3xl border border-white/70 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm;
+  }
+
+  .metric-tile {
+    @apply rounded-2xl border border-slate-100 bg-white p-4 shadow-sm;
+  }
+
+  .metric-label {
+    @apply text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400;
+  }
+
+  .metric-value {
+    @apply mt-2 text-2xl font-bold text-slate-900;
+  }
+
+  .kanban-column {
+    @apply rounded-3xl border border-slate-200 bg-white/85 p-4 shadow-sm backdrop-blur-sm;
+  }
+
+  .kanban-deal {
+    @apply rounded-2xl border border-slate-100 bg-slate-50/90 p-3 shadow-sm transition-transform duration-200 hover:-translate-y-0.5;
+  }
+
+  .timeline-item {
+    @apply relative rounded-2xl border border-slate-100 bg-white p-4 shadow-sm;
+  }
+
+  .inbox-thread {
+    @apply rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50;
+  }
+
+  .report-card {
+    @apply rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md;
+  }
+
+  .workflow-card {
+    @apply rounded-3xl border border-slate-200 bg-white p-5 shadow-sm;
+  }
+
+  .settings-card {
+    @apply rounded-3xl border border-slate-200 bg-white p-5 shadow-sm;
+  }
+
+  .pagination-btn {
+    @apply min-w-[36px] h-9 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors;
+  }
+  .pagination-btn-active {
+    @apply bg-blue-600 text-white border-blue-600 hover:bg-blue-600;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent;
+  }
+  .glass {
+    @apply backdrop-blur-md bg-white/70;
+  }
+  .glow-indigo {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
+  }
+
+  .crm-grid-bg {
+    background-image:
+      linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
+
+/* ─── Super Admin & Global Dark Mode overrides (Dark-Luxury Glass) ─── */
+.superadmin-dark-mode,
+.dark-theme,
+body.dark-theme {
+  color: #cbd5e1 !important;
+}
+
+.superadmin-dark-mode .card,
+.dark-theme .card,
+.superadmin-dark-mode .workspace-panel,
+.dark-theme .workspace-panel,
+.superadmin-dark-mode .slide-panel,
+.dark-theme .slide-panel,
+.superadmin-dark-mode .metric-tile,
+.dark-theme .metric-tile,
+.superadmin-dark-mode .kanban-column,
+.dark-theme .kanban-column,
+.superadmin-dark-mode .timeline-item,
+.dark-theme .timeline-item,
+.superadmin-dark-mode .inbox-thread,
+.dark-theme .inbox-thread,
+.superadmin-dark-mode .report-card,
+.dark-theme .report-card,
+.superadmin-dark-mode .workflow-card,
+.dark-theme .workflow-card,
+.superadmin-dark-mode .settings-card,
+.dark-theme .settings-card,
+.superadmin-dark-mode .table-wrapper,
+.dark-theme .table-wrapper,
+.superadmin-dark-mode .bg-white,
+.dark-theme .bg-white,
+.superadmin-dark-mode .bg-slate-50\/50,
+.dark-theme .bg-slate-50\/50,
+.superadmin-dark-mode .bg-gray-50\/50,
+.dark-theme .bg-gray-50\/50 {
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(24px) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+  color: #e2e8f0 !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Hover support for white bg cards converted to dark glass cards */
+.superadmin-dark-mode .bg-white:hover,
+.dark-theme .bg-white:hover,
+.superadmin-dark-mode .card:hover,
+.dark-theme .card:hover {
+  background: rgba(15, 23, 42, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Force headings and primary bold texts to be white */
+.superadmin-dark-mode h1,
+.superadmin-dark-mode h2,
+.superadmin-dark-mode h3,
+.superadmin-dark-mode h4,
+.superadmin-dark-mode h5,
+.superadmin-dark-mode h6,
+.superadmin-dark-mode .page-title,
+.superadmin-dark-mode .metric-value,
+.superadmin-dark-mode .text-gray-900,
+.superadmin-dark-mode .text-slate-900,
+.superadmin-dark-mode .text-gray-800,
+.superadmin-dark-mode .text-slate-800,
+.superadmin-dark-mode .text-black,
+.dark-theme h1,
+.dark-theme h2,
+.dark-theme h3,
+.dark-theme h4,
+.dark-theme h5,
+.dark-theme h6,
+.dark-theme .page-title,
+.dark-theme .metric-value,
+.dark-theme .text-gray-900,
+.dark-theme .text-slate-900,
+.dark-theme .text-gray-800,
+.dark-theme .text-slate-800,
+.dark-theme .text-black {
+  color: #ffffff !important;
+}
+
+/* Force body copy, descriptions, and labels to be light slate */
+.superadmin-dark-mode p,
+.superadmin-dark-mode span,
+.superadmin-dark-mode label,
+.superadmin-dark-mode .text-gray-500,
+.superadmin-dark-mode .text-slate-500,
+.superadmin-dark-mode .text-gray-600,
+.superadmin-dark-mode .text-slate-600,
+.superadmin-dark-mode .text-gray-700,
+.superadmin-dark-mode .text-slate-700,
+.superadmin-dark-mode .text-gray-400,
+.superadmin-dark-mode .text-slate-400,
+.dark-theme p,
+.dark-theme span,
+.dark-theme label,
+.dark-theme .text-gray-500,
+.dark-theme .text-slate-500,
+.dark-theme .text-gray-600,
+.dark-theme .text-slate-600,
+.dark-theme .text-gray-700,
+.dark-theme .text-slate-700,
+.dark-theme .text-gray-400,
+.dark-theme .text-slate-400 {
+  color: #cbd5e1 !important;
+}
+
+/* Soft colored status badges overrides in dark mode */
+.superadmin-dark-mode .bg-blue-100, .dark-theme .bg-blue-100 { background-color: rgba(59, 130, 246, 0.15) !important; color: #93c5fd !important; }
+.superadmin-dark-mode .bg-emerald-100, .dark-theme .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.15) !important; color: #6ee7b7 !important; }
+.superadmin-dark-mode .bg-green-100, .dark-theme .bg-green-100 { background-color: rgba(16, 185, 129, 0.15) !important; color: #6ee7b7 !important; }
+.superadmin-dark-mode .bg-red-100, .dark-theme .bg-red-100 { background-color: rgba(239, 68, 68, 0.15) !important; color: #fca5a5 !important; }
+.superadmin-dark-mode .bg-amber-100, .dark-theme .bg-amber-100 { background-color: rgba(245, 158, 11, 0.15) !important; color: #fde047 !important; }
+.superadmin-dark-mode .bg-yellow-100, .dark-theme .bg-yellow-100 { background-color: rgba(245, 158, 11, 0.15) !important; color: #fde047 !important; }
+.superadmin-dark-mode .bg-orange-100, .dark-theme .bg-orange-100 { background-color: rgba(249, 115, 22, 0.15) !important; color: #fdba74 !important; }
+.superadmin-dark-mode .bg-purple-100, .dark-theme .bg-purple-100 { background-color: rgba(139, 92, 246, 0.15) !important; color: #c084fc !important; }
+.superadmin-dark-mode .bg-violet-100, .dark-theme .bg-violet-100 { background-color: rgba(139, 92, 246, 0.15) !important; color: #c084fc !important; }
+.superadmin-dark-mode .bg-cyan-100, .dark-theme .bg-cyan-100 { background-color: rgba(6, 182, 212, 0.15) !important; color: #67e8f9 !important; }
+.superadmin-dark-mode .bg-sky-100, .dark-theme .bg-sky-100 { background-color: rgba(14, 165, 233, 0.15) !important; color: #7dd3fc !important; }
+.superadmin-dark-mode .bg-gray-100, .dark-theme .bg-gray-100 { background-color: rgba(255, 255, 255, 0.05) !important; color: #94a3b8 !important; }
+.superadmin-dark-mode .bg-slate-100, .dark-theme .bg-slate-100 { background-color: rgba(255, 255, 255, 0.05) !important; color: #94a3b8 !important; }
+
+/* Force dark styling on light-colored sub panels */
+.superadmin-dark-mode .bg-slate-50,
+.dark-theme .bg-slate-50,
+.superadmin-dark-mode .bg-slate-50\/50,
+.dark-theme .bg-slate-50\/50,
+.superadmin-dark-mode .bg-slate-50\/40,
+.dark-theme .bg-slate-50\/40,
+.superadmin-dark-mode .bg-slate-50\/30,
+.dark-theme .bg-slate-50\/30,
+.superadmin-dark-mode .bg-slate-50\/20,
+.dark-theme .bg-slate-50\/20,
+.superadmin-dark-mode .bg-slate-50\/10,
+.dark-theme .bg-slate-50\/10,
+.superadmin-dark-mode .bg-gray-50,
+.dark-theme .bg-gray-50,
+.superadmin-dark-mode .bg-gray-50\/50,
+.dark-theme .bg-gray-50\/50,
+.superadmin-dark-mode .bg-gray-50\/40,
+.dark-theme .bg-gray-50\/40,
+.superadmin-dark-mode .bg-gray-50\/30,
+.dark-theme .bg-gray-50\/30,
+.superadmin-dark-mode .bg-gray-50\/20,
+.dark-theme .bg-gray-50\/20,
+.superadmin-dark-mode .bg-gray-50\/10,
+.dark-theme .bg-gray-50\/10,
+.superadmin-dark-mode .bg-slate-100,
+.dark-theme .bg-slate-100,
+.superadmin-dark-mode .bg-gray-100,
+.dark-theme .bg-gray-100 {
+  background: rgba(15, 23, 42, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Secondary Button Overrides in Dark Mode */
+.superadmin-dark-mode .btn-secondary,
+.dark-theme .btn-secondary {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #e2e8f0 !important;
+}
+
+.superadmin-dark-mode .btn-secondary:hover,
+.dark-theme .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+}
+
+/* Calendar month grid line separator & background overrides */
+.superadmin-dark-mode .bg-gray-200,
+.dark-theme .bg-gray-200 {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.superadmin-dark-mode .bg-gray-50\/50,
+.dark-theme .bg-gray-50\/50 {
+  background: rgba(10, 12, 28, 0.25) !important;
+  color: #64748b !important;
+}
+
+/* Inactive sidebar links overrides */
+.dark-theme .sidebar-link:not(.active) {
+  color: #94a3b8 !important;
+}
+.dark-theme .sidebar-link:not(.active):hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #f8fafc !important;
+}
+
+/* Tables styling inside dark container */
+.superadmin-dark-mode thead,
+.dark-theme thead {
+  background: rgba(15, 23, 42, 0.6) !important;
+  color: #94a3b8 !important;
+}
+.superadmin-dark-mode thead th,
+.dark-theme thead th {
+  background: rgba(15, 23, 42, 0.7) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+}
+.superadmin-dark-mode tbody tr,
+.dark-theme tbody tr {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  color: #cbd5e1 !important;
+}
+.superadmin-dark-mode tbody tr:hover,
+.dark-theme tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.superadmin-dark-mode tbody tr:nth-child(even),
+.dark-theme tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.01) !important;
+}
+
+/* Specific Actions header cell override in tables */
+.superadmin-dark-mode th.bg-gray-50,
+.dark-theme th.bg-gray-50 {
+  background: rgba(15, 23, 42, 0.7) !important;
+  color: #cbd5e1 !important;
+  box-shadow: none !important;
+}
+
+/* Table Wrapper pagination div override */
+.superadmin-dark-mode .table-wrapper > div:last-child,
+.dark-theme .table-wrapper > div:last-child {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  color: #cbd5e1 !important;
+}
+
+/* Form Inputs, Select Dropdowns, Textareas overrides */
+.superadmin-dark-mode .form-input,
+.superadmin-dark-mode .form-select,
+.superadmin-dark-mode .input-field,
+.superadmin-dark-mode .search-input,
+.superadmin-dark-mode select:not(.status-select-badge):not(.group-select-badge),
+.superadmin-dark-mode input,
+.superadmin-dark-mode textarea,
+.dark-theme .form-input,
+.dark-theme .form-select,
+.dark-theme .input-field,
+.dark-theme .search-input,
+.dark-theme select:not(.status-select-badge):not(.group-select-badge),
+.dark-theme input,
+.dark-theme textarea {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f8fafc !important;
+}
+.superadmin-dark-mode .form-input::placeholder,
+.superadmin-dark-mode .input-field::placeholder,
+.superadmin-dark-mode .search-input::placeholder,
+.superadmin-dark-mode input::placeholder,
+.superadmin-dark-mode textarea::placeholder,
+.dark-theme .form-input::placeholder,
+.dark-theme .input-field::placeholder,
+.dark-theme .search-input::placeholder,
+.dark-theme input::placeholder,
+.dark-theme textarea::placeholder {
+  color: #64748b !important;
+}
+.superadmin-dark-mode .form-input:focus,
+.superadmin-dark-mode .form-select:focus,
+.superadmin-dark-mode .input-field:focus,
+.superadmin-dark-mode .search-input:focus,
+.superadmin-dark-mode select:not(.status-select-badge):not(.group-select-badge):focus,
+.superadmin-dark-mode input:focus,
+.superadmin-dark-mode textarea:focus,
+.dark-theme .form-input:focus,
+.dark-theme .form-select:focus,
+.dark-theme .input-field:focus,
+.dark-theme .search-input:focus,
+.dark-theme select:not(.status-select-badge):not(.group-select-badge):focus,
+.dark-theme input:focus,
+.dark-theme textarea:focus {
+  border-color: rgba(99, 102, 241, 0.5) !important;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.15) !important;
+}
+
+/* Custom Dropdown select option tags background styling */
+.superadmin-dark-mode select option,
+.dark-theme select option {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+/* AppModals Overrides */
+.superadmin-dark-mode .modal-box,
+.dark-theme .modal-box {
+  background: rgba(15, 23, 42, 0.95) !important;
+  backdrop-filter: blur(32px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #f1f5f9 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6) !important;
+}
+.superadmin-dark-mode .modal-header,
+.dark-theme .modal-header {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+.superadmin-dark-mode .modal-footer,
+.dark-theme .modal-footer {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Pagination Buttons styling */
+.superadmin-dark-mode .pagination-btn,
+.dark-theme .pagination-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+}
+.superadmin-dark-mode .pagination-btn:hover,
+.dark-theme .pagination-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+.superadmin-dark-mode .pagination-btn-active,
+.dark-theme .pagination-btn-active {
+  background: #4f46e5 !important;
+  border-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
+
+/* ─── Super Admin & Global Light Mode overrides (White-Luxury Glass) ─── */
+body.light-theme {
+  color: #334155 !important; /* slate-700 */
+}
+
+/* Target hardcoded dark card classes under light theme */
+body.light-theme .superadmin-light-mode .bg-slate-900\/40,
+body.light-theme .bg-slate-900\/40,
+body.light-theme .superadmin-light-mode .bg-slate-900\/30,
+body.light-theme .bg-slate-900\/30,
+body.light-theme .superadmin-light-mode .bg-slate-900\/50,
+body.light-theme .bg-slate-900\/50,
+body.light-theme .superadmin-light-mode .bg-slate-950\/45,
+body.light-theme .bg-slate-950\/45,
+body.light-theme .superadmin-light-mode .bg-slate-950\/40,
+body.light-theme .bg-slate-950\/40,
+body.light-theme .superadmin-light-mode .bg-slate-950\/20,
+body.light-theme .bg-slate-950\/20,
+body.light-theme .superadmin-light-mode .bg-slate-950\/30,
+body.light-theme .bg-slate-950\/30,
+body.light-theme .superadmin-light-mode .bg-slate-950\/10,
+body.light-theme .bg-slate-950\/10,
+body.light-theme .superadmin-light-mode .bg-slate-950\/50,
+body.light-theme .bg-slate-950\/50 {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.05) !important;
+}
+
+/* Active sidebar link override in light theme */
+body.light-theme aside nav a.text-white {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.25) !important;
+  border-color: transparent !important;
+}
+
+/* Sidebar status stats box background */
+body.light-theme aside .bg-white\/5 {
+  background-color: rgba(124, 58, 237, 0.05) !important;
+  border-color: rgba(124, 58, 237, 0.1) !important;
+}
+body.light-theme aside .border-white\/5 {
+  border-color: rgba(124, 58, 237, 0.1) !important;
+}
+
+/* Table headers background override */
+body.light-theme thead,
+body.light-theme thead.bg-slate-950\/40,
+body.light-theme tr.bg-slate-950\/40 {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+}
+body.light-theme thead th {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+body.light-theme tbody tr {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05) !important;
+  color: #334155 !important;
+}
+body.light-theme tbody tr:hover {
+  background: #f8fafc !important;
+}
+body.light-theme tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.01) !important;
+}
+
+/* Table wrapper footer background override */
+body.light-theme .table-wrapper > div:last-child,
+body.light-theme .bg-slate-950\/20 {
+  background: #f8fafc !important;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  color: #475569 !important;
+}
+
+/* Form fields inputs override under light theme */
+body.light-theme input,
+body.light-theme select:not(.status-select-badge):not(.group-select-badge),
+body.light-theme textarea {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.15) !important;
+  color: #0f172a !important;
+}
+body.light-theme input::placeholder,
+body.light-theme textarea::placeholder {
+  color: #94a3b8 !important;
+}
+body.light-theme select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* General text color overrides under light theme */
+body.light-theme .text-white:not(button):not(.btn):not(.badge):not(.w-9):not(.w-10):not(.w-8) {
+  color: #0f172a !important;
+}
+body.light-theme .text-slate-100,
+body.light-theme .text-slate-200 {
+  color: #0f172a !important;
+}
+body.light-theme .text-slate-300 {
+  color: #334155 !important;
+}
+body.light-theme .text-slate-400 {
+  color: #475569 !important;
+}
+body.light-theme .text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Soft color badges contrast corrections */
+body.light-theme .text-emerald-400 { color: #047857 !important; }
+body.light-theme .text-emerald-300 { color: #047857 !important; }
+body.light-theme .text-blue-400 { color: #1d4ed8 !important; }
+body.light-theme .text-blue-300 { color: #1d4ed8 !important; }
+body.light-theme .text-violet-400,
+body.light-theme .text-purple-400 { color: #6d28d9 !important; }
+body.light-theme .text-violet-300,
+body.light-theme .text-purple-300 { color: #6d28d9 !important; }
+body.light-theme .text-amber-400 { color: #b45309 !important; }
+body.light-theme .text-amber-300 { color: #b45309 !important; }
+body.light-theme .text-red-400 { color: #b91c1c !important; }
+body.light-theme .text-indigo-400 { color: #4338ca !important; }
+
+/* Ambient alerts overrides */
+body.light-theme .bg-amber-500\/10 p,
+body.light-theme .bg-amber-500\/10 span,
+body.light-theme .bg-amber-500\/10 div {
+  color: #92400e !important;
+}
+body.light-theme .bg-indigo-500\/10 p,
+body.light-theme .bg-indigo-500\/10 span,
+body.light-theme .bg-indigo-500\/10 div {
+  color: #3730a3 !important;
+}
+
+/* ─── Bulk Action Bar Theme Adjustments ─── */
+/* Force light/high-contrast text colors inside the dark action bar, even under light theme */
+body.light-theme .bulk-action-bar,
+.bulk-action-bar {
+  background-color: #0f172a !important; /* Force slate-900 background */
+  border-color: #1e293b !important; /* Force slate-800 border */
+}
+
+body.light-theme .bulk-action-bar span,
+.bulk-action-bar span {
+  color: #f1f5f9 !important; /* Force slate-100 for selected count */
+}
+
+body.light-theme .bulk-action-bar button,
+.bulk-action-bar button {
+  /* Default buttons inside the bar (like Export, close button) */
+  color: #cbd5e1 !important; /* slate-300 */
+}
+
+body.light-theme .bulk-action-bar button:hover,
+.bulk-action-bar button:hover {
+  color: #ffffff !important;
+}
+
+body.light-theme .bulk-action-bar button.delete-btn,
+.bulk-action-bar button.delete-btn {
+  /* Delete button */
+  color: #f87171 !important; /* rose/red-400 */
+}
+
+body.light-theme .bulk-action-bar button.delete-btn:hover,
+.bulk-action-bar button.delete-btn:hover {
+  color: #fca5a5 !important; /* rose/red-300 */
+}
+
+body.light-theme .bulk-action-bar svg,
+.bulk-action-bar svg {
+  /* Keep icons matching their text color */
+  color: currentColor !important;
+}
+
+
+/* Welcome banner overrides */
+body.light-theme .superadmin-banner {
+  background: linear-gradient(135deg, rgba(237, 233, 254, 0.9) 0%, rgba(224, 231, 255, 0.9) 100%) !important;
+  border-color: rgba(124, 58, 237, 0.15) !important;
+}
+body.light-theme .superadmin-banner .text-purple-300,
+body.light-theme .superadmin-banner .text-white,
+body.light-theme .superadmin-banner .text-slate-300,
+body.light-theme .superadmin-banner p,
+body.light-theme .superadmin-banner h1,
+body.light-theme .superadmin-banner span {
+  color: #312e81 !important;
+}
+body.light-theme .superadmin-banner .border-purple-500\/30 {
+  border-color: rgba(124, 58, 237, 0.25) !important;
+  background-color: rgba(124, 58, 237, 0.08) !important;
+}
+
+/* Progress bars and tracking tracks */
+body.light-theme .bg-slate-950\/60 {
+  background: #e2e8f0 !important;
+}
+
+/* Switch toggles (inactive bg-slate-800 replacement) */
+body.light-theme .bg-slate-800:not(.btn):not(.badge) {
+  background-color: #cbd5e1 !important;
+}
+
+/* Danger Zone specific overrides */
+body.light-theme .bg-red-950\/10 {
+  background: #fef2f2 !important;
+}
+body.light-theme .bg-red-950\/5 {
+  background: rgba(239, 68, 68, 0.03) !important;
+}
+body.light-theme .border-red-500\/10 {
+  border-color: rgba(239, 68, 68, 0.12) !important;
+}
+body.light-theme .border-red-500\/20 {
+  border-color: rgba(239, 68, 68, 0.25) !important;
+}
+body.light-theme .bg-red-600\/10 {
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+body.light-theme .bg-red-600\/10:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+body.light-theme .hover\:bg-white\/5:hover,
+body.light-theme tr.hover\:bg-white\/5:hover {
+  background-color: #f1f5f9 !important;
+}
+body.light-theme .hover\:bg-red-500\/10:hover {
+  background-color: #fef2f2 !important;
+}
+
+/* Interactive elements text overrides */
+body.light-theme .hover\:text-white:hover,
+body.light-theme .group:hover .group-hover\:text-white {
+  color: #0f172a !important;
+}
+body.light-theme .hover\:text-amber-400:hover {
+  color: #d97706 !important;
+}
+body.light-theme .hover\:text-red-400:hover {
+  color: #dc2626 !important;
+}
+
+/* Divide borders */
+body.light-theme .divide-white\/5 > * + * {
+  border-color: rgba(15, 23, 42, 0.06) !important;
+}
+body.light-theme .divide-white\/10 > * + * {
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+/* ─── Responsive scaling for smaller laptop screens (compact view) ─── */
+@media (max-width: 1500px) {
+  /* Shrink sidebar from 288px (w-72) to 240px (w-60) */
+  aside.w-72 {
+    width: 15rem !important;
+  }
+  .md\:ml-72 {
+    margin-left: 15rem !important;
+  }
+  
+  /* Shrink page main container padding from p-5 to p-3 */
+  main {
+    padding: 0.75rem !important;
+  }
+  
+  /* Reduce header layout padding */
+  header .px-4, header .md\:px-6 {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  /* Make table font and padding tighter */
+  table, 
+  .table-base, 
+  .table-wrapper table {
+    font-size: 0.75rem !important; /* text-xs (12px) instead of 14px */
+  }
+  
+  thead th {
+    padding-top: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    font-size: 0.7rem !important; /* 11px font for table headers */
+  }
+  
+  tbody td {
+    padding-top: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  /* Make status select dropdowns and group select dropdowns smaller */
+  .status-select-badge,
+  .group-select-badge {
+    font-size: 0.7rem !important;
+    padding-top: 0.125rem !important;
+    padding-bottom: 0.125rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 1.25rem !important;
+    max-width: 110px !important;
+    background-position: right 0.35rem center !important;
+  }
+  
+  /* Make lead names avatar smaller */
+  tbody td .w-8.h-8 {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+    font-size: 0.7rem !important;
+  }
+  
+  /* Compact action button styling */
+  tbody td .flex.justify-end.gap-1 {
+    gap: 0.125rem !important;
+  }
+  tbody td .flex.justify-end.gap-1 button,
+  tbody td .flex.justify-end.gap-1 a {
+    padding: 0.25rem !important;
+  }
+
+  /* Adjust columns slightly to fit standard laptop screens better */
+  table[style*="min-width: 1450px"] {
+    min-width: 1200px !important; /* Scale down the min-width to 1200px so it fits or scrolls nicely */
+  }
+}
+
+/* ─── Hero Header Dark Card CSS overrides to prevent light-theme dark text color overrides ─── */
+.hero-dark-card,
+body.light-theme .hero-dark-card,
+body.light-theme .hero-dark-card * {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+body.light-theme .hero-dark-card h1,
+body.light-theme .hero-dark-card .text-2xl,
+body.light-theme .hero-dark-card .text-white,
+body.light-theme .hero-dark-card .text-white:not(button):not(.btn):not(.badge):not(.w-9):not(.w-10):not(.w-8) {
+  color: #ffffff !important;
+}
+
+body.light-theme .hero-dark-card p,
+body.light-theme .hero-dark-card .text-slate-400 {
+  color: #cbd5e1 !important;
+}
+
+body.light-theme .hero-dark-card .text-slate-300,
+body.light-theme .hero-dark-card a.text-slate-300,
+body.light-theme .hero-dark-card span.text-slate-300 {
+  color: #e2e8f0 !important;
+}
+
+body.light-theme .hero-dark-card a.text-slate-300:hover,
+body.light-theme .hero-dark-card a.text-slate-300:hover * {
+  color: #ffffff !important;
+}
+
+body.light-theme .hero-dark-card svg.text-slate-400,
+body.light-theme .hero-dark-card .text-slate-400 svg {
+  color: #94a3b8 !important;
+}
+
+body.light-theme .hero-dark-card button.bg-white {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+}
+
+body.light-theme .hero-dark-card button.bg-white\/20 {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+body.light-theme .hero-dark-card button.bg-white\/5 {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #94a3b8 !important;
+}
+
+body.light-theme .hero-dark-card button.bg-white span.text-white {
+  color: #ffffff !important;
+}
+
+body.light-theme .hero-dark-card span.bg-emerald-500,
+body.light-theme .hero-dark-card span.bg-blue-600 {
+  color: #ffffff !important;
+}
+
+body.light-theme .hero-dark-card .text-emerald-300,
+body.light-theme .hero-dark-card .text-emerald-300 * {
+  color: #6ee7b7 !important;
+}
+
+/* ==========================================================================
+   DARK THEME & LIGHT THEME SYMMETRICAL UI CONTRAST OVERRIDES
+   Ensures:
+   - Dark Mode: background black/dark, text white/light (no light background flashes on hover)
+   - Light Mode: background white/light, text black/dark
+   ========================================================================== */
+
+/* 1. Soft Background Overrides in Dark Mode */
+.superadmin-dark-mode .bg-blue-50, .dark-theme .bg-blue-50,
+.superadmin-dark-mode .bg-blue-50\/60, .dark-theme .bg-blue-50\/60,
+.superadmin-dark-mode .bg-blue-50\/40, .dark-theme .bg-blue-50\/40,
+.superadmin-dark-mode .bg-blue-50\/30, .dark-theme .bg-blue-50\/30 {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  color: #93c5fd !important;
+}
+
+.superadmin-dark-mode .bg-emerald-50, .dark-theme .bg-emerald-50,
+.superadmin-dark-mode .bg-emerald-50\/30, .dark-theme .bg-emerald-50\/30,
+.superadmin-dark-mode .bg-emerald-50\/20, .dark-theme .bg-emerald-50\/20 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #6ee7b7 !important;
+}
+
+.superadmin-dark-mode .bg-green-50, .dark-theme .bg-green-50 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #6ee7b7 !important;
+}
+
+.superadmin-dark-mode .bg-red-50, .dark-theme .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #fca5a5 !important;
+}
+
+.superadmin-dark-mode .bg-amber-50, .dark-theme .bg-amber-50,
+.superadmin-dark-mode .bg-amber-50\/30, .dark-theme .bg-amber-50\/30 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #fde047 !important;
+}
+
+.superadmin-dark-mode .bg-yellow-50, .dark-theme .bg-yellow-50 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #fde047 !important;
+}
+
+.superadmin-dark-mode .bg-orange-50, .dark-theme .bg-orange-50 {
+  background-color: rgba(249, 115, 22, 0.15) !important;
+  color: #fdba74 !important;
+}
+
+.superadmin-dark-mode .bg-purple-50, .dark-theme .bg-purple-50 {
+  background-color: rgba(139, 92, 246, 0.15) !important;
+  color: #c084fc !important;
+}
+
+.superadmin-dark-mode .bg-violet-50, .dark-theme .bg-violet-50 {
+  background-color: rgba(139, 92, 246, 0.15) !important;
+  color: #c084fc !important;
+}
+
+.superadmin-dark-mode .bg-rose-50, .dark-theme .bg-rose-50 {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+  color: #fda4af !important;
+}
+
+.superadmin-dark-mode .bg-cyan-50, .dark-theme .bg-cyan-50 {
+  background-color: rgba(6, 182, 212, 0.15) !important;
+  color: #67e8f9 !important;
+}
+
+.superadmin-dark-mode .bg-indigo-50, .dark-theme .bg-indigo-50 {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+  color: #a5b4fc !important;
+}
+
+/* 2. Hover Utility Class Overrides in Dark Mode (Prevents white background + white text contrast failures) */
+.superadmin-dark-mode .hover\:bg-blue-50:hover, .dark-theme .hover\:bg-blue-50:hover,
+.superadmin-dark-mode .hover\:bg-blue-50\/40:hover, .dark-theme .hover\:bg-blue-50\/40:hover,
+.superadmin-dark-mode .hover\:bg-blue-100:hover, .dark-theme .hover\:bg-blue-100:hover {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  color: #93c5fd !important;
+}
+
+.superadmin-dark-mode .hover\:bg-emerald-50:hover, .dark-theme .hover\:bg-emerald-50:hover,
+.superadmin-dark-mode .hover\:bg-emerald-100:hover, .dark-theme .hover\:bg-emerald-100:hover {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  color: #6ee7b7 !important;
+}
+
+.superadmin-dark-mode .hover\:bg-red-50:hover, .dark-theme .hover\:bg-red-50:hover,
+.superadmin-dark-mode .hover\:bg-red-100:hover, .dark-theme .hover\:bg-red-100:hover {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+  color: #fca5a5 !important;
+}
+
+.superadmin-dark-mode .hover\:bg-amber-50:hover, .dark-theme .hover\:bg-amber-50:hover,
+.superadmin-dark-mode .hover\:bg-amber-100:hover, .dark-theme .hover\:bg-amber-100:hover {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+  color: #fde047 !important;
+}
+
+.superadmin-dark-mode .hover\:bg-purple-50:hover, .dark-theme .hover\:bg-purple-50:hover,
+.superadmin-dark-mode .hover\:bg-purple-100:hover, .dark-theme .hover\:bg-purple-100:hover {
+  background-color: rgba(139, 92, 246, 0.2) !important;
+  color: #c084fc !important;
+}
+
+.superadmin-dark-mode .hover\:bg-violet-50:hover, .dark-theme .hover\:bg-violet-50:hover,
+.superadmin-dark-mode .hover\:bg-violet-100:hover, .dark-theme .hover\:bg-violet-100:hover {
+  background-color: rgba(139, 92, 246, 0.2) !important;
+  color: #c084fc !important;
+}
+
+.superadmin-dark-mode .hover\:bg-rose-50:hover, .dark-theme .hover\:bg-rose-50:hover,
+.superadmin-dark-mode .hover\:bg-rose-100:hover, .dark-theme .hover\:bg-rose-100:hover {
+  background-color: rgba(244, 63, 94, 0.2) !important;
+  color: #fda4af !important;
+}
+
+.superadmin-dark-mode .hover\:bg-cyan-50:hover, .dark-theme .hover\:bg-cyan-50:hover,
+.superadmin-dark-mode .hover\:bg-cyan-100:hover, .dark-theme .hover\:bg-cyan-100:hover {
+  background-color: rgba(6, 182, 212, 0.2) !important;
+  color: #67e8f9 !important;
+}
+
+.superadmin-dark-mode .hover\:bg-gray-50:hover, .dark-theme .hover\:bg-gray-50:hover,
+.superadmin-dark-mode .hover\:bg-gray-50\/80:hover, .dark-theme .hover\:bg-gray-50\/80:hover,
+.superadmin-dark-mode .hover\:bg-gray-100:hover, .dark-theme .hover\:bg-gray-100:hover,
+.superadmin-dark-mode .hover\:bg-slate-50:hover, .dark-theme .hover\:bg-slate-50:hover,
+.superadmin-dark-mode .hover\:bg-slate-100:hover, .dark-theme .hover\:bg-slate-100:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+}
+
+/* 3. Global Border Style Overrides in Dark Mode */
+.superadmin-dark-mode .border-gray-200, .dark-theme .border-gray-200,
+.superadmin-dark-mode .border-slate-200, .dark-theme .border-slate-200,
+.superadmin-dark-mode .border-gray-100, .dark-theme .border-gray-100,
+.superadmin-dark-mode .border-slate-100, .dark-theme .border-slate-100 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 4. Icon Button (.btn-icon) Overrides in Dark Mode */
+.superadmin-dark-mode .btn-icon, .dark-theme .btn-icon {
+  color: #94a3b8 !important;
+}
+.superadmin-dark-mode .btn-icon:hover, .dark-theme .btn-icon:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: #ffffff !important;
+}
+
+
+
+
