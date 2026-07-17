@@ -16,10 +16,17 @@ export default function NegotiationDetailPage() {
   const [editedLead, setEditedLead] = useState({});
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
+  // Add these after your existing states
+const [revisions, setRevisions] = useState([]);
+const [showRevisions, setShowRevisions] = useState(false);
+const [revisionLoading, setRevisionLoading] = useState(false);
 
   useEffect(() => {
     loadLead();
+    loadRevisions();
   }, [id]);
+
+
 
   const loadLead = async () => {
     try {
@@ -38,6 +45,18 @@ export default function NegotiationDetailPage() {
       setLoading(false);
     }
   };
+//Load revisions for the lead
+const loadRevisions = async () => {
+  try {
+    setRevisionLoading(true);
+    const data = await negotiationApi.getRevisions(id);
+    setRevisions(data || []);
+  } catch (err) {
+    console.error("Failed to load revisions:", err);
+  } finally {
+    setRevisionLoading(false);
+  }
+};
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -142,7 +161,13 @@ export default function NegotiationDetailPage() {
 
       {/* Main Content */}
       <div className="p-6 max-w-7xl mx-auto">
-        <ViewMode lead={lead} />
+        <ViewMode 
+  lead={lead} 
+  revisions={revisions}          // Add this
+  revisionLoading={revisionLoading} // Add this
+  showRevisions={showRevisions}    // Add this
+  setShowRevisions={setShowRevisions} // Add this
+/>
       </div>
 
       {/* Edit Form - Slide-in Panel */}
@@ -173,47 +198,509 @@ export default function NegotiationDetailPage() {
 
 // ============= VIEW MODE =============
 
-const ViewMode = ({ lead }) => (
+const ViewMode = ({ lead, revisions, revisionLoading, showRevisions, setShowRevisions }) => (
   <div className="grid lg:grid-cols-3 gap-6">
     <div className="lg:col-span-2 space-y-6">
-      <InfoSection
-        title="General Information"
-        fields={getGeneralFields(lead)}
+      <InfoSection title="General Information" fields={getGeneralFields(lead)} />
+      <InfoSection title="Quotation & Commercials" fields={getCommercialFields(lead)} />
+      {/* <InfoSection title="Inquiry Details & Source" fields={getSourceFields(lead)} /> */}
+      
+      {/* Add Revision History Section here */}
+      <RevisionHistorySection 
+        revisions={revisions}
+        loading={revisionLoading}
+        showRevisions={showRevisions}
+        setShowRevisions={setShowRevisions}
+        lead={lead}
       />
-      <InfoSection
-        title="Quotation & Commercials"
-        fields={getCommercialFields(lead)}
-      />
-      {/* <InfoSection
-        title="Inquiry Details & Source"
-        fields={getSourceFields(lead)}
-      /> */}
     </div>
 
     <div className="space-y-5">
-      <StatCard
-        title="Quotation Value"
-        value={formatCurrency(lead.quotationAmount)}
-        icon="mdi:currency-inr"
-      />
-      <StatCard
-        title="Revision"
-        value={lead.quotationRevision || "R0"}
-        icon="mdi:file-document-edit"
-      />
-      <StatCard
-        title="Lead Status"
-        value={lead.leadOutcomeStatus || "—"}
-        icon="mdi:chart-timeline-variant"
-      />
-      <StatCard
-        title="Lead Source"
-        value={lead.leadSource || "—"}
-        icon="mdi:source-branch"
-      />
+      <StatCard title="Quotation Value" value={formatCurrency(lead.quotationAmount)} icon="mdi:currency-inr" />
+      <StatCard title="Revision" value={lead.quotationRevision || "R0"} icon="mdi:file-document-edit" />
+      <StatCard title="Lead Status" value={lead.leadOutcomeStatus || "—"} icon="mdi:chart-timeline-variant" />
+      <StatCard title="Lead Source" value={lead.leadSource || "—"} icon="mdi:source-branch" />
     </div>
   </div>
 );
+// ============= REVISION HISTORY SECTION =============
+
+// const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevisions, lead }) => {
+//   if (loading) {
+//     return (
+//       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+//         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+//           <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
+//             <Icon icon="mdi:history" className="text-blue-500" />
+//             Revision History
+//           </h3>
+//           <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   if (!revisions || revisions.length === 0) {
+//     return (
+//       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+//         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+//           <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
+//             <Icon icon="mdi:history" className="text-blue-500" />
+//             Revision History
+//           </h3>
+//         </div>
+//         <div className="p-6 text-center text-gray-400">
+//           <Icon icon="mdi:history" className="text-4xl mx-auto mb-2 opacity-50" />
+//           <p>No revision history found</p>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+//       <div 
+//         className="px-6 py-4 border-b border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors flex items-center justify-between"
+//         onClick={() => setShowRevisions(!showRevisions)}
+//       >
+//         <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
+//           <Icon icon="mdi:history" className="text-blue-500" />
+//           Revision History
+//           <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+//             {revisions.length}
+//           </span>
+//         </h3>
+//         <Icon 
+//           icon={showRevisions ? "mdi:chevron-up" : "mdi:chevron-down"} 
+//           className="text-gray-400 text-xl"
+//         />
+//       </div>
+      
+//       {showRevisions && (
+//         <div className="p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto bg-gray-50/30 space-y-4 sm:space-y-6">
+//           {(() => {
+//             // Group revisions by revisionNo and get the latest for each
+//             const revisionMap = new Map();
+//             revisions.forEach(rev => {
+//               const revNo = rev.revisionNo;
+//               // If this revision number doesn't exist in map, or this revision is newer
+//               if (!revisionMap.has(revNo) || new Date(rev.updatedDate) > new Date(revisionMap.get(revNo).updatedDate)) {
+//                 revisionMap.set(revNo, rev);
+//               }
+//             });
+            
+//             // Convert map to array and sort by updatedDate (most recent first)
+//             const uniqueRevisions = Array.from(revisionMap.values())
+//               .sort((a, b) => new Date(b.updatedDate) - new Date(a.updatedDate));
+
+//             return uniqueRevisions.map((rev, idx) => {
+//               const prevRev = idx < uniqueRevisions.length - 1 ? uniqueRevisions[idx + 1] : null;
+//               const diff = prevRev
+//                 ? Number(rev.quotationAmount || 0) -
+//                   Number(prevRev.quotationAmount || 0)
+//                 : null;
+//               const isLatest = idx === 0;
+
+//               return (
+//                 <div
+//                   key={rev.id}
+//                   className="relative flex gap-4 sm:gap-6 pl-4 pb-2 last:pb-0"
+//                 >
+//                   {idx < uniqueRevisions.length - 1 && (
+//                     <span
+//                       className="absolute left-[21px] sm:left-[25px] top-6 bottom-0 w-0.5 bg-blue-100"
+//                       aria-hidden="true"
+//                     />
+//                   )}
+
+//                   <div className="relative z-10 flex h-4 w-4 sm:h-5 sm:w-5 flex-none items-center justify-center rounded-full bg-white mt-1">
+//                     {isLatest ? (
+//                       <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-blue-600 ring-4 ring-blue-100" />
+//                     ) : (
+//                       <div className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-gray-300 ring-4 ring-gray-150" />
+//                     )}
+//                   </div>
+
+//                   <div
+//                     className={`flex-1 bg-white rounded-xl border p-3 sm:p-4 shadow-sm hover:shadow-md transition-all duration-200 ${
+//                       isLatest
+//                         ? "border-blue-200 ring-1 ring-blue-50"
+//                         : "border-gray-200/60"
+//                     }`}
+//                   >
+//                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+//                       <div className="flex flex-wrap items-center gap-2">
+//                         <span className="text-[10px] sm:text-xs font-bold text-gray-900">
+//                           Revision {rev.revisionNo}
+//                         </span>
+//                         {isLatest ? (
+//                           <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+//                             Active
+//                           </span>
+//                         ) : (
+//                           <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-200/60">
+//                             Superseded
+//                           </span>
+//                         )}
+//                       </div>
+
+//                       <span className={getRevStatusClass(rev.negotiationStatus)}>
+//                         {rev.negotiationStatus || "Negotiation"}
+//                       </span>
+//                     </div>
+
+//                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 bg-gray-50/50 p-2 sm:p-2.5 rounded-lg border border-gray-100 mb-2 text-[10px] sm:text-xs">
+//                       <div>
+//                         <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
+//                           Amount
+//                         </span>
+//                         <div className="flex flex-wrap items-baseline gap-1">
+//                           <span className="font-bold text-gray-900 text-xs sm:text-sm">
+//                             {formatCurrency(
+//                               rev.quotationAmount || 0,
+//                               lead?.leadCountry,
+//                             )}
+//                           </span>
+//                           {diff !== null && diff !== 0 && (
+//                             <span
+//                               className={`inline-flex items-center gap-0.5 text-[8px] sm:text-[10px] font-bold ${
+//                                 diff > 0
+//                                   ? "text-emerald-600"
+//                                   : "text-rose-600"
+//                               }`}
+//                             >
+//                               <Icon
+//                                 name={
+//                                   diff > 0 ? "mdi:arrow-up" : "mdi:arrow-down"
+//                                 }
+//                                 className="w-2.5 h-2.5 sm:w-3 sm:h-3"
+//                               />
+//                               {formatCurrency(
+//                                 Math.abs(diff),
+//                                 lead?.leadCountry,
+//                               )}
+//                             </span>
+//                           )}
+//                         </div>
+//                       </div>
+
+//                       <div>
+//                         <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
+//                           Date & Time
+//                         </span>
+//                         <span className="font-semibold text-gray-700 text-[10px] sm:text-xs">
+//                           {new Date(rev.updatedDate).toLocaleDateString(
+//                             "en-IN",
+//                             {
+//                               day: "numeric",
+//                               month: "short",
+//                               year: "numeric",
+//                             },
+//                           )}{" "}
+//                           ·{" "}
+//                           {new Date(rev.updatedDate).toLocaleTimeString([], {
+//                             hour: "2-digit",
+//                             minute: "2-digit",
+//                           })}
+//                         </span>
+//                       </div>
+//                     </div>
+
+//                     <div className="text-[10px] sm:text-xs text-gray-600 leading-relaxed bg-slate-50/20 p-2 rounded-lg border border-dashed border-gray-100">
+//                       <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-0.5">
+//                         Remarks
+//                       </span>
+//                       {rev.remarks || (
+//                         <em className="text-gray-400">No remarks added.</em>
+//                       )}
+//                     </div>
+//                   </div>
+//                 </div>
+//               );
+//             });
+//           })()}
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
+// Helper function for status classes - Define ONCE outside the component
+const getRevStatusClass = (status) => {
+  if (status === "Superseded") {
+    return "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-50 text-gray-400 border border-gray-200/60";
+  }
+  if (status === "Negotiation") {
+    return "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-yellow-50 text-yellow-700 border border-yellow-100";
+  }
+  if (status === "Won") {
+    return "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100";
+  }
+  if (status === "Lost") {
+    return "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-100";
+  }
+  if (status === "Open") {
+    return "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-100";
+  }
+  if (status === "Closed") {
+    return "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200";
+  }
+  return "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100";
+};
+
+const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevisions, lead }) => {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+          <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
+            <Icon icon="mdi:history" className="text-blue-500" />
+            Revision History
+          </h3>
+          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!revisions || revisions.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
+            <Icon icon="mdi:history" className="text-blue-500" />
+            Revision History
+          </h3>
+        </div>
+        
+        <div className="p-6 text-center text-gray-400">
+          <Icon icon="mdi:history" className="text-4xl mx-auto mb-2 opacity-50" />
+          <p>No revision history found</p>
+        </div>
+      </div>
+      
+    );
+  }
+
+  // Get the latest revision (most recent by updatedDate)
+  const latestRevision = revisions.reduce((latest, current) => {
+    return new Date(current.updatedDate) > new Date(latest.updatedDate) ? current : latest;
+  }, revisions[0]);
+
+  // Get the current values from lead data (priority) or latest revision
+ const currentQuotationNo = lead?.quotationNumber || lead?.quotationNo || "N/A";
+  const currentRevisionNo = lead?.quotationRevision || latestRevision?.revisionNo || "R0";
+  const currentAmount = lead?.quotationAmount || latestRevision?.quotationAmount || 0;
+  const currentStatus = lead?.leadOutcomeStatus || latestRevision?.negotiationStatus || "Negotiation";
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div 
+        className="px-6 py-4 border-b border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors flex items-center justify-between"
+        onClick={() => setShowRevisions(!showRevisions)}
+      >
+       <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
+  <Icon icon="mdi:history" className="text-blue-500" />
+  Revision History - {lead?.negotiationName || lead?.negotiationTitle || lead?.leadOrganisationName || "N/A"}
+  {/* <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+    {revisions.length}
+  </span> */}
+</h3>
+        <Icon 
+          icon={showRevisions ? "mdi:chevron-up" : "mdi:chevron-down"} 
+          className="text-gray-400 text-xl"
+        />
+      </div>
+
+      {/* Current Revision Info */}
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-slate-50/50">
+        <div className="flex flex-wrap gap-2 items-center bg-white p-2 sm:p-3 rounded-lg border border-gray-200/60 shadow-sm text-xs">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">
+              Quotation No.
+            </span>
+            <span className="font-mono font-semibold text-gray-800 text-[10px] sm:text-xs">
+              {currentQuotationNo}
+            </span>
+          </div>
+          <div className="w-px h-6 bg-gray-200 mx-1 sm:mx-2" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">
+              Current Revision
+            </span>
+            <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100 w-fit">
+              {currentRevisionNo}
+            </span>
+          </div>
+          <div className="w-px h-6 bg-gray-200 mx-1 sm:mx-2" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">
+              Current Amount
+            </span>
+            <span className="font-bold text-gray-900 text-[10px] sm:text-xs">
+              {formatCurrency(currentAmount, lead?.leadCountry)}
+            </span>
+          </div>
+          <div className="w-px h-6 bg-gray-200 mx-1 sm:mx-2" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">
+              Status
+            </span>
+            <span className={getRevStatusClass(currentStatus)}>
+              {currentStatus}
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      {showRevisions && (
+        <div className="p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto bg-gray-50/30 space-y-4 sm:space-y-6">
+          {(() => {
+            // Group revisions by revisionNo and get the latest for each
+            const revisionMap = new Map();
+            revisions.forEach(rev => {
+              const revNo = rev.revisionNo;
+              // If this revision number doesn't exist in map, or this revision is newer
+              if (!revisionMap.has(revNo) || new Date(rev.updatedDate) > new Date(revisionMap.get(revNo).updatedDate)) {
+                revisionMap.set(revNo, rev);
+              }
+            });
+            
+            // Convert map to array and sort by updatedDate (most recent first)
+            const uniqueRevisions = Array.from(revisionMap.values())
+              .sort((a, b) => new Date(b.updatedDate) - new Date(a.updatedDate));
+
+            return uniqueRevisions.map((rev, idx) => {
+              const prevRev = idx < uniqueRevisions.length - 1 ? uniqueRevisions[idx + 1] : null;
+              const diff = prevRev
+                ? Number(rev.quotationAmount || 0) -
+                  Number(prevRev.quotationAmount || 0)
+                : null;
+              const isLatest = idx === 0;
+
+              return (
+                <div
+                  key={rev.id}
+                  className="relative flex gap-4 sm:gap-6 pl-4 pb-2 last:pb-0"
+                >
+                  {idx < uniqueRevisions.length - 1 && (
+                    <span
+                      className="absolute left-[21px] sm:left-[25px] top-6 bottom-0 w-0.5 bg-blue-100"
+                      aria-hidden="true"
+                    />
+                  )}
+
+                  <div className="relative z-10 flex h-4 w-4 sm:h-5 sm:w-5 flex-none items-center justify-center rounded-full bg-white mt-1">
+                    {isLatest ? (
+                      <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-blue-600 ring-4 ring-blue-100" />
+                    ) : (
+                      <div className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-gray-300 ring-4 ring-gray-150" />
+                    )}
+                  </div>
+
+                  <div
+                    className={`flex-1 bg-white rounded-xl border p-3 sm:p-4 shadow-sm hover:shadow-md transition-all duration-200 ${
+                      isLatest
+                        ? "border-blue-200 ring-1 ring-blue-50"
+                        : "border-gray-200/60"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] sm:text-xs font-bold text-gray-900">
+                          Revision {rev.revisionNo}
+                        </span>
+                        {isLatest ? (
+                          <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-200/60">
+                            Superseded
+                          </span>
+                        )}
+                      </div>
+
+                      <span className={getRevStatusClass(rev.negotiationStatus)}>
+                        {rev.negotiationStatus || "Negotiation"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 bg-gray-50/50 p-2 sm:p-2.5 rounded-lg border border-gray-100 mb-2 text-[10px] sm:text-xs">
+                      <div>
+                        <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
+                          Amount
+                        </span>
+                        <div className="flex flex-wrap items-baseline gap-1">
+                          <span className="font-bold text-gray-900 text-xs sm:text-sm">
+                            {formatCurrency(
+                              rev.quotationAmount || 0,
+                              lead?.leadCountry,
+                            )}
+                          </span>
+                          {diff !== null && diff !== 0 && (
+                            <span
+                              className={`inline-flex items-center gap-0.5 text-[8px] sm:text-[10px] font-bold ${
+                                diff > 0
+                                  ? "text-emerald-600"
+                                  : "text-rose-600"
+                              }`}
+                            >
+                              <Icon
+                                name={
+                                  diff > 0 ? "mdi:arrow-up" : "mdi:arrow-down"
+                                }
+                                className="w-2.5 h-2.5 sm:w-3 sm:h-3"
+                              />
+                              {formatCurrency(
+                                Math.abs(diff),
+                                lead?.leadCountry,
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
+                          Date & Time
+                        </span>
+                        <span className="font-semibold text-gray-700 text-[10px] sm:text-xs">
+                          {rev.updatedDate ? new Date(rev.updatedDate).toLocaleDateString(
+                            "en-IN",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          ) : "—"}{" "}
+                          ·{" "}
+                          {rev.updatedDate ? new Date(rev.updatedDate).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }) : "—"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-[10px] sm:text-xs text-gray-600 leading-relaxed bg-slate-50/20 p-2 rounded-lg border border-dashed border-gray-100">
+                      <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-0.5">
+                        Remarks
+                      </span>
+                      {rev.remarks || (
+                        <em className="text-gray-400">No remarks added.</em>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
+    </div>
+  );
+};
+// Helper function for status classes
 
 // ============= EDIT FORM =============
 
