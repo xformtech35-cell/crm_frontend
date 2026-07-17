@@ -729,7 +729,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation }) {
               </div>
 
               <div>
-                <label className={labelCls}>Quotation Date</label>
+                <label className={labelCls}>Quotation Working Date</label>
                 <input
                   type="date"
                   value={form.quotationDate}

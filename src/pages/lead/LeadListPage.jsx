@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import { createPortal } from "react-dom";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { useLead } from "../../hooks/useLead";
@@ -11,7 +17,7 @@ import StarRating from "../../components/common/StarRating";
 import * as XLSX from "xlsx-js-style";
 import { useLeadSource, useLeadGroup } from "../../hooks/useMaster";
 import { useDroppable } from "@dnd-kit/core";
-import { Buffer } from 'buffer';
+import { Buffer } from "buffer";
 window.Buffer = Buffer;
 // Add this import at the top
 import {
@@ -23,33 +29,33 @@ import {
   useSensor,
   useSensors,
   // defaultDropAnimationSideEffects,
-} from '@dnd-kit/core';
+} from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
   // horizontalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-import ExcelJS from 'exceljs'; // Replace the XLSX import
+import ExcelJS from "exceljs"; // Replace the XLSX import
 
 const STATUS_BG = {
   "New Lead": "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
-  "Qualified": "bg-purple-50 text-purple-700 ring-1 ring-purple-200",
-  "Disqualified": "bg-red-50 text-red-700 ring-1 ring-red-200",
-  "Open": "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
-  "Ongoing": "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-  "Closed": "bg-gray-100 text-gray-600 ring-1 ring-gray-200",
-  "Won": "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-  "NotContacted": "bg-gray-100 text-gray-600 ring-1 ring-gray-200",
-  "Contacted": "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
-  "Working": "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200",
+  Qualified: "bg-purple-50 text-purple-700 ring-1 ring-purple-200",
+  Disqualified: "bg-red-50 text-red-700 ring-1 ring-red-200",
+  Open: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
+  Ongoing: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+  Closed: "bg-gray-100 text-gray-600 ring-1 ring-gray-200",
+  Won: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+  NotContacted: "bg-gray-100 text-gray-600 ring-1 ring-gray-200",
+  Contacted: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
+  Working: "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200",
   "Qualified Lead": "bg-purple-50 text-purple-700 ring-1 ring-purple-200",
-  "QuotationSent": "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-  "Negotiation": "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200",
-  "Converted": "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-  "Lost": "bg-red-50 text-red-700 ring-1 ring-red-200",
+  QuotationSent: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+  Negotiation: "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200",
+  Converted: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+  Lost: "bg-red-50 text-red-700 ring-1 ring-red-200",
   "On Hold": "bg-gray-100 text-gray-600 ring-1 ring-gray-200",
 };
 
@@ -127,27 +133,65 @@ const STATUS_TABS = [
   "Closed",
 ];
 
-
 const LEAD_EXPORT_FIELDS = [
   { header: "Lead ID", value: (lead) => lead.leadId || "" },
   { header: "Company Name", value: (lead) => lead.leadOrganisationName || "" },
   { header: "Contact Phone", value: (lead) => lead.leadMobileNo || "" },
   { header: "Country", value: (lead) => lead.leadCountry || "" },
-  { header: "Company Contact Person Name", value: (lead) => `${lead.companyContactPersonName || ""} ${lead.leadLastName || ""}`.trim() },
-  { header: "Enquiry Date", value: (lead) => formatDate(lead.inquiryDate) || "" },
+  {
+    header: "Company Contact Person Name",
+    value: (lead) =>
+      `${lead.companyContactPersonName || ""} ${lead.leadLastName || ""}`.trim(),
+  },
+  {
+    header: "Enquiry Date",
+    value: (lead) => formatDate(lead.inquiryDate) || "",
+  },
   { header: "Lead Source", value: (lead) => lead.leadSource || "" },
   { header: "Enquiry Details", value: (lead) => lead.enquiryDescription || "" },
   { header: "Enquiry Type", value: (lead) => lead.enquiryType || "" },
-  { header: "Lead Status", value: (lead) => lead.leadOutcomeStatus || lead.leadStatus || "" },
+  {
+    header: "Lead Status",
+    value: (lead) => lead.leadOutcomeStatus || lead.leadStatus || "",
+  },
   { header: "Enquiry Status", value: (lead) => lead.enquiryStatus || "" },
   { header: "Quotation Number", value: (lead) => lead.quotationNumber || "" },
-  { header: "Quotation Date", value: (lead) => formatDate(lead.quotationDate) || "" },
-  { header: "Quotation Revision", value: (lead) => { return lead.quotationRevision || "" } },
-  { header: "Quotation Amount", value: (lead) => lead.quotationAmount ? formatCurrency(lead.quotationAmount, lead.leadCountry) : "" },
-  { header: "Assigned To", value: (lead) => { console.log("Lead Object:", lead); return lead.teamMemberName || "" } },
-  { header: "Follow Up Remark", value: (lead) => lead.followUpRemark || lead.leadReason || "" },
-  { header: "Created Date", value: (lead) => formatDate(lead.leadCreatedDate) || "" },
-  { header: "Lead Score", value: (_lead, score) => score ? `${score.score}/100` : "" },
+  {
+    header: "Quotation Date",
+    value: (lead) => formatDate(lead.quotationDate) || "",
+  },
+  {
+    header: "Quotation Revision",
+    value: (lead) => {
+      return lead.quotationRevision || "";
+    },
+  },
+  {
+    header: "Quotation Amount",
+    value: (lead) =>
+      lead.quotationAmount
+        ? formatCurrency(lead.quotationAmount, lead.leadCountry)
+        : "",
+  },
+  {
+    header: "Assigned To",
+    value: (lead) => {
+      console.log("Lead Object:", lead);
+      return lead.teamMemberName || "";
+    },
+  },
+  {
+    header: "Follow Up Remark",
+    value: (lead) => lead.followUpRemark || lead.leadReason || "",
+  },
+  {
+    header: "Created Date",
+    value: (lead) => formatDate(lead.leadCreatedDate) || "",
+  },
+  {
+    header: "Lead Score",
+    value: (_lead, score) => (score ? `${score.score}/100` : ""),
+  },
 ];
 const AVATAR_COLORS = [
   "bg-blue-100 text-blue-700",
@@ -182,19 +226,14 @@ function csvCell(value) {
 }
 
 function KanbanCard({ lead }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({
-    id: lead.leadId,
-    data: {
-      type: "lead",
-      lead,
-    },
-  });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({
+      id: lead.leadId,
+      data: {
+        type: "lead",
+        lead,
+      },
+    });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -209,9 +248,7 @@ function KanbanCard({ lead }) {
       {...listeners}
       className="bg-white rounded-xl p-3 shadow border mb-2 cursor-grab"
     >
-      <div className="font-semibold">
-        {lead.leadOrganisationName}
-      </div>
+      <div className="font-semibold">{lead.leadOrganisationName}</div>
 
       <div className="text-xs text-gray-500">
         {lead.companyContactPersonName}
@@ -224,10 +261,7 @@ function KanbanCard({ lead }) {
   );
 }
 
-function KanbanColumn({
-  status,
-  leads,
-}) {
+function KanbanColumn({ status, leads }) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
   });
@@ -236,22 +270,20 @@ function KanbanColumn({
       ref={setNodeRef}
       className={`
         w-80 rounded-xl p-3 min-h-[500px] transition-all duration-200
-        ${isOver
-          ? "bg-blue-50 border-2 border-blue-400"
-          : "bg-gray-50 border border-gray-200"
+        ${
+          isOver
+            ? "bg-blue-50 border-2 border-blue-400"
+            : "bg-gray-50 border border-gray-200"
         }
       `}
     >
       <div className="flex items-center justify-between mb-3">
-        <div className="font-bold text-gray-800">
-          {status}
-        </div>
+        <div className="font-bold text-gray-800">{status}</div>
 
         <div className="px-2 py-1 rounded-full bg-white text-xs font-semibold text-gray-600 shadow-sm">
           {leads.length}
         </div>
       </div>
-
 
       <SortableContext
         items={leads.map((l) => l.leadId)}
@@ -259,10 +291,7 @@ function KanbanColumn({
       >
         <div className="flex flex-col gap-2">
           {leads.map((lead) => (
-            <KanbanCard
-              key={lead.leadId}
-              lead={lead}
-            />
+            <KanbanCard key={lead.leadId} lead={lead} />
           ))}
 
           {leads.length === 0 && (
@@ -287,18 +316,30 @@ function NotesModal({ isOpen, onClose, lead, formatDate }) {
   const notes = lead.notes || lead.leadNotes || lead.comments || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 bg-gradient-to-r from-blue-50 to-white rounded-t-2xl">
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-blue-100 p-2">
-              <Icon name="mdi:note-text-outline" className="h-5 w-5 text-blue-600" />
+              <Icon
+                name="mdi:note-text-outline"
+                className="h-5 w-5 text-blue-600"
+              />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-slate-900">Lead Notes & Activity</h3>
+              <h3 className="text-lg font-semibold text-slate-900">
+                Lead Notes & Activity
+              </h3>
               <p className="text-sm text-slate-500">
-                {lead.leadFirstName} {lead.leadLastName} - {lead.leadOrganisationName || "No Company"}
+                {lead.leadFirstName} {lead.leadLastName} -{" "}
+                {lead.leadOrganisationName || "No Company"}
               </p>
             </div>
           </div>
@@ -322,22 +363,37 @@ function NotesModal({ isOpen, onClose, lead, formatDate }) {
                   <div className="mb-2 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="rounded-full bg-blue-100 p-1">
-                        <Icon name="mdi:account-circle" className="h-4 w-4 text-blue-600" />
+                        <Icon
+                          name="mdi:account-circle"
+                          className="h-4 w-4 text-blue-600"
+                        />
                       </div>
                       <span className="text-sm font-medium text-slate-700">
-                        {note.createdBy || note.author || note.userName || "System"}
+                        {note.createdBy ||
+                          note.author ||
+                          note.userName ||
+                          "System"}
                       </span>
                     </div>
                     <span className="text-xs text-slate-400">
-                      {formatDate ? formatDate(note.createdAt || note.date || note.noteDate) : note.createdAt || "Unknown date"}
+                      {formatDate
+                        ? formatDate(
+                            note.createdAt || note.date || note.noteDate,
+                          )
+                        : note.createdAt || "Unknown date"}
                     </span>
                   </div>
                   <p className="text-sm text-slate-600 leading-relaxed">
-                    {note.content || note.text || note.note || note.description || note.remark || JSON.stringify(note)}
+                    {note.content ||
+                      note.text ||
+                      note.note ||
+                      note.description ||
+                      note.remark ||
+                      JSON.stringify(note)}
                   </p>
 
                   {/* Optional: Show attachment indicators */}
-                  {(note.attachments && note.attachments.length > 0) && (
+                  {note.attachments && note.attachments.length > 0 && (
                     <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
                       <Icon name="mdi:attachment" className="h-3 w-3" />
                       <span>{note.attachments.length} attachment(s)</span>
@@ -349,10 +405,15 @@ function NotesModal({ isOpen, onClose, lead, formatDate }) {
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="rounded-full bg-slate-100 p-4 mb-3">
-                <Icon name="mdi:note-off-outline" className="h-8 w-8 text-slate-400" />
+                <Icon
+                  name="mdi:note-off-outline"
+                  className="h-8 w-8 text-slate-400"
+                />
               </div>
               <p className="text-slate-500 font-medium">No notes available</p>
-              <p className="text-sm text-slate-400 mt-1">Add notes from the lead detail page</p>
+              <p className="text-sm text-slate-400 mt-1">
+                Add notes from the lead detail page
+              </p>
             </div>
           )}
         </div>
@@ -361,7 +422,10 @@ function NotesModal({ isOpen, onClose, lead, formatDate }) {
         <div className="border-t border-slate-200 px-6 py-4 bg-slate-50 rounded-b-2xl">
           <div className="flex items-center justify-between">
             <div className="text-xs text-slate-500">
-              <Icon name="mdi:information-outline" className="inline h-3 w-3 mr-1" />
+              <Icon
+                name="mdi:information-outline"
+                className="inline h-3 w-3 mr-1"
+              />
               Total {notes?.length || 0} note(s)
             </div>
             <Link
@@ -378,8 +442,6 @@ function NotesModal({ isOpen, onClose, lead, formatDate }) {
     </div>
   );
 }
-
-
 
 export default function LeadListPage() {
   const {
@@ -416,7 +478,6 @@ export default function LeadListPage() {
   const [allLeads, setAllLeads] = useState([]);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
-
   const openNotes = (lead) => {
     setSelectedLead(lead);
     setShowNotesModal(true);
@@ -434,19 +495,19 @@ export default function LeadListPage() {
   // Add these scroll functions after handleTableScroll
   const scrollLeft = () => {
     if (tableContainerRef.current) {
-      tableContainerRef.current.scrollBy({ left: -300, behavior: 'smooth' });
+      tableContainerRef.current.scrollBy({ left: -300, behavior: "smooth" });
     }
   };
 
   const scrollRight = () => {
     if (tableContainerRef.current) {
-      tableContainerRef.current.scrollBy({ left: 300, behavior: 'smooth' });
+      tableContainerRef.current.scrollBy({ left: 300, behavior: "smooth" });
     }
   };
 
   const scrollToStart = () => {
     if (tableContainerRef.current) {
-      tableContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+      tableContainerRef.current.scrollTo({ left: 0, behavior: "smooth" });
     }
   };
 
@@ -454,7 +515,7 @@ export default function LeadListPage() {
     if (tableContainerRef.current) {
       tableContainerRef.current.scrollTo({
         left: tableContainerRef.current.scrollWidth,
-        behavior: 'smooth'
+        behavior: "smooth",
       });
     }
   };
@@ -516,10 +577,12 @@ export default function LeadListPage() {
       setAllLeads(leads ?? []);
       getAllScores()
         .then((s) => setScores(s ?? []))
-        .catch(() => { });
+        .catch(() => {});
       getAllNotes()
         .then((notes) => {
-          const hasNotesSet = new Set((notes ?? []).map((n) => Number(n.leadIdFk)).filter(Boolean));
+          const hasNotesSet = new Set(
+            (notes ?? []).map((n) => Number(n.leadIdFk)).filter(Boolean),
+          );
           setLeadsWithNotes(hasNotesSet);
         })
         .catch((err) => {
@@ -540,64 +603,66 @@ export default function LeadListPage() {
     const handleCurrencyChange = () => {
       loadAll(false);
     };
-    window.addEventListener('app-currency-changed', handleCurrencyChange);
-    return () => window.removeEventListener('app-currency-changed', handleCurrencyChange);
+    window.addEventListener("app-currency-changed", handleCurrencyChange);
+    return () =>
+      window.removeEventListener("app-currency-changed", handleCurrencyChange);
   }, []);
 
   // Add this useEffect to handle URL parameters
   useEffect(() => {
-    const filterType = searchParams.get('filter');
-    const filterValue = searchParams.get('value');
+    const filterType = searchParams.get("filter");
+    const filterValue = searchParams.get("value");
 
     if (filterType && filterValue) {
-      if (filterType === 'status') {
+      if (filterType === "status") {
         setActiveStatus(filterValue);
-      } else if (filterType === 'leadOutcomeStatus') {
+      } else if (filterType === "leadOutcomeStatus") {
         // For leadOutcomeStatus, you need to filter differently
         // You can add a new state for outcome status filter
         setActiveStatus(filterValue);
-      } else if (filterType === 'all') {
-        setActiveStatus('All');
+      } else if (filterType === "all") {
+        setActiveStatus("All");
       }
     }
   }, [searchParams]);
 
-
   // Add this useEffect for keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
       const container = tableContainerRef.current;
       if (!container) return;
 
       switch (e.key) {
-        case 'ArrowLeft':
+        case "ArrowLeft":
           e.preventDefault();
-          container.scrollBy({ left: -100, behavior: 'smooth' });
+          container.scrollBy({ left: -100, behavior: "smooth" });
           break;
-        case 'ArrowRight':
+        case "ArrowRight":
           e.preventDefault();
-          container.scrollBy({ left: 100, behavior: 'smooth' });
+          container.scrollBy({ left: 100, behavior: "smooth" });
           break;
-        case 'Home':
+        case "Home":
           if (e.ctrlKey) {
             e.preventDefault();
-            container.scrollTo({ left: 0, behavior: 'smooth' });
+            container.scrollTo({ left: 0, behavior: "smooth" });
           }
           break;
-        case 'End':
+        case "End":
           if (e.ctrlKey) {
             e.preventDefault();
-            container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
+            container.scrollTo({
+              left: container.scrollWidth,
+              behavior: "smooth",
+            });
           }
           break;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
 
   const loadMasters = async () => {
     try {
@@ -619,7 +684,7 @@ export default function LeadListPage() {
 
   // Add grade counts for the filter UI
   const gradeCounts = useMemo(() => {
-    const counts = { "5": 0, "4": 0, "3": 0, "2": 0, "1": 0 };
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
 
     allLeads.forEach((lead) => {
       const rating = Number(lead.leadRating);
@@ -648,16 +713,12 @@ export default function LeadListPage() {
     });
   };
 
-  const sensors = useSensors(
-    useSensor(PointerSensor)
-  );
+  const sensors = useSensors(useSensor(PointerSensor));
 
   function handleDragStart(event) {
     const leadId = event.active.id;
 
-    const lead = allLeads.find(
-      l => l.leadId === leadId
-    );
+    const lead = allLeads.find((l) => l.leadId === leadId);
 
     setActiveDragLead(lead);
   }
@@ -671,13 +732,13 @@ export default function LeadListPage() {
 
     // If dropping on a card, get the column status from that card
     if (over.data?.current?.type === "lead") {
-      const overLead = allLeads.find(l => l.leadId === over.id);
+      const overLead = allLeads.find((l) => l.leadId === over.id);
       newStatus = overLead?.leadOutcomeStatus;
     }
 
     if (!KANBAN_STATUSES.includes(newStatus)) return;
 
-    const currentLead = allLeads.find(l => l.leadId === leadId);
+    const currentLead = allLeads.find((l) => l.leadId === leadId);
     if (!currentLead || currentLead.leadOutcomeStatus === newStatus) {
       setActiveDragLead(null);
       return;
@@ -718,7 +779,10 @@ export default function LeadListPage() {
 
     // console.log("Filtered Leads:", list);
     if (activeStatus !== "All")
-      list = list.filter((l) => l.leadStatus === activeStatus || l.leadOutcomeStatus === activeStatus);
+      list = list.filter(
+        (l) =>
+          l.leadStatus === activeStatus || l.leadOutcomeStatus === activeStatus,
+      );
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -736,7 +800,7 @@ export default function LeadListPage() {
 
     if (gradeFilter.length > 0) {
       list = list.filter((lead) =>
-        gradeFilter.includes(String(lead.leadRating))
+        gradeFilter.includes(String(lead.leadRating)),
       );
     }
     //     if (dateFrom) {
@@ -756,7 +820,6 @@ export default function LeadListPage() {
     //     return enquiryDate <= dateTo;
     //   });
     // }
-
 
     if (dateFrom) {
       list = list.filter((l) => {
@@ -848,13 +911,16 @@ export default function LeadListPage() {
     const container = tableContainerRef.current;
     if (container) {
       const handleScroll = () => {
-        const progress = (container.scrollLeft / (container.scrollWidth - container.clientWidth)) * 100;
+        const progress =
+          (container.scrollLeft /
+            (container.scrollWidth - container.clientWidth)) *
+          100;
         setScrollProgress(progress);
         setShowScrollControls(container.scrollWidth > container.clientWidth);
       };
-      container.addEventListener('scroll', handleScroll);
+      container.addEventListener("scroll", handleScroll);
       setTimeout(handleScroll, 100);
-      return () => container.removeEventListener('scroll', handleScroll);
+      return () => container.removeEventListener("scroll", handleScroll);
     }
   }, [pagedLeads]); // Now pagedLeads is defined!
 
@@ -863,36 +929,39 @@ export default function LeadListPage() {
   // ============================================
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
       const container = tableContainerRef.current;
       if (!container) return;
 
       switch (e.key) {
-        case 'ArrowLeft':
+        case "ArrowLeft":
           e.preventDefault();
-          container.scrollBy({ left: -100, behavior: 'smooth' });
+          container.scrollBy({ left: -100, behavior: "smooth" });
           break;
-        case 'ArrowRight':
+        case "ArrowRight":
           e.preventDefault();
-          container.scrollBy({ left: 100, behavior: 'smooth' });
+          container.scrollBy({ left: 100, behavior: "smooth" });
           break;
-        case 'Home':
+        case "Home":
           if (e.ctrlKey) {
             e.preventDefault();
-            container.scrollTo({ left: 0, behavior: 'smooth' });
+            container.scrollTo({ left: 0, behavior: "smooth" });
           }
           break;
-        case 'End':
+        case "End":
           if (e.ctrlKey) {
             e.preventDefault();
-            container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
+            container.scrollTo({
+              left: container.scrollWidth,
+              behavior: "smooth",
+            });
           }
           break;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   useEffect(() => {
@@ -918,13 +987,10 @@ export default function LeadListPage() {
             return l.leadStatus === "Qualified";
           }
 
-          return (
-            l.leadStatus === "Qualified" &&
-            l.leadOutcomeStatus === s
-          );
+          return l.leadStatus === "Qualified" && l.leadOutcomeStatus === s;
         }),
       })),
-    [filteredLeads]
+    [filteredLeads],
   );
 
   const allPageSelected = useMemo(
@@ -1109,10 +1175,10 @@ export default function LeadListPage() {
   //         pattern: "solid",
   //         fgColor: { argb: "FFE8B384" }
   //       };
-  //       cell.alignment = { 
-  //         horizontal: "center", 
-  //         vertical: "center", 
-  //         wrapText: true 
+  //       cell.alignment = {
+  //         horizontal: "center",
+  //         vertical: "center",
+  //         wrapText: true
   //       };
   //       cell.border = {
   //         top: { style: "thin" },
@@ -1243,7 +1309,6 @@ export default function LeadListPage() {
   //     showToast("error", `Export failed: ${err.message}`);
   //   }
   // };
-
 
   // const exportToExcel = (leadsToExport, fileName = "Leads") => {
   //   try {
@@ -1514,16 +1579,16 @@ export default function LeadListPage() {
     try {
       const totalQuotationAmount = leadsToExport.reduce(
         (sum, lead) => sum + Number(lead.quotationAmount || 0),
-        0
+        0,
       );
 
       // Prepare data rows (identical to original)
       const data = leadsToExport.map((lead) => ({
         "Lead ID": lead.leadId || "",
-        "Ref": lead.leadRef || "",
+        Ref: lead.leadRef || "",
         "Company Name": lead.leadOrganisationName || "",
         "Contact Phone": lead.leadMobileNo || "",
-        "Country": lead.leadCountry || "",
+        Country: lead.leadCountry || "",
         "Contact Person": lead.companyContactPersonName || "",
         "Enquiry Date": formatDate(lead.inquiryDate) || "",
         "Lead Source": lead.leadSource || "",
@@ -1533,10 +1598,11 @@ export default function LeadListPage() {
         "Enquiry Type": lead.enquiryType || "",
         "Enquiry Description": lead.enquiryDescription || "",
         "Quotation Number": lead.quotationNumber || "",
-        "Quotation Amount": lead.quotationAmount ? formatCurrency(lead.quotationAmount, lead.leadCountry) : "",
+        "Quotation Amount": lead.quotationAmount
+          ? formatCurrency(lead.quotationAmount, lead.leadCountry)
+          : "",
         "Lead Rating":
-          lead.quotationStatus === "Sent" ||
-            lead.leadOutcomeStatus === "Won"
+          lead.quotationStatus === "Sent" || lead.leadOutcomeStatus === "Won"
             ? ""
             : lead.leadRating
               ? "*".repeat(lead.leadRating)
@@ -1546,10 +1612,10 @@ export default function LeadListPage() {
       // Add total row
       data.push({
         "Lead ID": "",
-        "Ref": "",
+        Ref: "",
         "Company Name": "TOTAL",
         "Contact Phone": "",
-        "Country": "",
+        Country: "",
         "Contact Person": "",
         "Enquiry Date": "",
         "Lead Source": "",
@@ -1582,7 +1648,15 @@ export default function LeadListPage() {
       doughnutCanvas.height = 400;
       const doughnutCtx = doughnutCanvas.getContext("2d");
 
-      const colors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40", "#00A86B"];
+      const colors = [
+        "#FF6384",
+        "#36A2EB",
+        "#FFCE56",
+        "#4BC0C0",
+        "#9966FF",
+        "#FF9F40",
+        "#00A86B",
+      ];
       const centerX = doughnutCanvas.width / 2;
       const centerY = doughnutCanvas.height / 2;
       const radius = 120;
@@ -1603,7 +1677,14 @@ export default function LeadListPage() {
 
         doughnutCtx.beginPath();
         doughnutCtx.arc(centerX, centerY, radius, startAngle, endAngle);
-        doughnutCtx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
+        doughnutCtx.arc(
+          centerX,
+          centerY,
+          innerRadius,
+          endAngle,
+          startAngle,
+          true,
+        );
         doughnutCtx.closePath();
         doughnutCtx.fillStyle = colors[idx % colors.length];
         doughnutCtx.fill();
@@ -1613,7 +1694,11 @@ export default function LeadListPage() {
         doughnutCtx.fillStyle = "#000000";
         doughnutCtx.font = "12px Arial";
         const percentage = ((count / total) * 100).toFixed(1);
-        doughnutCtx.fillText(`${label}: ${count} (${percentage}%)`, legendX + 20, legendY + 12);
+        doughnutCtx.fillText(
+          `${label}: ${count} (${percentage}%)`,
+          legendX + 20,
+          legendY + 12,
+        );
         legendY += 22;
 
         startAngle = endAngle;
@@ -1651,7 +1736,13 @@ export default function LeadListPage() {
 
         polarCtx.beginPath();
         polarCtx.moveTo(polarCenterX, polarCenterY);
-        polarCtx.arc(polarCenterX, polarCenterY, polarRadius, polarStartAngle, endAngle);
+        polarCtx.arc(
+          polarCenterX,
+          polarCenterY,
+          polarRadius,
+          polarStartAngle,
+          endAngle,
+        );
         polarCtx.closePath();
         polarCtx.fillStyle = colors[idx % colors.length];
         polarCtx.fill();
@@ -1662,7 +1753,11 @@ export default function LeadListPage() {
         polarCtx.fillStyle = "#000000";
         polarCtx.font = "12px Arial";
         const percentage = ((count / polarTotal) * 100).toFixed(1);
-        polarCtx.fillText(`${label}: ${count} (${percentage}%)`, polarLegendX + 20, polarLegendY + 12);
+        polarCtx.fillText(
+          `${label}: ${count} (${percentage}%)`,
+          polarLegendX + 20,
+          polarLegendY + 12,
+        );
         polarLegendY += 22;
 
         polarStartAngle = endAngle;
@@ -1674,7 +1769,11 @@ export default function LeadListPage() {
       polarCtx.fillText("Lead Source Distribution", polarCenterX, 30);
       polarCtx.font = "14px Arial";
       polarCtx.fillStyle = "#666666";
-      polarCtx.fillText(`Total: ${polarTotal} leads`, polarCenterX, polarCenterY + polarRadius + 20);
+      polarCtx.fillText(
+        `Total: ${polarTotal} leads`,
+        polarCenterX,
+        polarCenterY + polarRadius + 20,
+      );
 
       // Create canvas and draw BAR CHART
       const barCanvas = document.createElement("canvas");
@@ -1688,7 +1787,17 @@ export default function LeadListPage() {
 
       const barCategories = Object.keys(sourceCounts);
       const barValues = Object.values(sourceCounts);
-      const barColors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40", "#00A86B", "#FF8C42", "#6A4E9B"];
+      const barColors = [
+        "#FF6384",
+        "#36A2EB",
+        "#FFCE56",
+        "#4BC0C0",
+        "#9966FF",
+        "#FF9F40",
+        "#00A86B",
+        "#FF8C42",
+        "#6A4E9B",
+      ];
 
       // Chart dimensions
       const margin = { top: 60, right: 150, bottom: 80, left: 80 };
@@ -1701,13 +1810,20 @@ export default function LeadListPage() {
       barCtx.fillStyle = "#000000";
       barCtx.font = "bold 18px Arial";
       barCtx.textAlign = "center";
-      barCtx.fillText("Lead Source Distribution - Bar Chart", barCanvas.width / 2, 30);
+      barCtx.fillText(
+        "Lead Source Distribution - Bar Chart",
+        barCanvas.width / 2,
+        30,
+      );
 
       // Draw axes
       barCtx.beginPath();
       barCtx.moveTo(margin.left, margin.top);
       barCtx.lineTo(margin.left, barCanvas.height - margin.bottom);
-      barCtx.lineTo(barCanvas.width - margin.right, barCanvas.height - margin.bottom);
+      barCtx.lineTo(
+        barCanvas.width - margin.right,
+        barCanvas.height - margin.bottom,
+      );
       barCtx.strokeStyle = "#333333";
       barCtx.lineWidth = 2;
       barCtx.stroke();
@@ -1782,7 +1898,11 @@ export default function LeadListPage() {
       barCtx.fillStyle = "#333333";
       barCtx.font = "bold 12px Arial";
       barCtx.textAlign = "center";
-      barCtx.fillText("Lead Sources", barCanvas.width / 2, barCanvas.height - 25);
+      barCtx.fillText(
+        "Lead Sources",
+        barCanvas.width / 2,
+        barCanvas.height - 25,
+      );
 
       // Draw legend
       let legendYPos = 70;
@@ -1796,7 +1916,11 @@ export default function LeadListPage() {
         barCtx.textAlign = "left";
         let label = category;
         if (label.length > 14) label = label.substring(0, 12) + "..";
-        barCtx.fillText(`${label}: ${barValues[idx]} (${percentage}%)`, legendXPos + 18, legendYPos + 10);
+        barCtx.fillText(
+          `${label}: ${barValues[idx]} (${percentage}%)`,
+          legendXPos + 18,
+          legendYPos + 10,
+        );
         legendYPos += 18;
       });
 
@@ -1828,9 +1952,22 @@ export default function LeadListPage() {
 
       // Define headers (exactly as original)
       const headers = [
-        "Lead ID", "Ref", "Company Name", "Contact Phone", "Country", "Contact Person",
-        "Enquiry Date", "Lead Source", "Lead Group", "Lead Status", "Enquiry Status", "Enquiry Type",
-        "Enquiry Description", "Quotation Number", "Quotation Amount", "Lead Rating"
+        "Lead ID",
+        "Ref",
+        "Company Name",
+        "Contact Phone",
+        "Country",
+        "Contact Person",
+        "Enquiry Date",
+        "Lead Source",
+        "Lead Group",
+        "Lead Status",
+        "Enquiry Status",
+        "Enquiry Type",
+        "Enquiry Description",
+        "Quotation Number",
+        "Quotation Amount",
+        "Lead Rating",
       ];
 
       // ============================================
@@ -1840,8 +1977,12 @@ export default function LeadListPage() {
       worksheet.mergeCells(1, 1, 1, headers.length);
       const titleCell = worksheet.getCell("A1");
       titleCell.value = "Enquiry Sheet 2026-27";
-      titleCell.font = { bold: true, size: 18, color: { argb: "FFFFFFFF" } };// White text
-      titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F4E78" } }; // Dark Blue
+      titleCell.font = { bold: true, size: 18, color: { argb: "FFFFFFFF" } }; // White text
+      titleCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF1F4E78" },
+      }; // Dark Blue
       titleCell.alignment = { horizontal: "center", vertical: "center" };
 
       // ============================================
@@ -1856,18 +1997,18 @@ export default function LeadListPage() {
         cell.fill = {
           type: "pattern",
           pattern: "solid",
-          fgColor: { argb: "FFE8B384" }
+          fgColor: { argb: "FFE8B384" },
         };
         cell.alignment = {
           horizontal: "center",
           vertical: "center",
-          wrapText: true
+          wrapText: true,
         };
         cell.border = {
           top: { style: "thin" },
           bottom: { style: "thin" },
           left: { style: "thin" },
-          right: { style: "thin" }
+          right: { style: "thin" },
         };
       });
 
@@ -1920,22 +2061,22 @@ export default function LeadListPage() {
         cell.fill = {
           type: "pattern",
           pattern: "solid",
-          fgColor: { argb: "FF4472C4" }
+          fgColor: { argb: "FF4472C4" },
         };
         cell.alignment = { horizontal: "center", vertical: "center" };
         cell.border = {
           top: { style: "thin" },
           bottom: { style: "thin" },
           left: { style: "thin" },
-          right: { style: "thin" }
+          right: { style: "thin" },
         };
       });
 
       // ============================================
       // SET ROW HEIGHTS
       // ============================================
-      worksheet.getRow(1).height = 32;  // Title row
-      worksheet.getRow(2).height = 28;  // Header row
+      worksheet.getRow(1).height = 32; // Title row
+      worksheet.getRow(2).height = 28; // Header row
 
       // ============================================
       // AUTO COLUMN WIDTHS
@@ -1954,7 +2095,7 @@ export default function LeadListPage() {
       // ============================================
       worksheet.autoFilter = {
         from: "A2",
-        to: `${String.fromCharCode(64 + headers.length)}${rowsData.length + 2}`
+        to: `${String.fromCharCode(64 + headers.length)}${rowsData.length + 2}`,
       };
 
       // ============================================
@@ -1964,7 +2105,11 @@ export default function LeadListPage() {
 
       // Add title for charts
       chartSheet.getCell("A1").value = "Lead Analytics Dashboard";
-      chartSheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FF000000" } };
+      chartSheet.getCell("A1").font = {
+        bold: true,
+        size: 16,
+        color: { argb: "FF000000" },
+      };
       chartSheet.getCell("A1").alignment = { horizontal: "center" };
       chartSheet.mergeCells(1, 1, 1, 3);
 
@@ -2021,7 +2166,9 @@ export default function LeadListPage() {
       const buffer = await workbook.xlsx.writeBuffer();
 
       // Create blob and download
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
       link.href = url;
@@ -2031,7 +2178,10 @@ export default function LeadListPage() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      showToast("success", `${leadsToExport.length} leads exported successfully with headers, doughnut chart, polar chart, and bar chart inside Excel`);
+      showToast(
+        "success",
+        `${leadsToExport.length} leads exported successfully with headers, doughnut chart, polar chart, and bar chart inside Excel`,
+      );
     } catch (err) {
       console.error("Export error:", err);
       showToast("error", `Export failed: ${err.message}`);
@@ -2247,7 +2397,7 @@ export default function LeadListPage() {
   };
 
   function openCreate(no) {
-    setQuotationNo(no)
+    setQuotationNo(no);
     setEditingLead(null);
     setShowModal(true);
   }
@@ -2325,27 +2475,18 @@ export default function LeadListPage() {
         prev.map((lead) =>
           lead.leadId === leadId
             ? {
-              ...lead,
-              leadStatus: newStatus,
+                ...lead,
+                leadStatus: newStatus,
 
-              leadOutcomeStatus:
-                newStatus === "Qualified"
-                  ? "Open"
-                  : null,
+                leadOutcomeStatus: newStatus === "Qualified" ? "Open" : null,
 
-              enquiryStatus:
-                newStatus === "Qualified"
-                  ? "Pending"
-                  : null,
-            }
-            : lead
-        )
+                enquiryStatus: newStatus === "Qualified" ? "Pending" : null,
+              }
+            : lead,
+        ),
       );
 
-      showToast(
-        "success",
-        `Status updated to ${newStatus}.`
-      );
+      showToast("success", `Status updated to ${newStatus}.`);
 
       await loadAll();
     } catch (err) {
@@ -2362,16 +2503,9 @@ export default function LeadListPage() {
       await updateLeadOutcomeStatus(leadId, leadOutcomeStatus);
 
       // Update local state immediately
-      setAllLeads((prev) =>
-        prev.map((lead) =>
-          lead.leadId === leadId
-        )
-      );
+      setAllLeads((prev) => prev.map((lead) => lead.leadId === leadId));
 
-      showToast(
-        "success",
-        `Lead outcome updated to ${leadOutcomeStatus}`
-      );
+      showToast("success", `Lead outcome updated to ${leadOutcomeStatus}`);
 
       await loadAll(); // optional
     } catch (err) {
@@ -2381,7 +2515,6 @@ export default function LeadListPage() {
       setLoading(false);
     }
   }
-
 
   async function handleGroupChange(leadId, newGroup) {
     setLoading(true);
@@ -2462,16 +2595,14 @@ export default function LeadListPage() {
           ...lead,
           leadRating: stars,
         },
-        {}
+        {},
       );
 
       // Update local state immediately for better UX
       setAllLeads((prevLeads) =>
         prevLeads.map((l) =>
-          l.leadId === lead.leadId
-            ? { ...l, leadRating: stars }
-            : l
-        )
+          l.leadId === lead.leadId ? { ...l, leadRating: stars } : l,
+        ),
       );
 
       showToast("success", `Rating updated to ${stars} stars`);
@@ -2546,12 +2677,13 @@ export default function LeadListPage() {
                 key={s}
                 onClick={(e) => {
                   e.preventDefault();
-                  setActiveStatus(s)
+                  setActiveStatus(s);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border shrink-0 ${activeStatus === s
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-100"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                  }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border shrink-0 ${
+                  activeStatus === s
+                    ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-100"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                }`}
               >
                 {s}
               </button>
@@ -2589,8 +2721,6 @@ export default function LeadListPage() {
               New Lead
             </button>
 
-
-
             <Link
               to="/lead/pipeline"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-semibold hover:from-violet-700 hover:to-indigo-700 transition-all shadow-sm shadow-violet-200"
@@ -2613,10 +2743,11 @@ export default function LeadListPage() {
 
         {/* Row 2: Secondary Filters (Search, Date, Source, Grade) */}
         <div
-          className={`flex flex-wrap items-center gap-3 border-t border-gray-100 transition-all duration-300 ease-in-out origin-top overflow-hidden ${filtersCollapsed
-            ? "max-h-0 pt-0 border-t-0 opacity-0 pointer-events-none mt-0"
-            : "max-h-20 pt-3 opacity-100 mt-3"
-            }`}
+          className={`flex flex-wrap items-center gap-3 border-t border-gray-100 transition-all duration-300 ease-in-out origin-top overflow-hidden ${
+            filtersCollapsed
+              ? "max-h-0 pt-0 border-t-0 opacity-0 pointer-events-none mt-0"
+              : "max-h-20 pt-3 opacity-100 mt-3"
+          }`}
         >
           {/* Search Input */}
           <div className="relative w-full sm:w-64">
@@ -2641,10 +2772,7 @@ export default function LeadListPage() {
           >
             <option value="">All sources</option>
             {leadSources.map((src) => (
-              <option
-                key={src.id}
-                value={src.sourceName}
-              >
+              <option key={src.id} value={src.sourceName}>
                 {src.sourceName}
               </option>
             ))}
@@ -2672,10 +2800,11 @@ export default function LeadListPage() {
           <div className="flex items-center gap-0.5 bg-white border border-gray-200 rounded-md p-0.5 flex-wrap">
             <button
               onClick={() => setGradeFilter("")}
-              className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${gradeFilter === ""
-                ? "bg-gray-800 text-white"
-                : "text-gray-500 hover:bg-gray-100"
-                }`}
+              className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                gradeFilter === ""
+                  ? "bg-gray-800 text-white"
+                  : "text-gray-500 hover:bg-gray-100"
+              }`}
             >
               All
             </button>
@@ -2684,10 +2813,11 @@ export default function LeadListPage() {
               <button
                 key={g}
                 onClick={() => toggleGradeFilter(g)}
-                className={`h-6 px-1.5 rounded text-[9px] font-medium flex items-center gap-1 ${gradeFilter.includes(g)
-                  ? "bg-yellow-500 text-white"
-                  : "border border-gray-200 text-gray-600 hover:bg-yellow-50"
-                  }`}
+                className={`h-6 px-1.5 rounded text-[9px] font-medium flex items-center gap-1 ${
+                  gradeFilter.includes(g)
+                    ? "bg-yellow-500 text-white"
+                    : "border border-gray-200 text-gray-600 hover:bg-yellow-50"
+                }`}
               >
                 ⭐{g}
                 <span className="text-[8px]">{gradeCounts[g] || 0}</span>
@@ -2766,7 +2896,10 @@ export default function LeadListPage() {
                       className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
                       title="Scroll to Start (Ctrl+Home)"
                     >
-                      <Icon name="mdi:chevron-double-left" className="w-4 h-4" />
+                      <Icon
+                        name="mdi:chevron-double-left"
+                        className="w-4 h-4"
+                      />
                     </button>
                     <button
                       onClick={scrollLeft}
@@ -2793,7 +2926,10 @@ export default function LeadListPage() {
                       className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
                       title="Scroll to End (Ctrl+End)"
                     >
-                      <Icon name="mdi:chevron-double-right" className="w-4 h-4" />
+                      <Icon
+                        name="mdi:chevron-double-right"
+                        className="w-4 h-4"
+                      />
                     </button>
                     <span className="text-xs text-gray-400 ml-1 hidden md:inline">
                       ← → keys to scroll
@@ -2803,7 +2939,10 @@ export default function LeadListPage() {
                     <button
                       onClick={() => {
                         if (tableContainerRef.current) {
-                          tableContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                          tableContainerRef.current.scrollTo({
+                            top: 0,
+                            behavior: "smooth",
+                          });
                         }
                       }}
                       className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
@@ -2814,7 +2953,10 @@ export default function LeadListPage() {
                     <button
                       onClick={() => {
                         if (tableContainerRef.current) {
-                          tableContainerRef.current.scrollTo({ top: tableContainerRef.current.scrollHeight, behavior: 'smooth' });
+                          tableContainerRef.current.scrollTo({
+                            top: tableContainerRef.current.scrollHeight,
+                            behavior: "smooth",
+                          });
                         }
                       }}
                       className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
@@ -2826,7 +2968,7 @@ export default function LeadListPage() {
                 </div>
               )}
               <div
-                ref={tableContainerRef}  // <-- ADD THIS
+                ref={tableContainerRef} // <-- ADD THIS
                 onScroll={handleTableScroll}
                 className="w-full overflow-x-auto overflow-y-auto"
                 style={{
@@ -2945,10 +3087,10 @@ export default function LeadListPage() {
                         ENQUIRY DATE
                       </th>
                       <th className="w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        QUOTATION DATE
+                        QUOTATION WORKING DATE
                       </th>
                       <th className="w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        SENT QUOTATION DATE
+                        SENT QUOTATION  DATE
                       </th>
                       <th className="w-[90px] whitespace-nowrap py-2.5 px-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         AMOUNT
@@ -2969,14 +3111,14 @@ export default function LeadListPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {pagedLeads.map((lead, idx) => {
-
                       const score = scoresMap[lead.leadId];
                       return (
                         <tr
                           key={lead.leadId}
-                          className={`cursor-pointer transition-colors duration-100 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"
-                            } ${selectedIds.has(lead.leadId) ? "bg-blue-50/60" : "hover:bg-blue-50/40"}`}
-                        // onClick={() => openPanel(lead)}
+                          className={`cursor-pointer transition-colors duration-100 ${
+                            idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                          } ${selectedIds.has(lead.leadId) ? "bg-blue-50/60" : "hover:bg-blue-50/40"}`}
+                          // onClick={() => openPanel(lead)}
                         >
                           <td
                             className="pl-4 py-2"
@@ -2993,11 +3135,17 @@ export default function LeadListPage() {
                             <div className="flex items-center gap-2.5">
                               <div className="min-w-0 flex-1">
                                 {lead.leadOrganisationName && (
-                                  <p className="font-medium text-gray-900 truncate leading-snug" title={lead.leadOrganisationName}>
+                                  <p
+                                    className="font-medium text-gray-900 truncate leading-snug"
+                                    title={lead.leadOrganisationName}
+                                  >
                                     {lead.leadOrganisationName}
                                   </p>
                                 )}
-                                <p className="text-xs text-gray-600 truncate leading-snug" title={lead.companyContactPersonName || "-"}>
+                                <p
+                                  className="text-xs text-gray-600 truncate leading-snug"
+                                  title={lead.companyContactPersonName || "-"}
+                                >
                                   {lead.companyContactPersonName || "-"}
                                 </p>
                               </div>
@@ -3047,10 +3195,15 @@ export default function LeadListPage() {
                                   w-full
                                   max-w-[160px]
                                  ${getGroupColor(lead.leadGroup)}
-                                  ${loading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}
+                                  ${loading ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"}
                                 `}
                             >
-                              <option value="" className="bg-white text-gray-600">Unassigned</option>
+                              <option
+                                value=""
+                                className="bg-white text-gray-600"
+                              >
+                                Unassigned
+                              </option>
                               {leadGroups.map((group) => (
                                 <option
                                   key={group.id}
@@ -3062,7 +3215,6 @@ export default function LeadListPage() {
                               ))}
                             </select>
                           </td>
-
 
                           {/* <td className="px-3 py-2 text-xs text-gray-600">
                               {lead.inquiryDate ? (
@@ -3086,30 +3238,31 @@ export default function LeadListPage() {
                                 try {
                                   await updateLeadOutcomeStatus(
                                     lead.leadId,
-                                    newValue || null
+                                    newValue || null,
                                   );
 
                                   setAllLeads((prevLeads) =>
                                     prevLeads.map((l) =>
                                       l.leadId === lead.leadId
                                         ? {
-                                          ...l,
-                                          leadOutcomeStatus: newValue || null,
-                                        }
-                                        : l
-                                    )
+                                            ...l,
+                                            leadOutcomeStatus: newValue || null,
+                                          }
+                                        : l,
+                                    ),
                                   );
 
                                   showToast(
                                     "success",
-                                    `Lead status updated to ${newValue || "None"
-                                    }`
+                                    `Lead status updated to ${
+                                      newValue || "None"
+                                    }`,
                                   );
                                 } catch (err) {
                                   console.error(err);
                                   showToast(
                                     "error",
-                                    "Failed to update lead status"
+                                    "Failed to update lead status",
                                   );
                                 }
                               }}
@@ -3139,21 +3292,23 @@ export default function LeadListPage() {
                               max-w-[110px]
                               bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M6%208l4%204%204-4%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")]
                               
-                             ${lead.leadOutcomeStatus === "Negotiation"
-                                  ? "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200"
-                                  : lead.leadOutcomeStatus === "Open"
-                                    ? "bg-purple-50 text-purple-700 ring-1 ring-purple-200"
-                                    : lead.leadOutcomeStatus === "Won"
-                                      ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                      : lead.leadOutcomeStatus === "Closed"
-                                        ? "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
-                                        : "bg-gray-100 text-gray-500 ring-1 ring-gray-200"
-                                }
+                             ${
+                               lead.leadOutcomeStatus === "Negotiation"
+                                 ? "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200"
+                                 : lead.leadOutcomeStatus === "Open"
+                                   ? "bg-purple-50 text-purple-700 ring-1 ring-purple-200"
+                                   : lead.leadOutcomeStatus === "Won"
+                                     ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                     : lead.leadOutcomeStatus === "Closed"
+                                       ? "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
+                                       : "bg-gray-100 text-gray-500 ring-1 ring-gray-200"
+                             }
 
-                              ${loading
+                              ${
+                                loading
                                   ? "opacity-60 cursor-not-allowed"
                                   : "hover:opacity-90"
-                                }
+                              }
                             `}
                             >
                               <option value="">None</option>
@@ -3172,7 +3327,7 @@ export default function LeadListPage() {
                               onChange={(e) =>
                                 handleEnquiryStatusChange(
                                   lead.leadId,
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               className={`
@@ -3214,18 +3369,22 @@ export default function LeadListPage() {
                             className="py-2 px-3 text-sm text-gray-700 max-w-[250px] truncate"
                             title={lead.enquiryDescription}
                           >
-                            {lead.enquiryDescription || '-'}
+                            {lead.enquiryDescription || "-"}
                           </td>
 
                           <td
                             className="px-3 py-2 text-xs font-medium text-gray-700 truncate"
-                            title={lead.quotationNumber || "No quotation number"}
+                            title={
+                              lead.quotationNumber || "No quotation number"
+                            }
                           >
                             {lead.quotationNumber &&
-                              lead.quotationNumber !== '000' &&
-                              lead.quotationNumber !== '26-27/000' &&
-                              lead.quotationNumber !== '0' ? (
-                              <span className="font-mono text-xs">{lead.quotationNumber}</span>
+                            lead.quotationNumber !== "000" &&
+                            // lead.quotationNumber !== "26-27/000" &&
+                            lead.quotationNumber !== "0" ? (
+                              <span className="font-mono text-xs">
+                                {lead.quotationNumber}
+                              </span>
                             ) : (
                               <span className="text-gray-300">—</span>
                             )}
@@ -3253,7 +3412,10 @@ export default function LeadListPage() {
                           </td>
                           <td className="px-3 py-2 text-xs font-bold text-gray-900 text-right">
                             {lead.quotationAmount != null ? (
-                              formatCurrency(lead.quotationAmount, lead.leadCountry)
+                              formatCurrency(
+                                lead.quotationAmount,
+                                lead.leadCountry,
+                              )
                             ) : (
                               <span className="text-gray-300">—</span>
                             )}
@@ -3299,7 +3461,10 @@ export default function LeadListPage() {
                                     });
                                   }}
                                 >
-                                  <Icon name="mdi:close-circle-outline" className="w-4 h-4" />
+                                  <Icon
+                                    name="mdi:close-circle-outline"
+                                    className="w-4 h-4"
+                                  />
                                 </button>
                               )}
                             </div>
@@ -3311,7 +3476,9 @@ export default function LeadListPage() {
                             <select
                               value={lead.leadStatus}
                               disabled={loading}
-                              onChange={(e) => handleStatusChange(lead.leadId, e.target.value)}
+                              onChange={(e) =>
+                                handleStatusChange(lead.leadId, e.target.value)
+                              }
                               className={`
                                 status-select-badge
                                 appearance-none
@@ -3338,13 +3505,18 @@ export default function LeadListPage() {
                                 max-w-[135px]
                                 bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M6%208l4%204%204-4%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")]
                                 ${STATUS_BG?.[lead.leadStatus] || "bg-gray-100 text-gray-600 ring-1 ring-gray-200"}
-                                ${loading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}
+                                ${loading ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"}
                               `}
                             >
                               {(() => {
-                                const mainStatuses = ["Qualified", "Disqualified"];
+                                const mainStatuses = [
+                                  "Qualified",
+                                  "Disqualified",
+                                ];
                                 const currentStatus = lead.leadStatus;
-                                const options = mainStatuses.includes(currentStatus)
+                                const options = mainStatuses.includes(
+                                  currentStatus,
+                                )
                                   ? [...mainStatuses]
                                   : [...mainStatuses, currentStatus];
 
@@ -3364,13 +3536,11 @@ export default function LeadListPage() {
                             className="py-2 px-3 text-sm text-gray-700 max-w-[200px]"
                             title={lead.followUpRemark}
                           >
-                            {lead.followUpRemark ? (
-                              lead.followUpRemark.length > 50
+                            {lead.followUpRemark
+                              ? lead.followUpRemark.length > 50
                                 ? `${lead.followUpRemark.substring(0, 50)}...`
                                 : lead.followUpRemark
-                            ) : (
-                              "-"
-                            )}
+                              : "-"}
                           </td>
                           <td
                             className={`sticky right-0 pl-3 pr-4 py-2 shadow-[-8px_0_12px_rgba(15,23,42,0.04)] ${selectedIds.has(lead.leadId) ? "bg-blue-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
@@ -3469,10 +3639,11 @@ export default function LeadListPage() {
                         <button
                           key={p}
                           onClick={() => setCurrentPage(p)}
-                          className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${p === currentPage
-                            ? "bg-blue-600 text-white"
-                            : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                            }`}
+                          className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
+                            p === currentPage
+                              ? "bg-blue-600 text-white"
+                              : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                          }`}
                         >
                           {p}
                         </button>
@@ -3500,8 +3671,6 @@ export default function LeadListPage() {
           )}
         </>
       )}
-
-
 
       {/* Import Modal */}
       {showImportModal &&
@@ -3670,7 +3839,12 @@ export default function LeadListPage() {
             </span>
             <div className="w-px h-4 bg-slate-700" />
             <button
-              onClick={() => exportToExcel(allLeads.filter(l => selectedIds.has(l.leadId)), "Selected_Leads")}
+              onClick={() =>
+                exportToExcel(
+                  allLeads.filter((l) => selectedIds.has(l.leadId)),
+                  "Selected_Leads",
+                )
+              }
               className="flex items-center gap-1.5 text-sm font-medium transition-colors"
             >
               <Icon name="mdi:download-outline" className="w-4 h-4" />
@@ -3758,7 +3932,9 @@ export default function LeadListPage() {
                       score={scoresMap[panelLead.leadId]?.score}
                       size="text-xs"
                       onChange={(stars) => {
-                        updateLeadRating(panelLead, stars).then(() => loadAll());
+                        updateLeadRating(panelLead, stars).then(() =>
+                          loadAll(),
+                        );
                       }}
                     />
                     {scoresMap[panelLead.leadId] && (
@@ -3767,8 +3943,10 @@ export default function LeadListPage() {
                           Score: {scoresMap[panelLead.leadId].score}/100
                         </span>
                         <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${GRADE_BG[scoresMap[panelLead.leadId].grade] ?? "bg-gray-100 text-gray-600"
-                            }`}
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                            GRADE_BG[scoresMap[panelLead.leadId].grade] ??
+                            "bg-gray-100 text-gray-600"
+                          }`}
                         >
                           Grade {scoresMap[panelLead.leadId].grade}
                         </span>
@@ -3828,66 +4006,66 @@ export default function LeadListPage() {
                   {(panelLead.leadCity ||
                     panelLead.leadState ||
                     panelLead.leadCountry) && (
-                      <div className="flex items-center gap-2.5">
-                        <Icon
-                          name="mdi:map-marker-outline"
-                          className="w-4 h-4 text-gray-400 shrink-0"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {[
-                            panelLead.leadCity,
-                            panelLead.leadState,
-                            panelLead.leadCountry,
-                          ]
-                            .filter(Boolean)
-                            .join(", ")}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2.5">
+                      <Icon
+                        name="mdi:map-marker-outline"
+                        className="w-4 h-4 text-gray-400 shrink-0"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {[
+                          panelLead.leadCity,
+                          panelLead.leadState,
+                          panelLead.leadCountry,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {(panelLead.leadOrganisationName ||
                   panelLead.leadIndustry ||
                   panelLead.noOfEmployee) && (
-                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                        Company
-                      </p>
-                      {panelLead.leadOrganisationName && (
-                        <div className="flex items-center gap-2.5">
-                          <Icon
-                            name="mdi:office-building-outline"
-                            className="w-4 h-4 text-gray-400 shrink-0"
-                          />
-                          <span className="text-sm text-gray-700">
-                            {panelLead.leadOrganisationName}
-                          </span>
-                        </div>
-                      )}
-                      {panelLead.leadIndustry && (
-                        <div className="flex items-center gap-2.5">
-                          <Icon
-                            name="mdi:domain"
-                            className="w-4 h-4 text-gray-400 shrink-0"
-                          />
-                          <span className="text-sm text-gray-700">
-                            {panelLead.leadIndustry}
-                          </span>
-                        </div>
-                      )}
-                      {panelLead.noOfEmployee && (
-                        <div className="flex items-center gap-2.5">
-                          <Icon
-                            name="mdi:account-group-outline"
-                            className="w-4 h-4 text-gray-400 shrink-0"
-                          />
-                          <span className="text-sm text-gray-700">
-                            {panelLead.noOfEmployee} employees
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                      Company
+                    </p>
+                    {panelLead.leadOrganisationName && (
+                      <div className="flex items-center gap-2.5">
+                        <Icon
+                          name="mdi:office-building-outline"
+                          className="w-4 h-4 text-gray-400 shrink-0"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {panelLead.leadOrganisationName}
+                        </span>
+                      </div>
+                    )}
+                    {panelLead.leadIndustry && (
+                      <div className="flex items-center gap-2.5">
+                        <Icon
+                          name="mdi:domain"
+                          className="w-4 h-4 text-gray-400 shrink-0"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {panelLead.leadIndustry}
+                        </span>
+                      </div>
+                    )}
+                    {panelLead.noOfEmployee && (
+                      <div className="flex items-center gap-2.5">
+                        <Icon
+                          name="mdi:account-group-outline"
+                          className="w-4 h-4 text-gray-400 shrink-0"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {panelLead.noOfEmployee} employees
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-gray-50 rounded-xl p-3">
@@ -3998,10 +4176,11 @@ export default function LeadListPage() {
                   </h2>
                   <p className="text-xs text-blue-100 mt-0.5">
                     {editingLead
-                      ? `Updating: ${editingLead.companyContactPersonName ||
-                      editingLead.leadOrganisationName ||
-                      "Lead"
-                      }`
+                      ? `Updating: ${
+                          editingLead.companyContactPersonName ||
+                          editingLead.leadOrganisationName ||
+                          "Lead"
+                        }`
                       : "Fill in the details to create a new lead"}
                   </p>
                 </div>
@@ -4082,10 +4261,11 @@ export default function LeadListPage() {
       {toast &&
         createPortal(
           <div
-            className={`fixed bottom-6 right-6 z-[60] flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === "success"
-              ? "bg-emerald-600 text-white"
-              : "bg-red-600 text-white"
-              }`}
+            className={`fixed bottom-6 right-6 z-[60] flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
+              toast.type === "success"
+                ? "bg-emerald-600 text-white"
+                : "bg-red-600 text-white"
+            }`}
           >
             <Icon
               name={
@@ -4102,4 +4282,3 @@ export default function LeadListPage() {
     </div>
   );
 }
-

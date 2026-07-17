@@ -53,7 +53,7 @@ export default function NegotiationDetailPage() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setEditedLead(prev => ({ ...prev, [name]: value }));
+    setEditedLead((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSaveEdit = async (e) => {
@@ -87,8 +87,13 @@ export default function NegotiationDetailPage() {
     return (
       <div className="h-screen flex justify-center items-center">
         <div className="text-center">
-          <Icon icon="mdi:alert-circle" className="text-6xl text-gray-400 mx-auto" />
-          <h2 className="text-2xl font-bold mt-4 text-gray-700">Negotiation Not Found</h2>
+          <Icon
+            icon="mdi:alert-circle"
+            className="text-6xl text-gray-400 mx-auto"
+          />
+          <h2 className="text-2xl font-bold mt-4 text-gray-700">
+            Negotiation Not Found
+          </h2>
           <button
             onClick={() => navigate(-1)}
             className="mt-4 text-blue-600 hover:underline"
@@ -110,7 +115,7 @@ export default function NegotiationDetailPage() {
               onClick={() => navigate(-1)}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <Icon icon="mdi:arrow-left" className="text-xl text-gray-600" />
+              <Icon icon="mdi:arrow-left" className="text-xl text-black" />
             </button>
             <div>
               <h1 className="text-xl font-semibold text-gray-800">
@@ -171,16 +176,41 @@ export default function NegotiationDetailPage() {
 const ViewMode = ({ lead }) => (
   <div className="grid lg:grid-cols-3 gap-6">
     <div className="lg:col-span-2 space-y-6">
-      <InfoSection title="General Information" fields={getGeneralFields(lead)} />
-      <InfoSection title="Quotation & Commercials" fields={getCommercialFields(lead)} />
-      <InfoSection title="Inquiry Details & Source" fields={getSourceFields(lead)} />
+      <InfoSection
+        title="General Information"
+        fields={getGeneralFields(lead)}
+      />
+      <InfoSection
+        title="Quotation & Commercials"
+        fields={getCommercialFields(lead)}
+      />
+      {/* <InfoSection
+        title="Inquiry Details & Source"
+        fields={getSourceFields(lead)}
+      /> */}
     </div>
 
     <div className="space-y-5">
-      <StatCard title="Quotation Value" value={formatCurrency(lead.quotationAmount)} icon="mdi:currency-inr" />
-      <StatCard title="Revision" value={lead.quotationRevision || "R0"} icon="mdi:file-document-edit" />
-      <StatCard title="Lead Status" value={lead.leadOutcomeStatus || "—"} icon="mdi:chart-timeline-variant" />
-      <StatCard title="Lead Source" value={lead.leadSource || "—"} icon="mdi:source-branch" />
+      <StatCard
+        title="Quotation Value"
+        value={formatCurrency(lead.quotationAmount)}
+        icon="mdi:currency-inr"
+      />
+      <StatCard
+        title="Revision"
+        value={lead.quotationRevision || "R0"}
+        icon="mdi:file-document-edit"
+      />
+      <StatCard
+        title="Lead Status"
+        value={lead.leadOutcomeStatus || "—"}
+        icon="mdi:chart-timeline-variant"
+      />
+      <StatCard
+        title="Lead Source"
+        value={lead.leadSource || "—"}
+        icon="mdi:source-branch"
+      />
     </div>
   </div>
 );
@@ -195,7 +225,9 @@ const EditForm = ({ lead, onCancel, onSave, onChange, updating, error }) => {
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-lg font-semibold text-gray-800">Edit Lead</h2>
-            <p className="text-sm text-gray-500">Update the details to modify the lead</p>
+            <p className="text-sm text-gray-500">
+              Update the details to modify the lead
+            </p>
           </div>
           <button
             onClick={onCancel}
@@ -219,7 +251,9 @@ const EditForm = ({ lead, onCancel, onSave, onChange, updating, error }) => {
         <div className="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
             <Icon icon="mdi:information-outline" className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-gray-700">Basic Information</h3>
+            <h3 className="text-sm font-semibold text-gray-700">
+              Basic Information
+            </h3>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -256,9 +290,7 @@ const EditForm = ({ lead, onCancel, onSave, onChange, updating, error }) => {
                 label="Enquiry Date"
                 name="inquiryDate"
                 value={
-                  lead.inquiryDate
-                    ? String(lead.inquiryDate).split("T")[0]
-                    : ""
+                  lead.inquiryDate ? String(lead.inquiryDate).split("T")[0] : ""
                 }
                 onChange={onChange}
                 type="date"
@@ -278,7 +310,9 @@ const EditForm = ({ lead, onCancel, onSave, onChange, updating, error }) => {
         <div className="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
             <Icon icon="mdi:tag-outline" className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-gray-700">Lead Details</h3>
+            <h3 className="text-sm font-semibold text-gray-700">
+              Lead Details
+            </h3>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -317,7 +351,9 @@ const EditForm = ({ lead, onCancel, onSave, onChange, updating, error }) => {
         <div className="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
             <Icon icon="mdi:file-document-outline" className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-gray-700">Quotation Details</h3>
+            <h3 className="text-sm font-semibold text-gray-700">
+              Quotation Details
+            </h3>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -354,9 +390,13 @@ const EditForm = ({ lead, onCancel, onSave, onChange, updating, error }) => {
                 </select>
               </div>
               <FormField
-                label="Quotation Date"
+                label="Quotation Working Date"
                 name="quotationDate"
-                value={lead.quotationDate ? String(lead.quotationDate).split("T")[0] : ""}
+                value={
+                  lead.quotationDate
+                    ? String(lead.quotationDate).split("T")[0]
+                    : ""
+                }
                 onChange={onChange}
                 type="date"
               />
@@ -375,11 +415,13 @@ const EditForm = ({ lead, onCancel, onSave, onChange, updating, error }) => {
           </div>
         </div>
 
-        {/* Description & Remarks */}
+        Description & Remarks
         <div className="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
             <Icon icon="mdi:note-text-outline" className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-gray-700">Description & Remarks</h3>
+            <h3 className="text-sm font-semibold text-gray-700">
+              Description & Remarks
+            </h3>
           </div>
           <div className="p-6">
             <div className="space-y-4">
@@ -446,7 +488,15 @@ const EditForm = ({ lead, onCancel, onSave, onChange, updating, error }) => {
   );
 };
 
-const FormField = ({ label, name, value, onChange, type = "text", required = false, placeholder = "" }) => (
+const FormField = ({
+  label,
+  name,
+  value,
+  onChange,
+  type = "text",
+  required = false,
+  placeholder = "",
+}) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">
       {label} {required && <span className="text-red-500">*</span>}
@@ -496,9 +546,7 @@ const StatCard = ({ title, value, icon }) => (
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
           {title}
         </p>
-        <p className="text-lg font-bold mt-1 text-gray-800 truncate">
-          {value}
-        </p>
+        <p className="text-lg font-bold mt-1 text-gray-800 truncate">{value}</p>
       </div>
       <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 ml-3">
         <Icon icon={icon} className="text-blue-600 text-xl" />
@@ -538,8 +586,9 @@ const getCommercialFields = (lead) => [
   { label: "Quotation Number", value: lead.quotationNumber },
   { label: "Quotation Amount", value: formatCurrency(lead.quotationAmount) },
   { label: "Quotation Revision", value: lead.quotationRevision || "R0" },
-  { label: "Quotation Date", value: formatDate(lead.quotationDate) },
+  { label: "Quotation Working Date", value: formatDate(lead.quotationDate) },
   { label: "Sent Date", value: formatDate(lead.quotationSentDate) },
+  { label: "Follow Up Remarks", value: lead.followUpRemark },
 ];
 
 const getSourceFields = (lead) => [

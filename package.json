@@ -30,6 +30,7 @@
     "react-select": "^5.10.2",
     "recharts": "^3.8.1",
     "xlsx": "^0.18.5",
+    "country-state-city": "^3.2.1",
     "xlsx-js-style": "^1.2.0",
     "zustand": "^4.5.2"
   },
