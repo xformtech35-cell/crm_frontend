@@ -2721,14 +2721,12 @@ export default function LeadListPage() {
               New Lead
             </button>
 
-            <Link
+            {/* <Link
               to="/lead/pipeline"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-semibold hover:from-violet-700 hover:to-indigo-700 transition-all shadow-sm shadow-violet-200"
-              title="Advanced Pipeline View"
-            >
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-semibold hover:from-violet-700 hover:to-indigo-700 transition-all shadow-sm shadow-violet-200" title="Advanced Pipeline View" >
               <Icon name="mdi:chart-sankey" className="w-3.5 h-3.5" />
               Pipeline
-            </Link>
+            </Link> */}
 
             <Link
               to="/negotiation"

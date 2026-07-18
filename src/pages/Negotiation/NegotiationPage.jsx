@@ -761,15 +761,14 @@ export default function NegotiationPage() {
                       </div>
                     </td>
                     <td className="px-2 sm:px-3 py-1.5 sm:py-2.5">
-                      <Link
-                        to={`/quotation/${deal.id}`}
-                        state={{ deal }}
-                        className="font-mono text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors text-[10px] sm:text-xs truncate block max-w-[100px] sm:max-w-none"
-                        title={deal.quotationNo}
-                      >
-                        {deal.quotationNo || "-"}
-                      </Link>
-                    </td>
+  <button
+    onClick={() => openRevisionHistory(deal)}
+    className="font-mono text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors text-[10px] sm:text-xs truncate block max-w-[100px] sm:max-w-none"
+    title="View Revision History"
+  >
+    {deal.quotationNo || "-"}
+  </button>
+</td>
                     <td className="px-2 sm:px-3 py-1.5 sm:py-2.5">
                       <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100 whitespace-nowrap">
                         {deal.quotationRevision || "—"}
@@ -866,7 +865,7 @@ export default function NegotiationPage() {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex items-center justify-end gap-0.5 sm:gap-1">
-                        <button
+                        {/* <button
                           onClick={() => openRevisionHistory(deal)}
                           className="p-1 sm:p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors shrink-0"
                           title="Revision History"
@@ -875,7 +874,7 @@ export default function NegotiationPage() {
                             name="mdi:history"
                             className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5"
                           />
-                        </button>
+                        </button> */}
                         <Link
                           to={`/negotiation/${deal.id}`}
                           className="p-1 sm:p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors shrink-0"
