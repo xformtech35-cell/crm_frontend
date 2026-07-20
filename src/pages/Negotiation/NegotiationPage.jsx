@@ -946,12 +946,13 @@ export default function NegotiationPage() {
           </div>,
           document.body,
         )}
+        
 
       {/* ─── Revision Modal ────────────────────────────────── */}
       {showRevisionModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl border border-gray-100 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
-            {/* Modal Header */}
+            
             <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-slate-50/50">
               <div className="flex items-center justify-between">
                 <div>
@@ -1174,6 +1175,239 @@ export default function NegotiationPage() {
           </div>
         </div>
       )}
+
+{/* ─── Revision Modal ────────────────────────────────── */}
+{/* {showRevisionModal && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+    <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl border border-gray-100 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
+      
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-slate-50/50">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-2">
+              <Icon
+                name="mdi:history"
+                className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600"
+              />
+              Revision History
+            </h3>
+            <p className="text-[10px] sm:text-xs text-gray-500 mt-1 truncate max-w-[200px] sm:max-w-none">
+              Detailed quotation proposal versions for{" "}
+              <span className="font-semibold text-gray-700">
+                {selectedDeal?.negotiationName ||
+                  selectedDeal?.negotiationTitle ||
+                  "N/A"}
+              </span>
+            </p>
+          </div>
+          <button
+            onClick={() => setShowRevisionModal(false)}
+            className="text-gray-400 hover:text-gray-650 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <Icon name="mdi:close" className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+        </div>
+
+        <div className="mt-2 sm:mt-3 flex flex-wrap gap-2 items-center bg-white p-2 sm:p-3 rounded-lg border border-gray-200/60 shadow-sm text-xs">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">
+              Quotation No.
+            </span>
+            <span className="font-mono font-semibold text-gray-800 text-[10px] sm:text-xs">
+              {selectedDeal?.quotationNo || "N/A"}
+            </span>
+          </div>
+          <div className="w-px h-6 bg-gray-200 mx-1 sm:mx-2" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">
+              Current Revision
+            </span>
+            <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100 w-fit">
+              {selectedDeal?.quotationRevision || "R0"}
+            </span>
+          </div>
+          <div className="w-px h-6 bg-gray-200 mx-1 sm:mx-2" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">
+              Current Amount
+            </span>
+            <span className="font-bold text-gray-900 text-[10px] sm:text-xs">
+              {formatCurrency(
+                selectedDeal?.quotationAmount || 0,
+                selectedDeal?.leadCountry,
+              )}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto bg-gray-50/30 space-y-4 sm:space-y-6">
+        {(() => {
+          // Group revisions by revisionNo and get the latest for each
+          const revisionMap = new Map();
+          revisions.forEach(rev => {
+            const revNo = rev.revisionNo;
+            // If this revision number doesn't exist in map, or this revision is newer
+            if (!revisionMap.has(revNo) || new Date(rev.updatedDate) > new Date(revisionMap.get(revNo).updatedDate)) {
+              revisionMap.set(revNo, rev);
+            }
+          });
+          
+          // Convert map to array and sort by revision number in descending order (R5, R4, R3...)
+          const uniqueRevisions = Array.from(revisionMap.values())
+            .sort((a, b) => {
+              // Extract numeric value from revisionNo (e.g., "R5" -> 5)
+              const numA = parseInt(a.revisionNo.replace('R', ''));
+              const numB = parseInt(b.revisionNo.replace('R', ''));
+              return numB - numA; // Descending order
+            });
+
+          return uniqueRevisions.map((rev, idx) => {
+            const prevRev = idx < uniqueRevisions.length - 1 ? uniqueRevisions[idx + 1] : null;
+            const diff = prevRev
+              ? Number(rev.quotationAmount || 0) -
+                Number(prevRev.quotationAmount || 0)
+              : null;
+            const isLatest = idx === 0;
+
+            return (
+              <div
+                key={rev.id}
+                className="relative flex gap-4 sm:gap-6 pl-4 pb-2 last:pb-0"
+              >
+                {idx < uniqueRevisions.length - 1 && (
+                  <span
+                    className="absolute left-[21px] sm:left-[25px] top-6 bottom-0 w-0.5 bg-blue-100"
+                    aria-hidden="true"
+                  />
+                )}
+
+                <div className="relative z-10 flex h-4 w-4 sm:h-5 sm:w-5 flex-none items-center justify-center rounded-full bg-white mt-1">
+                  {isLatest ? (
+                    <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-blue-600 ring-4 ring-blue-100" />
+                  ) : (
+                    <div className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-gray-300 ring-4 ring-gray-150" />
+                  )}
+                </div>
+
+                <div
+                  className={`flex-1 bg-white rounded-xl border p-3 sm:p-4 shadow-sm hover:shadow-md transition-all duration-200 ${
+                    isLatest
+                      ? "border-blue-200 ring-1 ring-blue-50"
+                      : "border-gray-200/60"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] sm:text-xs font-bold text-gray-900">
+                        Revision {rev.revisionNo}
+                      </span>
+                      {isLatest ? (
+                        <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                          Active
+                        </span>
+                      ) : (
+                        <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-200/60">
+                          Superseded
+                        </span>
+                      )}
+                    </div>
+
+                    <span
+                      className={getRevStatusClass(rev.negotiationStatus)}
+                    >
+                      {rev.negotiationStatus}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 bg-gray-50/50 p-2 sm:p-2.5 rounded-lg border border-gray-100 mb-2 text-[10px] sm:text-xs">
+                    <div>
+                      <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
+                        Amount
+                      </span>
+                      <div className="flex flex-wrap items-baseline gap-1">
+                        <span className="font-bold text-gray-900 text-xs sm:text-sm">
+                          {formatCurrency(
+                            rev.quotationAmount || 0,
+                            selectedDeal?.leadCountry,
+                          )}
+                        </span>
+                        {diff !== null && diff !== 0 && (
+                          <span
+                            className={`inline-flex items-center gap-0.5 text-[8px] sm:text-[10px] font-bold ${
+                              diff > 0
+                                ? "text-emerald-600"
+                                : "text-rose-600"
+                            }`}
+                          >
+                            <Icon
+                              name={
+                                diff > 0 ? "mdi:arrow-up" : "mdi:arrow-down"
+                              }
+                              className="w-2.5 h-2.5 sm:w-3 sm:h-3"
+                            />
+                            {formatCurrency(
+                              Math.abs(diff),
+                              selectedDeal?.leadCountry,
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
+                        Date & Time
+                      </span>
+                      <span className="font-semibold text-gray-700 text-[10px] sm:text-xs">
+                        {new Date(rev.updatedDate).toLocaleDateString(
+                          "en-IN",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )}{" "}
+                        ·{" "}
+                        {new Date(rev.updatedDate).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-[10px] sm:text-xs text-gray-600 leading-relaxed bg-slate-50/20 p-2 rounded-lg border border-dashed border-gray-100">
+                    <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-0.5">
+                      Remarks
+                    </span>
+                    {rev.remarks || (
+                      <em className="text-gray-400">No remarks added.</em>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          });
+        })()}
+        {revisions.length === 0 && (
+          <div className="text-center py-6 sm:py-8 text-gray-400 bg-white border border-dashed border-gray-200 rounded-xl">
+            <Icon
+              name="mdi:history"
+              className="w-8 h-8 sm:w-10 sm:h-10 mx-auto text-gray-300 mb-2"
+            />
+            <p className="text-xs sm:text-sm font-semibold">
+              No revision history found
+            </p>
+            <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
+              This lead has no previous quotation revisions recorded.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)} */}
 
       {/* ─── Lead Detail Modal (View/Edit) ───────────────── */}
       {showDetailModal && (

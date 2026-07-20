@@ -529,6 +529,9 @@ export default function LeadListPage() {
   const [gradeFilter, setGradeFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [groupFilter, setGroupFilter] = useState("");
+const [leadStatusFilter, setLeadStatusFilter] = useState("");
+const [quotationStatusFilter, setQuotationStatusFilter] = useState("");
   const [sortKey, setSortKey] = useState("leadCreatedDate");
   const [sortDir, setSortDir] = useState("desc");
   const [currentView, setCurrentView] = useState("table");
@@ -764,16 +767,18 @@ export default function LeadListPage() {
   }
 
   const filtersActive = useMemo(
-    () =>
-      searchQuery !== "" ||
-      sourceFilter !== "" ||
-      gradeFilter !== "" ||
-      dateFrom !== "" ||
-      dateTo !== "" ||
-      activeStatus !== "All",
-    [searchQuery, sourceFilter, gradeFilter, dateFrom, dateTo, activeStatus],
-  );
-
+  () =>
+    searchQuery !== "" ||
+    sourceFilter !== "" ||
+    gradeFilter !== "" ||
+    dateFrom !== "" ||
+    dateTo !== "" ||
+    activeStatus !== "All" ||
+    groupFilter !== "" ||
+    leadStatusFilter !== "" ||
+    quotationStatusFilter !== "",
+  [searchQuery, sourceFilter, gradeFilter, dateFrom, dateTo, activeStatus, groupFilter, leadStatusFilter, quotationStatusFilter],
+);
   const filteredLeads = useMemo(() => {
     let list = allLeads;
 
@@ -820,6 +825,27 @@ export default function LeadListPage() {
     //     return enquiryDate <= dateTo;
     //   });
     // }
+
+ // Group Filter
+  if (groupFilter) {
+    list = list.filter((l) => l.leadGroup === groupFilter);
+  }
+
+  // Lead Status Filter - Filters by leadStatus field
+  // if (leadStatusFilter) {
+  //   list = list.filter((l) => l.leadStatus === leadStatusFilter);
+  // }
+
+  // Add Lead Status Filter - Filters by leadOutcomeStatus
+if (leadStatusFilter) {
+  list = list.filter((l) => l.leadOutcomeStatus === leadStatusFilter);
+}
+
+  // Quotation Status Filter - Filters by enquiryStatus field
+  if (quotationStatusFilter) {
+    list = list.filter((l) => l.enquiryStatus === quotationStatusFilter);
+  }
+
 
     if (dateFrom) {
       list = list.filter((l) => {
@@ -868,6 +894,9 @@ export default function LeadListPage() {
     sortKey,
     sortDir,
     scoresMap,
+     groupFilter,        // ← ADD THIS
+  leadStatusFilter,   // ← ADD THIS
+  quotationStatusFilter, // ← ADD THIS
   ]);
 
   const totalCount = filteredLeads.length;
@@ -977,6 +1006,9 @@ export default function LeadListPage() {
     sortKey,
     sortDir,
     pageSize,
+    groupFilter,        // ← ADD THIS
+  leadStatusFilter,   // ← ADD THIS
+  quotationStatusFilter, // ← ADD THIS
   ]);
   const kanbanColumns = useMemo(
     () =>
@@ -1041,6 +1073,9 @@ export default function LeadListPage() {
     setActiveStatus("All");
     setSortKey("leadCreatedDate");
     setSortDir("desc");
+    setGroupFilter("");           // ← ADD THIS
+  setLeadStatusFilter("");      // ← ADD THIS
+  setQuotationStatusFilter(""); // ← ADD THIS
   }
 
   // chart
@@ -3016,7 +3051,7 @@ export default function LeadListPage() {
                           />
                         </button>
                       </th>
-                      <th className="w-[140px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      {/* <th className="w-[140px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         <button
                           className="flex items-center gap-1 hover:text-gray-700 transition-colors"
                           onClick={() => toggleSort("leadGroup")}
@@ -3027,7 +3062,7 @@ export default function LeadListPage() {
                             className="w-3.5 h-3.5"
                           />
                         </button>
-                      </th>
+                      </th> */}
 
                       {/* <th className="w-[10%] py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                           <button
@@ -3041,7 +3076,7 @@ export default function LeadListPage() {
                             />
                           </button>
                         </th> */}
-                      <th className="w-[140px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      {/* <th className="w-[140px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         <button
                           className="flex items-center gap-1 hover:text-gray-700 transition-colors"
                           onClick={() => toggleSort("leadOutcomeStatus")}
@@ -3065,7 +3100,247 @@ export default function LeadListPage() {
                             className="w-3.5 h-3.5"
                           />
                         </button>
-                      </th>
+                      </th> */}
+
+{/* GROUP Column with Dropdown Filter */}
+<th className="w-[140px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold uppercase tracking-wide relative">
+  <div className="flex flex-col items-start gap-1.5">
+    <div className="flex items-center gap-2 cursor-pointer group relative">
+      <span className="text-xs font-semibold text-black uppercase tracking-wide">GROUP</span>
+      <span 
+        className="text-[10px] text-gray-400 hover:text-blue-600 transition-colors"
+        onClick={(e) => {
+          e.stopPropagation();
+          // Close all other dropdowns first
+          document.querySelectorAll('.dropdown-menu').forEach(el => {
+            if (el.id !== 'group-dropdown') {
+              el.classList.add('hidden');
+            }
+          });
+          // Toggle this dropdown
+          const dropdown = document.getElementById('group-dropdown');
+          if (dropdown) {
+            dropdown.classList.toggle('hidden');
+          }
+        }}
+      >
+        ▼
+      </span>
+    </div>
+    {/* Show selected value */}
+    {/* <span className="text-[10px] text-gray-600 font-medium">
+      {groupFilter || "All"}
+    </span> */}
+    {/* Dropdown Menu with Custom Scroll Bar */}
+    <div id="group-dropdown" className="dropdown-menu hidden absolute left-3 top-full mt-6 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[140px] max-h-[200px] overflow-y-auto custom-scrollbar">
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setGroupFilter("");
+          setCurrentPage(1);
+          document.getElementById('group-dropdown')?.classList.add('hidden');
+        }}
+      >
+        All
+      </div>
+      {leadGroups.map((group) => (
+        <div 
+          key={group.id}
+          className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+          onClick={() => {
+            setGroupFilter(group.groupName);
+            setCurrentPage(1);
+            document.getElementById('group-dropdown')?.classList.add('hidden');
+          }}
+        >
+          {group.groupName}
+        </div>
+      ))}
+    </div>
+  </div>
+</th>
+
+{/* LEAD STATUS Column with Dropdown Filter */}
+<th className="w-[140px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold uppercase tracking-wide relative">
+  <div className="flex flex-col items-start gap-1.5">
+    <div className="flex items-center gap-2 cursor-pointer group relative">
+      <span className="text-xs font-semibold text-black uppercase tracking-wide">LEAD STATUS</span>
+      <span 
+        className="text-[10px] text-gray-400 hover:text-blue-600 transition-colors"
+        onClick={(e) => {
+          e.stopPropagation();
+          // Close all other dropdowns first
+          document.querySelectorAll('.dropdown-menu').forEach(el => {
+            if (el.id !== 'leadstatus-dropdown') {
+              el.classList.add('hidden');
+            }
+          });
+          // Toggle this dropdown
+          const dropdown = document.getElementById('leadstatus-dropdown');
+          if (dropdown) {
+            dropdown.classList.toggle('hidden');
+          }
+        }}
+      >
+        ▼
+      </span>
+    </div>
+    {/* Show selected value */}
+    {/* <span className="text-[10px] text-gray-600 font-medium">
+      {leadStatusFilter || "All"}
+    </span> */}
+    {/* Dropdown Menu with Custom Scroll Bar */}
+    <div id="leadstatus-dropdown" className="dropdown-menu hidden absolute left-3 top-full mt-6 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[140px] max-h-[200px] overflow-y-auto custom-scrollbar">
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setLeadStatusFilter("");
+          setCurrentPage(1);
+          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
+        }}
+      >
+        All
+      </div>
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setLeadStatusFilter("Negotiation");
+          setCurrentPage(1);
+          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
+        }}
+      >
+        Negotiation
+      </div>
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setLeadStatusFilter("Open");
+          setCurrentPage(1);
+          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
+        }}
+      >
+        Open
+      </div>
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setLeadStatusFilter("Won");
+          setCurrentPage(1);
+          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
+        }}
+      >
+        Won
+      </div>
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setLeadStatusFilter("Closed");
+          setCurrentPage(1);
+          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
+        }}
+      >
+        Closed
+      </div>
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setLeadStatusFilter("Qualified");
+          setCurrentPage(1);
+          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
+        }}
+      >
+        Qualified
+      </div>
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setLeadStatusFilter("Disqualified");
+          setCurrentPage(1);
+          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
+        }}
+      >
+        Disqualified
+      </div>
+    </div>
+  </div>
+</th>
+
+{/* QUOTATION STATUS Column with Dropdown Filter */}
+<th className="w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold uppercase tracking-wide relative">
+  <div className="flex flex-col items-start gap-1.5">
+    <div className="flex items-center gap-2 cursor-pointer group relative">
+      <span className="text-xs font-semibold text-black uppercase tracking-wide">QUOTATION STATUS</span>
+      <span 
+        className="text-[10px] text-gray-400 hover:text-blue-600 transition-colors"
+        onClick={(e) => {
+          e.stopPropagation();
+          // Close all other dropdowns first
+          document.querySelectorAll('.dropdown-menu').forEach(el => {
+            if (el.id !== 'quotation-dropdown') {
+              el.classList.add('hidden');
+            }
+          });
+          // Toggle this dropdown
+          const dropdown = document.getElementById('quotation-dropdown');
+          if (dropdown) {
+            dropdown.classList.toggle('hidden');
+          }
+        }}
+      >
+        ▼
+      </span>
+    </div>
+    {/* Show selected value */}
+    {/* <span className="text-[10px] text-gray-600 font-medium">
+      {quotationStatusFilter || "All"}
+    </span> */}
+    {/* Dropdown Menu with Custom Scroll Bar */}
+    <div id="quotation-dropdown" className="dropdown-menu hidden absolute left-3 top-full mt-6 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[140px] max-h-[200px] overflow-y-auto custom-scrollbar">
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setQuotationStatusFilter("");
+          setCurrentPage(1);
+          document.getElementById('quotation-dropdown')?.classList.add('hidden');
+        }}
+      >
+        All
+      </div>
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setQuotationStatusFilter("Pending");
+          setCurrentPage(1);
+          document.getElementById('quotation-dropdown')?.classList.add('hidden');
+        }}
+      >
+        Pending
+      </div>
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setQuotationStatusFilter("Sent");
+          setCurrentPage(1);
+          document.getElementById('quotation-dropdown')?.classList.add('hidden');
+        }}
+      >
+        Sent
+      </div>
+      <div 
+        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+        onClick={() => {
+          setQuotationStatusFilter("Working");
+          setCurrentPage(1);
+          document.getElementById('quotation-dropdown')?.classList.add('hidden');
+        }}
+      >
+        Working
+      </div>
+    </div>
+  </div>
+</th>
+
+
                       <th className="w-[250px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         ENQUIRY DESCRIPTION
                       </th>

@@ -1141,6 +1141,43 @@ body.light-theme .hero-dark-card .text-emerald-300 * {
   color: #ffffff !important;
 }
 
+/* Custom Scrollbar Styles for Dropdowns */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+  margin: 4px 0;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* For Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
+}
+
+/* Optional: Add hover effect on scrollbar track */
+.custom-scrollbar::-webkit-scrollbar-track:hover {
+  background: #e8e8e8;
+}
+
+/* Optional: Add active effect on scrollbar thumb */
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: #444;
+}
 
 
 

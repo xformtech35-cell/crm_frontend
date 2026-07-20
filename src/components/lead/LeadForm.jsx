@@ -35,6 +35,7 @@ const EMPTY = {
   companyContactPersonName: '',
   quotationNumber: '',
   quotationDate: '',
+  quotationSentDate: '',  // ← ADD THIS
   quotationAmount: '',
   followUpRemark: '',
   ongoingPriority: '',
@@ -74,6 +75,7 @@ function populate(data) {
     companyContactPersonName: data.companyContactPersonName ?? '',
     quotationNumber: data.quotationNumber ?? '',
     quotationDate: data.quotationDate ?? '',
+     quotationSentDate: data.quotationSentDate ?? '',  // ← ADD THIS
     quotationAmount: data.quotationAmount != null && data.quotationAmount !== '' ? convertFromBase(data.quotationAmount, data.leadCountry) : '',
     followUpRemark: data.followUpRemark ?? '',
     ongoingPriority: data.ongoingPriority ?? '',
@@ -750,7 +752,15 @@ export default function LeadForm({ initial, loading, onSubmit, quotation }) {
                 />
               </div>
 
-
+<div>
+  <label className={labelCls}>Final Quotation Sent Date</label>
+  <input
+    type="date"
+    value={form.quotationSentDate}
+    onChange={(e) => set('quotationSentDate', e.target.value)}
+    className={inputCls}
+  />
+</div>
 
               <div className="sm:col-span-2">
                 <label className={labelCls}>Follow Up Remark</label>
