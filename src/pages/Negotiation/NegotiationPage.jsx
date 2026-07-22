@@ -875,15 +875,16 @@ export default function NegotiationPage() {
                             className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5"
                           />
                         </button> */}
-                        <Link
-                          to={`/negotiation/${deal.id}`}
-                          className="p-1 sm:p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors shrink-0"
-                        >
-                          <Icon
-                            name="mdi:eye-outline"
-                            className="w-3.5 h-3.5 sm:w-4 sm:h-4"
-                          />
-                        </Link>
+                     <Link
+  to={`/lead/${deal.leadIdFk || deal.leadId}`}
+  className="p-1 sm:p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors shrink-0"
+  title="View Lead Details"
+>
+  <Icon
+    name="mdi:eye-outline"
+    className="w-3.5 h-3.5 sm:w-4 sm:h-4"
+  />
+</Link>
                         <button
                           onClick={() => handleDelete(deal.id)}
                           className="p-1 sm:p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"

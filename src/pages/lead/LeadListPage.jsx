@@ -3111,7 +3111,8 @@ if (leadStatusFilter) {
                       </th> */}
 
 {/* GROUP Column with Dropdown Filter */}
-<th className="w-[140px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold uppercase tracking-wide relative">
+  <th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+
   <div className="flex flex-col items-start gap-1.5">
     <div className="flex items-center gap-2 cursor-pointer group relative">
       <span className="text-xs font-semibold text-black uppercase tracking-wide">GROUP</span>
@@ -3169,7 +3170,7 @@ if (leadStatusFilter) {
 </th>
 
 {/* LEAD STATUS Column with Dropdown Filter */}
-<th className="w-[140px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold uppercase tracking-wide relative">
+                      <th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
   <div className="flex flex-col items-start gap-1.5">
     <div className="flex items-center gap-2 cursor-pointer group relative">
       <span className="text-xs font-semibold text-black uppercase tracking-wide">LEAD STATUS</span>
@@ -3274,7 +3275,7 @@ if (leadStatusFilter) {
 </th>
 
 {/* QUOTATION STATUS Column with Dropdown Filter */}
-<th className="w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold uppercase tracking-wide relative">
+                      <th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
   <div className="flex flex-col items-start gap-1.5">
     <div className="flex items-center gap-2 cursor-pointer group relative">
       <span className="text-xs font-semibold text-black uppercase tracking-wide">QUOTATION STATUS</span>

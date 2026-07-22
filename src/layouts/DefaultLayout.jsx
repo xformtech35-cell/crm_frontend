@@ -408,6 +408,7 @@ export default function DefaultLayout() {
             icon: "mdi:account-arrow-right-outline",
             permissions: ["leads.view"],
           },
+          
            {
             to: "/leadsource",
             label: "Lead Sources",
@@ -589,8 +590,14 @@ export default function DefaultLayout() {
   }, [location.pathname]);
 
   const isActive = (path) => {
-    return location.pathname === path || location.pathname.startsWith(`${path}/`);
-  };
+     if (path === "/lead" && location.pathname === "/negotiation") {
+    return true; // This would make Leads active when on Negotiations
+  }
+  if (path === "/negotiation" && location.pathname === "/lead") {
+    return true; // This would make Negotiations active when on Leads
+  }
+  return location.pathname === path || location.pathname.startsWith(`${path}/`);
+};
 
   const navigateTo = (path) => {
     setQuickCreateOpen(false);
