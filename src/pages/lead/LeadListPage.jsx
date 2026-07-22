@@ -2898,6 +2898,14 @@ if (leadStatusFilter) {
               <p className="text-base font-semibold text-gray-700 mb-1">
                 No leads found
               </p>
+          <div>    <button
+    onClick={clearFilters}
+    className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
+  >
+    <Icon name="mdi:close-circle-outline" className="w-3.5 h-3.5" />
+    Clear filters
+  </button>
+</div>
               <p className="text-sm text-gray-400 mb-5">
                 Try adjusting your filters or add a new lead.
               </p>
