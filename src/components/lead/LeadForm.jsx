@@ -1048,7 +1048,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
       }
     }
   };
-
+const apiiii = import.meta.env.VITE_API_BASE
   // Load masters (Lead Sources & Groups)
   const loadMasters = async () => {
     try {
@@ -1700,7 +1700,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                     if (path.startsWith("uploads") && !path.startsWith("uploads/")) {
                       path = path.replace("uploads", "uploads/");
                     }
-                    const fileUrl = path.startsWith("http") ? path : `https://api-test.richgoldshine.com/${path}`;
+                    const fileUrl = path.startsWith("http") ? path : `${apiiii}/${path}`;
                     const ext = doc.name.split(".").pop()?.toLowerCase();
                     const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(ext);
                     const isPdf = ext === "pdf";
@@ -1715,9 +1715,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                           <p className="text-xs text-gray-400">{doc.uploadedAt ? formatDate(doc.uploadedAt) : "Unknown date"}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1.5 rounded-lg bg-blue-100 text-blue-700 text-xs font-medium hover:bg-blue-200 transition-colors">
-                            <Icon name="mdi:eye-outline" className="h-3.5 w-3.5 inline mr-1" />View
-                          </a>
+                          
                           <a href={fileUrl} download target="_blank" rel="noopener noreferrer" className="px-2.5 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-medium hover:bg-emerald-200 transition-colors">
                             <Icon name="mdi:download" className="h-3.5 w-3.5 inline mr-1" />Download
                           </a>
