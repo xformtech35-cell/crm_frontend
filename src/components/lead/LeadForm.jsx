@@ -1693,7 +1693,7 @@ const apiiii = import.meta.env.VITE_API_BASE
               </div>
 
               {/* Existing Documents */}
-              {filesFromLead.length > 0 && (
+              {/* {filesFromLead.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {filesFromLead.map((doc, index) => {
                     let path = doc.path || "";
@@ -1724,7 +1724,7 @@ const apiiii = import.meta.env.VITE_API_BASE
                     );
                   })}
                 </div>
-              )}
+              )} */}
 
               {/* Upload zone */}
               <div

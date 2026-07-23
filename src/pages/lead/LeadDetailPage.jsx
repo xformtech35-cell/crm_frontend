@@ -951,70 +951,12 @@ async function handleUploadFiles(fileMap) {
               </section>
             )}
 
-            {/* ─── DOCUMENTS TAB ─── */}
+           
             {/* ─── DOCUMENTS TAB ─── */}
 {activeTab === "documents" && (
   <section className="space-y-4">
     <h3 className="text-base font-semibold text-gray-900">Documents</h3>
-    
-    {/* Display existing documents */}
-    {filesFromLead.length > 0 && (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {filesFromLead.map((doc, index) => {
-          let path = doc.path || "";
-          if (path.startsWith("uploads") && !path.startsWith("uploads/")) {
-            path = path.replace("uploads", "uploads/");
-          }
-          const fileUrl = path.startsWith("http") ? path : `https://api-test.richgoldshine.com/${path}`;
-          const ext = doc.name.split(".").pop()?.toLowerCase();
-          const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(ext);
-          const isPdf = ext === "pdf";
-
-          return (
-            <div key={doc.id || index} className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 flex items-center gap-3 hover:border-blue-200 hover:bg-blue-50/20 transition-all">
-              <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${isImage ? "bg-pink-50" : isPdf ? "bg-red-50" : "bg-blue-50"}`}>
-                <Icon name={isImage ? "mdi:image-outline" : isPdf ? "mdi:file-pdf-box" : "mdi:file-document-outline"} className={`h-6 w-6 ${isImage ? "text-pink-500" : isPdf ? "text-red-500" : "text-blue-500"}`} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-800 truncate">{doc.name}</p>
-                <p className="text-xs text-gray-400">{doc.uploadedAt ? formatDate(doc.uploadedAt) : "Unknown date"}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button type="button" onClick={() => { setPreviewFile(fileUrl); setShowPreview(true); }} className="px-2.5 py-1.5 rounded-lg bg-blue-100 text-blue-700 text-xs font-medium hover:bg-blue-200 transition-colors">
-                  <Icon name="mdi:eye-outline" className="h-3.5 w-3.5 inline mr-1" />View
-                </button>
-                <a href={fileUrl} download target="_blank" rel="noopener noreferrer" className="px-2.5 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-medium hover:bg-emerald-200 transition-colors">
-                  <Icon name="mdi:download" className="h-3.5 w-3.5 inline mr-1" />Download
-                </a>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    )}
-
-    {/* Upload zone - same as in edit panel but also in documents tab */}
-    <div
-      className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center bg-gray-50/50 hover:border-blue-300 hover:bg-blue-50/20 transition-all cursor-pointer"
-      onDrop={(e) => { e.preventDefault(); handleUploadFiles(e.dataTransfer?.files); }}
-      onDragOver={(e) => e.preventDefault()}
-      onClick={() => uploadInput.current?.click()}
-    >
-      <Icon name={uploading ? "mdi:loading" : "mdi:cloud-upload-outline"} className={`h-10 w-10 text-gray-400 mx-auto mb-3 ${uploading ? "animate-spin" : ""}`} />
-      <p className="text-sm font-medium text-gray-700">{uploading ? "Uploading..." : "Drag & drop files here"}</p>
-      <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, Images, Documents (up to 4 files)</p>
-      <button type="button" className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 shadow-sm">
-        <Icon name="mdi:plus" className="h-4 w-4" /> Choose Files
-      </button>
-      <input ref={uploadInput} type="file" className="hidden" multiple onChange={(e) => handleUploadFiles(e.target.files)} />
-      {uploading && (
-        <div className="mt-4">
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-600 transition-all animate-pulse" style={{ width: "60%" }} />
-          </div>
-        </div>
-      )}
-    </div>
+  
   </section>
 )}
 
