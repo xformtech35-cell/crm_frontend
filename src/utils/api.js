@@ -6,58 +6,142 @@ function getStoredToken() {
   const authStorage = localStorage.getItem('auth-storage')
   if (authStorage) {
     try {
-      return JSON.parse(authStorage)?.state?.token
-    } catch {
+      const parsed = JSON.parse(authStorage)
+      return parsed?.state?.token || null
+    } catch (e) {
+      console.error('Error parsing auth-storage:', e)
       localStorage.removeItem('auth-storage')
     }
   }
-  return localStorage.getItem('crm_token')
+  // Fallback for older storage
+  return localStorage.getItem('crm_token') || null
 }
 
 function getStoredImpersonatedCompanyId() {
   const authStorage = localStorage.getItem('auth-storage')
   if (authStorage) {
     try {
-      return JSON.parse(authStorage)?.state?.selectedCompanyId
-    } catch {
-      // ignore
+      return JSON.parse(authStorage)?.state?.selectedCompanyId || null
+    } catch (e) {
+      console.error('Error parsing company id:', e)
     }
   }
   return null
 }
 
-export function getApiClient(baseURL) {
-  if (!instance) {
-    instance = axios.create({ baseURL })
+// Helper to get user info from token
+function getUserFromToken() {
+  const token = getStoredToken()
+  if (!token) return null
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload
+  } catch (e) {
+    return null
+  }
+}
 
-    instance.interceptors.request.use((config) => {
-      const token = getStoredToken()
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-      }
-      const companyId = getStoredImpersonatedCompanyId()
-      if (companyId) {
-        config.headers['X-Company-Id'] = companyId
-      }
-      return config
+export function getApiClient(baseURL) {
+  // Always create a new instance to avoid stale token issues
+  // Or recreate if token has changed
+  const token = getStoredToken()
+  const shouldRecreate = !instance || instance.defaults.headers?.Authorization !== `Bearer ${token}`
+  
+  if (!instance || shouldRecreate) {
+    // Create fresh instance
+    instance = axios.create({ 
+      baseURL,
+      timeout: 30000, // 30 seconds timeout
     })
 
-    instance.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          localStorage.removeItem('crm_token')
-          localStorage.removeItem('crm_user')
-          localStorage.removeItem('auth-storage')
-          window.location.href = '/login'
+    // Request interceptor - runs for every request
+    instance.interceptors.request.use(
+      (config) => {
+        // Get fresh token for each request
+        const freshToken = getStoredToken()
+        if (freshToken) {
+          config.headers.Authorization = `Bearer ${freshToken}`
+        } else {
+          console.warn('⚠️ No token found for request:', config.url)
         }
+        
+        const companyId = getStoredImpersonatedCompanyId()
+        if (companyId) {
+          config.headers['X-Company-Id'] = companyId
+        }
+        
+        // Log request for debugging (remove in production)
+        console.log('📤 API Request:', {
+          method: config.method?.toUpperCase(),
+          url: config.url,
+          hasToken: !!freshToken,
+          tokenPreview: freshToken ? `${freshToken.substring(0, 20)}...` : 'none'
+        })
+        
+        return config
+      },
+      (error) => {
+        console.error('Request interceptor error:', error)
+        return Promise.reject(error)
+      }
+    )
+
+    // Response interceptor
+    instance.interceptors.response.use(
+      (response) => {
+        // Log success (remove in production)
+        console.log('📥 API Response:', {
+          status: response.status,
+          url: response.config?.url
+        })
+        return response
+      },
+      (error) => {
+        // Handle specific status codes
+        if (error.response) {
+          console.error('❌ API Error Response:', {
+            status: error.response.status,
+            url: error.config?.url,
+            data: error.response.data
+          })
+          
+          // Handle 401 - Unauthorized
+          if (error.response.status === 401) {
+            console.warn('🔒 Token expired or invalid. Redirecting to login...')
+            localStorage.removeItem('crm_token')
+            localStorage.removeItem('crm_user')
+            localStorage.removeItem('auth-storage')
+            // Reset instance so new token will be used after login
+            instance = null
+            window.location.href = '/login'
+          }
+          
+          // Handle 403 - Forbidden
+          if (error.response.status === 403) {
+            console.warn('🚫 Forbidden - Check user permissions')
+            // Try to refresh token or show appropriate message
+          }
+        } else if (error.request) {
+          console.error('❌ No response received:', error.request)
+        } else {
+          console.error('❌ Request error:', error.message)
+        }
+        
         return Promise.reject(error)
       }
     )
   }
+  
   return instance
 }
 
 export function resetApiClient() {
   instance = null
+  console.log('🔄 API Client reset')
+}
+
+// Helper to force token refresh
+export function refreshApiClient() {
+  instance = null
+  return getApiClient(instance?.defaults?.baseURL || '')
 }

@@ -5,10 +5,89 @@ const BASE_URL = import.meta.env.VITE_API_BASE || 'https://api-test.richgoldshin
 export function useApi() {
   const client = getApiClient(BASE_URL)
 
-  async function get(url) {
-    const res = await client.get(url)
-    return res.data.data
+  // Add a request interceptor to ensure token is always included
+  client.interceptors.request.use(
+    (config) => {
+      // Get token from localStorage
+      const authData = localStorage.getItem('auth-storage');
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData);
+          const token = parsed?.state?.token;
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (e) {
+          console.error('Error parsing auth data:', e);
+        }
+      }
+      
+      // Log the request for debugging
+      console.log('📤 API Request:', {
+        method: config.method?.toUpperCase(),
+        url: config.url,
+        headers: config.headers,
+        data: config.data instanceof FormData ? 'FormData' : config.data
+      });
+      
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+
+  // Add a response interceptor for better error handling
+  client.interceptors.response.use(
+    (response) => {
+      console.log('📥 API Response:', {
+        status: response.status,
+        url: response.config?.url,
+        data: response.data
+      });
+      return response;
+    },
+    (error) => {
+      console.error('❌ API Error:', {
+        status: error.response?.status,
+        url: error.config?.url,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // Handle 403 specifically
+      if (error.response?.status === 403) {
+        console.error('🔒 Forbidden - Check user permissions or token validity');
+        // Optionally redirect to login if token is invalid
+        // const authData = localStorage.getItem('auth-storage');
+        // if (authData) {
+        //   const parsed = JSON.parse(authData);
+        //   const token = parsed?.state?.token;
+        //   if (token) {
+        //     console.log('Token exists but is invalid or expired');
+        //     // Clear token and redirect to login
+        //     localStorage.removeItem('auth-storage');
+        //     window.location.href = '/login';
+        //   }
+        // }
+      }
+      
+      return Promise.reject(error);
+    }
+  );
+
+  // async function get(url) {
+  //   const res = await client.get(url)
+  //   return res.data.data
+  // }
+async function get(url, config = {}) {
+  const res = await client.get(url, config);
+
+  // If downloading a file, return the full axios response
+  if (config.responseType === "blob") {
+    return res;
   }
+
+  return res.data.data;
+}
 
   async function post(url, data) {
     const res = await client.post(url, data)
@@ -43,9 +122,6 @@ export function useApi() {
     })
     return res.data.data
   }
-  
-
-  
 
   return { get, post, put, patch, del, postForm, putForm, client }
 }

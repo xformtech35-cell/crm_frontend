@@ -2910,13 +2910,13 @@ if (leadStatusFilter) {
                 Try adjusting your filters or add a new lead.
               </p>
               <div className="flex gap-2">
-                <button
+                {/* <button
                   onClick={() => setShowImportModal(true)}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <Icon name="mdi:cloud-upload-outline" className="w-4 h-4" />
                   Import leads
-                </button>
+                </button> */}
                 <button
                   onClick={openCreate}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 transition-colors"

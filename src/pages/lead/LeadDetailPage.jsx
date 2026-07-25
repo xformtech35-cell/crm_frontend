@@ -13,6 +13,7 @@ import AppConfirmDialog from "../../components/common/AppConfirmDialog";
 import Icon from "../../components/Icon";
 import StarRating from "../../components/common/StarRating";
 import LeadForm from "../../components/lead/LeadForm";
+import { useNegotiation } from "../../hooks/useNegotiation";
 
 /* ─── Helpers ─── */
 function gradeColor(grade) {
@@ -87,6 +88,7 @@ export default function LeadDetailPage() {
   const { getAll: getAllOpportunities } = useOpportunity();
   const { getAll: getAllOrganizations } = useOrganization();
   const { getAll: getAllContacts } = useContact();
+  const negotiationApi = useNegotiation();
 
   const [previewFile, setPreviewFile] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -119,6 +121,8 @@ export default function LeadDetailPage() {
   const uploadInput = useRef(null);
 
   const [leadForm, setLeadForm] = useState({ leadFirstName: "", leadLastName: "", leadTitle: "", leadEmail: "", leadMobileNo: "", leadPhoneNo: "", leadOrganisationName: "", leadWebsite: "", leadIndustry: "", leadStatus: "New Lead", leadSource: "", leadCountry: "", leadCity: "", leadState: "", leadAddress: "", noOfEmployee: undefined, leadType: "", designation: "", leadReason: "", leadRef: "", enquiryStatus: "", quotationRevision: "" });
+
+  const apiiii = import.meta.env.VITE_API_BASE;
 
   function showToastMsg(type, message) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -194,9 +198,24 @@ export default function LeadDetailPage() {
 
   const filesFromLead = useMemo(() => {
     if (!lead) return [];
-    return [lead.uploadDocument, lead.uploadDocument1, lead.uploadDocument2, lead.uploadDocument3]
-      .filter(Boolean)
-      .map((path, idx) => ({ id: `${idx}-${path}`, path, name: path.split("/").pop() || `Document ${idx + 1}`, uploadedAt: lead.leadCreatedDate, size: "Unknown" }));
+    const docs = [];
+    const docFields = ['uploadDocument', 'uploadDocument1', 'uploadDocument2', 'uploadDocument3'];
+    
+    docFields.forEach((field, idx) => {
+      const path = lead[field];
+      if (path) {
+        docs.push({
+          id: `${field}-${path}`,
+          path: path,
+          name: path.split('/').pop() || `Document ${idx + 1}`,
+          uploadedAt: lead.leadCreatedDate || new Date().toISOString(),
+          size: "Unknown",
+          field: field
+        });
+      }
+    });
+    
+    return docs;
   }, [lead]);
 
   const relatedOpportunity = useMemo(() => opportunities.find((o) => o.leadIdFk === id) || null, [opportunities, id]);
@@ -436,39 +455,66 @@ export default function LeadDetailPage() {
     Array.from(files).slice(0, 4).forEach((file, index) => { fileMap[slots[index]] = file; });
     try {
       setUploading(true);
+      setUploadProgress(0);
+      
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
       await update(lead.leadId, { ...lead }, fileMap);
+      
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      
       await loadAll();
       showToastMsg("success", "Files uploaded successfully");
-    } catch (error) { console.error(error); showToastMsg("error", "Upload failed"); }
-    finally { setUploading(false); }
+      
+      setTimeout(() => {
+        setUploading(false);
+        setUploadProgress(0);
+      }, 500);
+    } catch (error) { 
+      console.error(error); 
+      showToastMsg("error", "Upload failed");
+      setUploading(false);
+      setUploadProgress(0);
+    }
   }
 
-  // Add this function in LeadDetailPage component
-async function handleUploadFiles(fileMap) {
-  try {
-    // Upload files using the update function
-    const updated = await update(lead.leadId, { ...lead }, fileMap);
-    
-    // Update the lead state with the new data
-    setLead(updated);
-    
-    // Reload all data to refresh the documents tab
-    await loadAll();
-    
-    showToastMsg("success", "Files uploaded successfully");
-    return updated;
-  } catch (error) {
-    console.error("Upload failed:", error);
-    showToastMsg("error", "Failed to upload files");
-    throw error;
+  async function handleUploadFiles(fileMap) {
+    try {
+      // Upload files using the update function
+      const updated = await update(lead.leadId, { ...lead }, fileMap);
+      
+      // Update the lead state with the new data
+      setLead(updated);
+      
+      // Reload all data to refresh the documents tab
+      await loadAll();
+      
+      showToastMsg("success", "Files uploaded successfully");
+      return updated;
+    } catch (error) {
+      console.error("Upload failed:", error);
+      showToastMsg("error", "Failed to upload files");
+      throw error;
+    }
   }
-}
 
   const grade = score?.grade || lead?.grade || "0";
   const gradeColors = gradeColor(grade);
   const days = daysSince(lead?.leadCreatedDate);
   const currentStage = getStageForLead(lead);
   const currentStepIndex = PIPELINE_STEPS.indexOf(currentStage);
+
+  // Format date helper
+  const formatDateDisplay = (dateStr) => {
+    if (!dateStr) return 'Unknown date';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Unknown date';
+    return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
   /* ─── Loading ─── */
   if (pageLoading) return (
@@ -951,14 +997,107 @@ async function handleUploadFiles(fileMap) {
               </section>
             )}
 
-           
             {/* ─── DOCUMENTS TAB ─── */}
-{activeTab === "documents" && (
-  <section className="space-y-4">
-    <h3 className="text-base font-semibold text-gray-900">Documents</h3>
-  
-  </section>
-)}
+            {activeTab === "documents" && (
+              <section className="space-y-4">
+                <h3 className="text-base font-semibold text-gray-900">Documents</h3>
+                
+                {/* Upload Zone */}
+                <div
+                  className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center bg-gray-50/50 hover:border-blue-300 hover:bg-blue-50/20 transition-all cursor-pointer"
+                  onDrop={(e) => { e.preventDefault(); uploadFiles(e.dataTransfer?.files); }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => uploadInput.current?.click()}
+                >
+                  <Icon name={uploading ? "mdi:loading" : "mdi:cloud-upload-outline"} className={`h-10 w-10 text-gray-400 mx-auto mb-3 ${uploading ? "animate-spin" : ""}`} />
+                  <p className="text-sm font-medium text-gray-700">{uploading ? "Uploading..." : "Drag & drop files here"}</p>
+                  <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, Images, Documents (up to 4 files)</p>
+                  <button type="button" className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 shadow-sm">
+                    <Icon name="mdi:plus" className="h-4 w-4" /> Choose Files
+                  </button>
+                  <input ref={uploadInput} type="file" className="hidden" multiple onChange={(e) => uploadFiles(e.target.files)} />
+                  {uploading && (
+                    <div className="mt-4">
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1.5">{uploadProgress}% uploaded</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Document List */}
+                {filesFromLead.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {filesFromLead.map((doc, index) => {
+                      let path = doc.path || "";
+                      if (path.startsWith("uploads") && !path.startsWith("uploads/")) {
+                        path = path.replace("uploads", "uploads/");
+                      }
+                      const fileUrl = path.startsWith("http") ? path : `${apiiii}/${path}`;
+                      const ext = doc.name.split(".").pop()?.toLowerCase();
+                      const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(ext);
+                      const isPdf = ext === "pdf";
+
+                      return (
+                        <div key={doc.id || index} className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 flex items-center gap-3 hover:border-blue-200 hover:bg-blue-50/20 transition-all">
+                          <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${isImage ? "bg-pink-50" : isPdf ? "bg-red-50" : "bg-blue-50"}`}>
+                            <Icon 
+                              name={isImage ? "mdi:image-outline" : isPdf ? "mdi:file-pdf-box" : "mdi:file-document-outline"} 
+                              className={`h-6 w-6 ${isImage ? "text-pink-500" : isPdf ? "text-red-500" : "text-blue-500"}`} 
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-800 truncate">{doc.name}</p>
+                            <p className="text-xs text-gray-400">{doc.uploadedAt ? formatDateDisplay(doc.uploadedAt) : "Unknown date"}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isImage && (
+                              <button 
+                                type="button" 
+                                onClick={() => { setPreviewFile(fileUrl); setShowPreview(true); }} 
+                                className="px-2.5 py-1.5 rounded-lg bg-blue-100 text-blue-700 text-xs font-medium hover:bg-blue-200 transition-colors"
+                              >
+                                <Icon name="mdi:eye-outline" className="h-3.5 w-3.5 inline mr-1" />View
+                              </button>
+                            )}
+                             {/* <button
+                              type="button"
+                              onClick={() =>
+                               negotiationApi.handleViewDocument(
+                                  doc.fileUrl
+                                )
+                              }
+                              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[10px] text-white hover:bg-blue-700"
+                            >
+                              <Icon name="mdi:eye-outline" className="w-3.5 h-3.5" />
+                              View
+                            </button> */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                               negotiationApi.handleViewDocument(
+                                  doc.path
+                                )
+                              }
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-medium hover:bg-emerald-200 transition-colors"
+                            >
+                              <Icon name="mdi:download" className="h-3.5 w-3.5 inline mr-1" />Download
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-gray-400">
+                    <Icon name="mdi:file-multiple-outline" className="h-12 w-12 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm font-medium">No documents uploaded</p>
+                    <p className="text-xs mt-1">Upload files using the upload zone above</p>
+                  </div>
+                )}
+              </section>
+            )}
 
             {/* ─── RELATED TAB ─── */}
             {activeTab === "related" && (
