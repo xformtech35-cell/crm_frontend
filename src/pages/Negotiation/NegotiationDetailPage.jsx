@@ -334,20 +334,20 @@ const ViewMode = ({
       <InfoSection title="General Information" fields={getGeneralFields(lead)} />
       <InfoSection title="Quotation & Commercials" fields={getCommercialFields(lead)} />
       
-      <DocumentSection 
+      {/* <DocumentSection 
         documentExists={documentExists}
         handleViewDocument={handleViewDocument}
         handleDownloadDocument={handleDownloadDocument}
         handleDeleteDocument={handleDeleteDocument}
-      />
+      /> */}
       
-      <RevisionHistorySection 
+      {/* <RevisionHistorySection 
         revisions={revisions}
         loading={revisionLoading}
         showRevisions={showRevisions}
         setShowRevisions={setShowRevisions}
         lead={lead}
-      />
+      /> */}
     </div>
 
     <div className="space-y-5">
