@@ -575,9 +575,9 @@ export default function DefaultLayout() {
 
   const quickCreateItems = [
     { to: "/lead", label: "New Lead", icon: "mdi:account-plus-outline", color: "blue" },
-    { to: "/deals", label: "New Deal", icon: "mdi:cash-plus", color: "green" },
-    { to: "/activities", label: "Log Activity", icon: "mdi:timeline-plus-outline", color: "purple" },
-    { to: "/contact", label: "New Contact", icon: "mdi:account-plus", color: "orange" },
+    //{ to: "/deals", label: "New Deal", icon: "mdi:cash-plus", color: "green" },
+    //{ to: "/activities", label: "Log Activity", icon: "mdi:timeline-plus-outline", color: "purple" },
+    //{ to: "/contact", label: "New Contact", icon: "mdi:account-plus", color: "orange" },
   ];
 
   const pageTitle = useMemo(() => {

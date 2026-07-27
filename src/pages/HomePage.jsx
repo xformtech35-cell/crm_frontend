@@ -554,7 +554,7 @@ export default function HomePage() {
 
   const chartTabs = [
     { key: 'status', label: 'Lead Status' },
-    { key: 'opp', label: 'Pipeline Stage' },
+    // { key: 'opp', label: 'Pipeline Stage' },
     { key: 'source', label: 'Lead Source' },
   ]
 
@@ -991,7 +991,7 @@ export default function HomePage() {
               </div>
 
               {/* Activity Feed */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+              {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
                   <div>
                     <p className="text-xs sm:text-sm font-semibold text-gray-800">Recent Activity</p>
@@ -1019,7 +1019,7 @@ export default function HomePage() {
                     <div className="px-3 sm:px-5 py-6 sm:py-8 text-center text-xs sm:text-sm text-gray-400">No recent activity.</div>
                   )}
                 </div>
-              </div>
+              </div> */}
             </div>
 
             {/* RIGHT COLUMN */}
@@ -1290,7 +1290,7 @@ export default function HomePage() {
               </div>
 
               {/* Tasks */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+              {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
                   <div>
                     <p className="text-xs sm:text-sm font-semibold text-gray-800">Tasks - {DATE_LABELS[dateRange]}</p>
@@ -1326,10 +1326,10 @@ export default function HomePage() {
                     <div className="px-3 sm:px-5 py-4 sm:py-5 text-center text-xs sm:text-sm text-gray-400">No tasks found.</div>
                   )}
                 </div>
-              </div>
+              </div> */}
 
               {/* Reminders */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+              {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
                   <div>
                     <p className="text-xs sm:text-sm font-semibold text-gray-800">Reminders - {DATE_LABELS[dateRange]}</p>
@@ -1365,7 +1365,7 @@ export default function HomePage() {
                     <div className="px-3 sm:px-5 py-4 sm:py-5 text-center text-xs sm:text-sm text-gray-400">No reminders found.</div>
                   )}
                 </div>
-              </div>
+              </div> */}
 
               {/* Team Leaderboard */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm">

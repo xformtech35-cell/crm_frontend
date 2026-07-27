@@ -3671,6 +3671,7 @@ if (leadStatusFilter) {
                               <span className="text-gray-300">—</span>
                             )}
                           </td>
+                          
                           <td className="px-3 py-2 text-xs text-gray-600">
                             {lead.inquiryDate ? (
                               formatDate(lead.inquiryDate)
