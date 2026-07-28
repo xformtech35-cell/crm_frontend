@@ -192,7 +192,6 @@ export default function RolePage() {
   const visibleGroups = useMemo(() => {
     if (isSuperAdmin) return groupedPermissions;
     
-    // Only show groups and modules where the current user has permission
     return groupedPermissions.map(group => {
       const filteredModules = group.modules.map(mod => {
         const hasView = currentUserPermissions.includes(mod.viewPermission.key);
@@ -268,7 +267,6 @@ export default function RolePage() {
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -293,7 +291,6 @@ export default function RolePage() {
     };
 
     fetchPermissions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRole]);
 
   const getRecordCount = (role) => {
@@ -317,30 +314,48 @@ export default function RolePage() {
                            (filterStatus === "low" && count < 5);
       return matchesSearch && matchesFilter;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roles, searchTerm, filterStatus, teamMembers]);
 
+  // Check if role is admin
   const isAdminRole = (role) => {
     if (!role) return false;
     const name = role.roleName?.toUpperCase();
     return name === 'ADMIN' || name === 'SUPER_ADMIN' || name === 'SUPER ADMIN';
   };
 
+  // Check if user can modify role permissions
   const canModifyRole = (role) => {
     if (!role) return false;
+    
+    // Super admin can modify any role
+    if (isSuperAdmin) return true;
+    
+    // Allow modifying admin roles
     if (isAdminRole(role)) {
-      return isSuperAdmin;
+      return true;
     }
+    
+    // For other roles, allow modification
     return true;
   };
 
+  // Check if user can delete or rename role
   const canDeleteOrRenameRole = (role) => {
     if (!role) return false;
+    
+    // Super admin can do anything
     if (isSuperAdmin) return true;
-    // Non-super-admins cannot rename/delete system template roles (where userIdFk is null/undefined)
+    
+    // Allow renaming/deleting admin roles
+    if (isAdminRole(role)) {
+      return true;
+    }
+    
+    // Non-super-admins cannot delete system template roles
     if (role.userIdFk === null || role.userIdFk === undefined) {
       return false;
     }
+    
     // Non-super-admins can only rename/delete roles they created
     return Number(role.userIdFk) === Number(currentUser?.userid);
   };
@@ -450,15 +465,42 @@ export default function RolePage() {
     return count > 0 && count < keys.length;
   };
 
+  // ENHANCED: Handle save permissions with admin role support
   const handleSavePermissions = async () => {
     if (!selectedRole) return;
     setSavingPermissions(true);
     try {
+      // Save permissions to backend
       await roleHook.savePermissions(selectedRole.roleId, selectedPermissions);
-      showToast("Permissions updated successfully", "success");
+      
+      // Check if current user has this role
+      const currentUserRoleId = currentUser?.roleId;
+      const isCurrentUserRole = currentUserRoleId === selectedRole.roleId;
+      
+      if (isCurrentUserRole) {
+        // Refresh user permissions from backend
+        try {
+          // Try to refresh user data
+          const refreshedUser = await roleHook.refreshUserPermissions?.();
+          if (refreshedUser) {
+            // Update auth store with new permissions
+            useAuthStore.setState({ user: refreshedUser });
+            showToast("Permissions updated and applied successfully!", "success");
+          } else {
+            // Fallback: reload page
+            showToast("Permissions saved! Refreshing to apply changes...", "info");
+            setTimeout(() => window.location.reload(), 1500);
+          }
+        } catch (refreshError) {
+          console.error("Failed to refresh permissions:", refreshError);
+          showToast("Permissions saved. Please refresh the page to see changes.", "info");
+        }
+      } else {
+        showToast("Permissions updated successfully", "success");
+      }
     } catch (error) {
       console.error("Failed to save permissions:", error);
-      showToast("Failed to save permissions", "error");
+      showToast(error.message || "Failed to save permissions", "error");
     } finally {
       setSavingPermissions(false);
     }
@@ -489,7 +531,6 @@ export default function RolePage() {
         {/* Filter & Export Bar */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 items-center gap-3">
-            {/* Filter Dropdown */}
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
@@ -502,7 +543,6 @@ export default function RolePage() {
             </select>
           </div>
 
-          {/* Export Button */}
           <button
             onClick={exportToCSV}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
@@ -514,7 +554,7 @@ export default function RolePage() {
 
         {/* Master-Detail Panel Layout */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Left Panel: Role List (col-span-4) */}
+          {/* Left Panel: Role List */}
           <div className="lg:col-span-4 space-y-4">
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
@@ -524,7 +564,6 @@ export default function RolePage() {
                 </span>
               </div>
               
-              {/* Search Input */}
               <div className="relative">
                 <Icon name="mdi:magnify" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -536,7 +575,6 @@ export default function RolePage() {
                 />
               </div>
 
-              {/* Role list items */}
               <div className="space-y-1 overflow-y-auto max-h-[500px] pr-1">
                 {loading ? (
                   <div className="py-8 text-center text-sm text-slate-500">Loading roles...</div>
@@ -612,7 +650,7 @@ export default function RolePage() {
             </div>
           </div>
 
-          {/* Right Panel: Permissions Configurator (col-span-8) */}
+          {/* Right Panel: Permissions Configurator */}
           <div className="lg:col-span-8">
             {selectedRole ? (
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
@@ -657,12 +695,12 @@ export default function RolePage() {
                   )}
                 </div>
 
-                {/* Security Notice */}
+                {/* Info Notice for Admin Roles */}
                 {isAdminRole(selectedRole) && !isSuperAdmin && (
-                  <div className="rounded-lg bg-amber-50 p-3.5 text-xs text-amber-800 border border-amber-200 flex items-start gap-2">
-                    <Icon name="mdi:alert" className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                  <div className="rounded-lg bg-blue-50 p-3.5 text-xs text-blue-800 border border-blue-200 flex items-start gap-2">
+                    <Icon name="mdi:information" className="h-4 w-4 shrink-0 text-blue-600 mt-0.5" />
                     <span>
-                      <strong>System Protected Role:</strong> This is a core administrative role. Permissions can only be modified by a <strong>Super Admin</strong>.
+                      <strong>Admin Role:</strong> You can configure permissions for this role. These permissions will control what admin users can see and do.
                     </span>
                   </div>
                 )}
@@ -674,7 +712,6 @@ export default function RolePage() {
                   <div className="space-y-6">
                     {visibleGroups.map((group) => (
                       <div key={group.group} className="rounded-xl border border-slate-200 bg-slate-50/10 overflow-hidden shadow-sm">
-                        {/* Group Header */}
                         <div className="flex items-center gap-2 bg-slate-100/80 px-4 py-3 border-b border-slate-200">
                           <Icon name={group.icon} className="h-5 w-5 text-slate-600" />
                           <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
@@ -682,14 +719,13 @@ export default function RolePage() {
                           </h3>
                         </div>
 
-                        {/* Modules Table */}
                         <div className="overflow-x-auto">
                           <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
                             <thead className="bg-slate-50">
                               <tr>
                                 <th scope="col" className="px-4 py-3 font-semibold text-slate-700 w-1/4">Module Name</th>
-                                <th scope="col" className="px-4 py-3 font-semibold text-slate-700 w-1/3">Main Group Permission (Sidebar View)</th>
-                                <th scope="col" className="px-4 py-3 font-semibold text-slate-700">Sub Group Permissions (Actions)</th>
+                                <th scope="col" className="px-4 py-3 font-semibold text-slate-700 w-1/3">Main Group Permission</th>
+                                <th scope="col" className="px-4 py-3 font-semibold text-slate-700">Sub Group Permissions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 bg-white">
@@ -701,7 +737,6 @@ export default function RolePage() {
 
                                 return (
                                   <tr key={mod.name} className="hover:bg-slate-50/50 transition-colors">
-                                    {/* Module Name */}
                                     <td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-900">
                                       <div className="flex items-center gap-2">
                                         {!isReadOnly && (
@@ -713,14 +748,12 @@ export default function RolePage() {
                                             }}
                                             onChange={(e) => handleToggleModule(mod, e.target.checked)}
                                             className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
-                                            title="Toggle all module permissions"
                                           />
                                         )}
                                         <span>{mod.name}</span>
                                       </div>
                                     </td>
 
-                                    {/* Main View Permission */}
                                     <td className="px-4 py-4">
                                       <div className="flex items-center justify-between gap-4">
                                         <label className="flex items-center cursor-pointer select-none">
@@ -741,10 +774,9 @@ export default function RolePage() {
                                       </div>
                                     </td>
 
-                                    {/* Sub Action Permissions */}
                                     <td className="px-4 py-4">
                                       {mod.actions.length === 0 ? (
-                                        <span className="text-xs text-slate-400 italic">No sub-actions available</span>
+                                        <span className="text-xs text-slate-400 italic">No sub-actions</span>
                                       ) : (
                                         <div className="flex flex-wrap gap-x-6 gap-y-2">
                                           {mod.actions.map((act) => {
@@ -822,7 +854,7 @@ export default function RolePage() {
         </div>
       </div>
 
-      {/* ========== CREATE/EDIT DRAWER ========== */}
+      {/* Create/Edit Drawer */}
       {drawerOpen && (
         <>
           <div
