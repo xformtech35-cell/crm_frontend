@@ -29,6 +29,18 @@ function getStoredImpersonatedCompanyId() {
   return null
 }
 
+function getStoredImpersonatedTeamMemberId() {
+  const authStorage = localStorage.getItem('auth-storage')
+  if (authStorage) {
+    try {
+      return JSON.parse(authStorage)?.state?.selectedTeamMemberId || null
+    } catch (e) {
+      console.error('Error parsing team member id:', e)
+    }
+  }
+  return null
+}
+
 // Helper to get user info from token
 function getUserFromToken() {
   const token = getStoredToken()
@@ -69,6 +81,12 @@ export function getApiClient(baseURL) {
         if (companyId) {
           config.headers['X-Company-Id'] = companyId
         }
+
+        const teamMemberId = getStoredImpersonatedTeamMemberId()
+        if (teamMemberId) {
+          config.headers['X-Team-Member-Id'] = teamMemberId
+        }
+
         
         // Log request for debugging (remove in production)
         console.log('📤 API Request:', {

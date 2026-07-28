@@ -83,7 +83,21 @@ export default function NegotiationDetailPage() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setEditedLead((prev) => ({ ...prev, [name]: value }));
+    setEditedLead((prev) => {
+      const updated = { ...prev, [name]: value };
+      if (name === "quotationRevision" && value) {
+        const currentQuotNo = prev.quotationNumber || "";
+        if (currentQuotNo) {
+          // Replace trailing /R\d+ or append /R...
+          if (/\/R\d+$/i.test(currentQuotNo)) {
+            updated.quotationNumber = currentQuotNo.replace(/\/R\d+$/i, `/${value}`);
+          } else {
+            updated.quotationNumber = `${currentQuotNo}/${value}`;
+          }
+        }
+      }
+      return updated;
+    });
   };
 
   // const handleSaveEdit = async (e) => {
