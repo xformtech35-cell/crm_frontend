@@ -36,25 +36,24 @@ export default function NegotiationPage() {
   const [editMode, setEditMode] = useState(false);
   const [editedLead, setEditedLead] = useState({});
   const [leadError, setLeadError] = useState("");
- const uniqueRevisions = React.useMemo(() => {
-  const map = new Map();
+  const uniqueRevisions = React.useMemo(() => {
+    const map = new Map();
 
-  revisions.forEach((rev) => {
-    const key = rev.revisionNo || "R0";
+    revisions.forEach((rev) => {
+      const key = rev.revisionNo || "R0";
 
-    if (
-      !map.has(key) ||
-      new Date(rev.updatedDate) >
-        new Date(map.get(key).updatedDate)
-    ) {
-      map.set(key, rev);
-    }
-  });
+      if (
+        !map.has(key) ||
+        new Date(rev.updatedDate) > new Date(map.get(key).updatedDate)
+      ) {
+        map.set(key, rev);
+      }
+    });
 
-  return [...map.values()].sort(
-    (a, b) => new Date(b.updatedDate) - new Date(a.updatedDate)
-  );
-}, [revisions]);
+    return [...map.values()].sort(
+      (a, b) => new Date(b.updatedDate) - new Date(a.updatedDate),
+    );
+  }, [revisions]);
 
   // Structured Field Sections
   const GeneralFields = [
@@ -439,6 +438,7 @@ export default function NegotiationPage() {
     try {
       setSelectedDeal(deal);
       const data = await negotiationApi.getRevisions(deal.id);
+      
       console.log("Revisionsqwqq Data:", data);
       setRevisions(data || []);
       setShowRevisionModal(true);
@@ -567,7 +567,10 @@ export default function NegotiationPage() {
                 {/* Search Input */}
                 <div className="relative flex-1 min-w-[140px] max-w-[220px]">
                   <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                    <Icon name="mdi:magnify" className="w-3.5 h-3.5 text-gray-400" />
+                    <Icon
+                      name="mdi:magnify"
+                      className="w-3.5 h-3.5 text-gray-400"
+                    />
                   </div>
                   <input
                     type="text"
@@ -581,14 +584,20 @@ export default function NegotiationPage() {
                       onClick={() => setSearch("")}
                       className="absolute inset-y-0 right-0 pr-2.5 flex items-center"
                     >
-                      <Icon name="mdi:close-circle" className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 transition-colors" />
+                      <Icon
+                        name="mdi:close-circle"
+                        className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 transition-colors"
+                      />
                     </button>
                   )}
                 </div>
 
                 {/* Date Range Picker */}
                 <div className="flex items-center gap-1 bg-white px-2 py-1.5 rounded-md border border-gray-200 hover:border-gray-300 transition-colors">
-                  <Icon name="mdi:calendar-range" className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                  <Icon
+                    name="mdi:calendar-range"
+                    className="w-3.5 h-3.5 text-gray-400 flex-shrink-0"
+                  />
                   <input
                     type="date"
                     value={dateFrom}
@@ -596,7 +605,9 @@ export default function NegotiationPage() {
                     className="text-[10px] border-0 bg-transparent text-gray-700 focus:outline-none focus:ring-0 w-[70px] sm:w-[90px] py-0.5 font-medium"
                     placeholder="From"
                   />
-                  <span className="text-gray-300 text-[10px] font-medium">—</span>
+                  <span className="text-gray-300 text-[10px] font-medium">
+                    —
+                  </span>
                   <input
                     type="date"
                     value={dateTo}
@@ -606,7 +617,10 @@ export default function NegotiationPage() {
                   />
                   {(dateFrom || dateTo) && (
                     <button
-                      onClick={() => { setDateFrom(""); setDateTo(""); }}
+                      onClick={() => {
+                        setDateFrom("");
+                        setDateTo("");
+                      }}
                       className="ml-0.5 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
                     >
                       <Icon name="mdi:close-circle" className="w-3.5 h-3.5" />
@@ -616,7 +630,11 @@ export default function NegotiationPage() {
 
                 {/* Clear Button */}
                 <button
-                  onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); }}
+                  onClick={() => {
+                    setSearch("");
+                    setDateFrom("");
+                    setDateTo("");
+                  }}
                   className="px-2.5 py-1.5 text-[10px] font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors border border-transparent hover:border-gray-200 whitespace-nowrap"
                 >
                   Clear All
@@ -628,7 +646,10 @@ export default function NegotiationPage() {
                     onClick={() => exportToExcel(filteredDeals, "Negotiations")}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 text-white text-[10px] font-semibold hover:bg-emerald-700 transition-all shadow-sm hover:shadow whitespace-nowrap"
                   >
-                    <Icon name="mdi:file-excel-outline" className="w-3.5 h-3.5" />
+                    <Icon
+                      name="mdi:file-excel-outline"
+                      className="w-3.5 h-3.5"
+                    />
                     <span>Export</span>
                     {filteredDeals.length > 0 && (
                       <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-white text-[8px] font-bold">
@@ -666,7 +687,9 @@ export default function NegotiationPage() {
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                 </th>
-                <th className="w-[50px] sm:w-[70px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">SR.NO</th>
+                <th className="w-[50px] sm:w-[70px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
+                  SR.NO
+                </th>
                 <th className="min-w-[150px] sm:w-[200px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
                   <span className="truncate">Leads</span>
                 </th>
@@ -704,14 +727,23 @@ export default function NegotiationPage() {
             <tbody className="divide-y divide-gray-100 text-[10px] sm:text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan="11" className="text-center py-6 sm:py-8 text-gray-400">
-                    <Icon name="mdi:loading" className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto mb-2" />
+                  <td
+                    colSpan="11"
+                    className="text-center py-6 sm:py-8 text-gray-400"
+                  >
+                    <Icon
+                      name="mdi:loading"
+                      className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto mb-2"
+                    />
                     Loading negotiations...
                   </td>
                 </tr>
               ) : filteredDeals.length === 0 ? (
                 <tr>
-                  <td colSpan="11" className="text-center py-6 sm:py-8 text-gray-400">
+                  <td
+                    colSpan="11"
+                    className="text-center py-6 sm:py-8 text-gray-400"
+                  >
                     No negotiations found
                   </td>
                 </tr>
@@ -723,7 +755,10 @@ export default function NegotiationPage() {
                       idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"
                     } ${selectedIds.has(deal.id) ? "bg-blue-50/60" : "hover:bg-blue-50/40"}`}
                   >
-                    <td className="pl-2 sm:pl-4 py-1.5 sm:py-2" onClick={(e) => e.stopPropagation()}>
+                    <td
+                      className="pl-2 sm:pl-4 py-1.5 sm:py-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <input
                         type="checkbox"
                         checked={selectedIds.has(deal.id)}
@@ -737,7 +772,9 @@ export default function NegotiationPage() {
                     <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 max-w-[250px]">
                       <div
                         className="block w-[250px] overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-gray-900"
-                        title={deal.negotiationName || deal.negotiationTitle || ""}
+                        title={
+                          deal.negotiationName || deal.negotiationTitle || ""
+                        }
                       >
                         {deal.negotiationName || deal.negotiationTitle || (
                           <span className="text-gray-300">—</span>
@@ -758,26 +795,57 @@ export default function NegotiationPage() {
                         {deal.quotationRevision || "—"}
                       </span>
                     </td>
-                    <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 text-gray-600 truncate max-w-[80px] sm:max-w-[150px]" title={deal.enquiryDescription || ""}>
+                    <td
+                      className="px-2 sm:px-3 py-1.5 sm:py-2.5 text-gray-600 truncate max-w-[80px] sm:max-w-[150px]"
+                      title={deal.enquiryDescription || ""}
+                    >
                       {deal.enquiryDescription || "-"}
                     </td>
                     <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 font-bold text-gray-900 text-[10px] sm:text-xs whitespace-nowrap">
-                      {formatCurrency(deal.quotationAmount || 0, deal.leadCountry)}
+                      {formatCurrency(
+                        deal.quotationAmount || 0,
+                        deal.leadCountry,
+                      )}
                     </td>
                     <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 text-gray-500 text-[10px] sm:text-xs">
-                      {deal.quotationDate ? formatDate(deal.quotationDate) : <span className="text-gray-300">—</span>}
+                      {deal.quotationDate ? (
+                        formatDate(deal.quotationDate)
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
                     </td>
-                    <td className="px-2 sm:px-3 py-1.5 sm:py-2.5" onClick={(e) => e.stopPropagation()}>
+                    <td
+                      className="px-2 sm:px-3 py-1.5 sm:py-2.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <select
                         value={deal.leadOutcomeStatus || ""}
-                        onChange={(e) => handleStatusChange(deal.id, e.target.value)}
+                        onChange={(e) =>
+                          handleStatusChange(deal.id, e.target.value)
+                        }
                         className={`status-select-badge appearance-none bg-no-repeat bg-[right_0.4rem_center] bg-[length:0.7rem_0.7rem] pr-6 sm:pr-7 pl-2 sm:pl-3 py-0.5 sm:py-1 rounded-lg text-[9px] sm:text-xs font-semibold cursor-pointer border border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all duration-150 hover:shadow-sm hover:opacity-90 w-full max-w-[100px] sm:max-w-[135px] bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M6%208l4%204%204-4%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")] ${getStatusClass(deal.leadOutcomeStatus || "")}`}
                       >
-                        <option value="" className="bg-white text-gray-500">— None —</option>
-                        <option value="Negotiation" className="bg-white text-gray-700">Negotiation</option>
-                        <option value="Open" className="bg-white text-gray-700">Open</option>
-                        <option value="Won" className="bg-white text-gray-700">Won</option>
-                        <option value="Closed" className="bg-white text-gray-700">Closed</option>
+                        <option value="" className="bg-white text-gray-500">
+                          — None —
+                        </option>
+                        <option
+                          value="Negotiation"
+                          className="bg-white text-gray-700"
+                        >
+                          Negotiation
+                        </option>
+                        <option value="Open" className="bg-white text-gray-700">
+                          Open
+                        </option>
+                        <option value="Won" className="bg-white text-gray-700">
+                          Won
+                        </option>
+                        <option
+                          value="Closed"
+                          className="bg-white text-gray-700"
+                        >
+                          Closed
+                        </option>
                       </select>
                     </td>
                     {/* Document Column */}
@@ -787,23 +855,46 @@ export default function NegotiationPage() {
                         negotiationApi={negotiationApi}
                       />
                     </td> */}
-                    <td className={`sticky right-0 pl-2 sm:pl-3 pr-2 sm:pr-4 py-1.5 sm:py-2 shadow-[-8px_0_12px_rgba(15,23,42,0.04)] text-right ${
-                      selectedIds.has(deal.id) ? "bg-blue-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    }`} onClick={(e) => e.stopPropagation()}>
+                    <td
+                      className={`sticky right-0 pl-2 sm:pl-3 pr-2 sm:pr-4 py-1.5 sm:py-2 shadow-[-8px_0_12px_rgba(15,23,42,0.04)] text-right ${
+                        selectedIds.has(deal.id)
+                          ? "bg-blue-50"
+                          : idx % 2 === 0
+                            ? "bg-white"
+                            : "bg-gray-50"
+                      }`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="flex items-center justify-end gap-0.5 sm:gap-1">
                         <Link
                           to={`/negotiation/${deal.id}`}
                           className="p-1 sm:p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors shrink-0"
                           title="View Lead Details"
                         >
-                          <Icon name="mdi:eye-outline" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          <Icon
+                            name="mdi:eye-outline"
+                            className="w-3.5 h-3.5 sm:w-4 sm:h-4"
+                          />
+                        </Link>
+                        <Link
+                          to={`/negotiation/${deal.id}`}
+                          className="p-1 sm:p-1.5 rounded-lg text-gray-400 hover:bg-amber-50 hover:text-amber-600 transition-colors shrink-0"
+                          title="Edit Negotiation"
+                        >
+                          <Icon
+                            name="mdi:pencil-outline"
+                            className="w-3.5 h-3.5 sm:w-4 sm:h-4"
+                          />
                         </Link>
                         <button
                           onClick={() => handleDelete(deal.id)}
                           className="p-1 sm:p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
                           title="Delete Negotiation"
                         >
-                          <Icon name="mdi:trash-can-outline" className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5" />
+                          <Icon
+                            name="mdi:trash-can-outline"
+                            className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5"
+                          />
                         </button>
                       </div>
                     </td>
@@ -816,317 +907,332 @@ export default function NegotiationPage() {
       </div>
 
       {/* ─── Bulk Action Bar ─── */}
-      {selectedIds.size > 0 && createPortal(
-        <div className="bulk-action-bar fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 sm:gap-4 px-3 sm:px-5 py-2.5 sm:py-3.5 bg-slate-900 text-white rounded-xl sm:rounded-2xl shadow-2xl shadow-slate-900/50 border border-slate-800">
-          <span className="text-xs sm:text-sm font-bold">{selectedIds.size} selected</span>
-          <div className="w-px h-4 bg-slate-700" />
-          <button
-            onClick={() => exportToExcel(deals.filter((d) => selectedIds.has(d.id)), "Selected_Negotiations")}
-            className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-medium hover:text-blue-400 transition-colors"
-          >
-            <Icon name="mdi:download-outline" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden xs:inline">Export</span>
-          </button>
-          <button
-            onClick={handleBulkDelete}
-            className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-semibold hover:text-red-400 transition-colors"
-          >
-            <Icon name="mdi:trash-can-outline" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden xs:inline">Delete</span>
-          </button>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="ml-0 sm:ml-1 p-1 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
-          >
-            <Icon name="mdi:close" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          </button>
-        </div>,
-        document.body
-      )}
+      {selectedIds.size > 0 &&
+        createPortal(
+          <div className="bulk-action-bar fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 sm:gap-4 px-3 sm:px-5 py-2.5 sm:py-3.5 bg-slate-900 text-white rounded-xl sm:rounded-2xl shadow-2xl shadow-slate-900/50 border border-slate-800">
+            <span className="text-xs sm:text-sm font-bold">
+              {selectedIds.size} selected
+            </span>
+            <div className="w-px h-4 bg-slate-700" />
+            <button
+              onClick={() =>
+                exportToExcel(
+                  deals.filter((d) => selectedIds.has(d.id)),
+                  "Selected_Negotiations",
+                )
+              }
+              className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-medium hover:text-blue-400 transition-colors"
+            >
+              <Icon
+                name="mdi:download-outline"
+                className="w-3.5 h-3.5 sm:w-4 sm:h-4"
+              />
+              <span className="hidden xs:inline">Export</span>
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-semibold hover:text-red-400 transition-colors"
+            >
+              <Icon
+                name="mdi:trash-can-outline"
+                className="w-3.5 h-3.5 sm:w-4 sm:h-4"
+              />
+              <span className="hidden xs:inline">Delete</span>
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="ml-0 sm:ml-1 p-1 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+            >
+              <Icon name="mdi:close" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+          </div>,
+          document.body,
+        )}
 
       {/* ─── Revision Modal ─── */}
-     {showRevisionModal && (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
-    <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl border border-gray-100 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
-     
-      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-slate-50/50">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-2">
-              <Icon
-                name="mdi:history"
-                className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600"
-              />
-              Revision History
-            </h3>
-            <p className="text-[10px] sm:text-xs text-gray-500 mt-1 truncate max-w-[200px] sm:max-w-none">
-              Detailed quotation proposal versions for{" "}
-              <span className="font-semibold text-gray-700">
-                {selectedDeal?.negotiationName ||
-                  selectedDeal?.negotiationTitle ||
-                  "N/A"}
-              </span>
-            </p>
-          </div>
-          <button
-            onClick={() => setShowRevisionModal(false)}
-            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <Icon name="mdi:close" className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-        </div>
- 
-        {/* Professional Quotation Number Display */}
-        <div className="mt-3 px-4 sm:px-6 pb-2">
-          <div className="bg-gradient-to-r from-slate-50 to-white p-3 sm:p-4 rounded-lg border border-slate-200/80 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 border border-blue-100">
-                <Icon
-                  name="mdi:file-document-outline"
-                  className="w-4 h-4 text-blue-600"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-[8px] sm:text-[10px] uppercase font-semibold tracking-wider text-slate-400 block">
-                  Quotation Reference
-                </span>
-                <span className="font-mono font-bold text-slate-800 text-sm sm:text-base truncate block">
-                  {selectedDeal?.quotationNo || "N/A"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="text-right">
-                  <span className="text-[8px] sm:text-[10px] uppercase font-semibold tracking-wider text-slate-400 block">
-                    Revisiosdn
-                  </span>
-                  <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-md text-xs sm:text-sm font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                    {selectedDeal?.quotationRevision || "R0"}
-                  </span>
-                </div>
-                <div className="hidden xs:block w-px h-8 bg-slate-200" />
-                <div className="hidden xs:block text-right">
-                  <span className="text-[8px] sm:text-[10px] uppercase font-semibold tracking-wider text-slate-400 block">
-                    Amountss
-                  </span>
-                  <span className="font-bold text-slate-800 text-sm sm:text-base">
-                    {formatCurrency(
-                      selectedDeal?.quotationAmount || 0,
-                      selectedDeal?.leadCountry,
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
- 
-      <div className="p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto bg-gray-50/30 space-y-4 sm:space-y-6">
-        {(() => {
-
-         
-                   return uniqueRevisions.map((rev, idx) => {
-  const prevRev =
-    idx < uniqueRevisions.length - 1
-      ? uniqueRevisions[idx + 1]
-      : null;
-
-  const diff = prevRev
-    ? Number(rev.quotationAmount || 0) -
-      Number(prevRev.quotationAmount || 0)
-    : null;
-
-  const isLatest = idx === 0;
-
-            return (
-              <div
-                key={rev.id}
-                className="relative flex gap-4 sm:gap-6 pl-4 pb-2 last:pb-0"
-              >
-                {idx < revisions.length - 1 && (
-                  <span
-                    className="absolute left-[21px] sm:left-[25px] top-6 bottom-0 w-0.5 bg-blue-100"
-                    aria-hidden="true"
-                  />
-                )}
- 
-                <div className="relative z-10 flex h-4 w-4 sm:h-5 sm:w-5 flex-none items-center justify-center rounded-full bg-white mt-1">
-                  {isLatest ? (
-                    <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-blue-600 ring-4 ring-blue-100" />
-                  ) : (
-                    <div className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-gray-300 ring-4 ring-gray-150" />
-                  )}
-                </div>
- 
-                <div
-                  className={`flex-1 bg-white rounded-xl border p-3 sm:p-4 shadow-sm hover:shadow-md transition-all duration-200 ${
-                    isLatest
-                      ? "border-blue-200 ring-1 ring-blue-50"
-                      : "border-gray-200/60"
-                  }`}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] sm:text-xs font-bold text-gray-900">
-                        Revision {rev?.revisionNo}
-                      </span>
-                      {isLatest ? (
-                        <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-200/60">
-                          Superseded
-                        </span>
-                      )}
-                    </div>
- 
-                    <span className={getRevStatusClass(status)}>
-                      {status}
+      {showRevisionModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl border border-gray-100 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-slate-50/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-2">
+                    <Icon
+                      name="mdi:history"
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600"
+                    />
+                    Revision History
+                  </h3>
+                  <p className="text-[10px] sm:text-xs text-gray-500 mt-1 truncate max-w-[200px] sm:max-w-none">
+                    Detailed quotation proposal versions for{" "}
+                    <span className="font-semibold text-gray-700">
+                      {selectedDeal?.negotiationName ||
+                        selectedDeal?.negotiationTitle ||
+                        "N/A"}
                     </span>
-                  </div>
- 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 bg-gray-50/50 p-2 sm:p-2.5 rounded-lg border border-gray-100 mb-2 text-[10px] sm:text-xs">
-                    <div>
-                      <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
-                        Amount
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowRevisionModal(false)}
+                  className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <Icon name="mdi:close" className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+              </div>
+
+              {/* Professional Quotation Number Display */}
+              <div className="mt-3 px-4 sm:px-6 pb-2">
+                <div className="bg-gradient-to-r from-slate-50 to-white p-3 sm:p-4 rounded-lg border border-slate-200/80 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="hidden sm:flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 border border-blue-100">
+                      <Icon
+                        name="mdi:file-document-outline"
+                        className="w-4 h-4 text-blue-600"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[8px] sm:text-[10px] uppercase font-semibold tracking-wider text-slate-400 block">
+                        Quotation Reference
                       </span>
-                      <div className="flex flex-wrap items-baseline gap-1">
-                        <span className="font-bold text-gray-900 text-xs sm:text-sm">
+                      <span className="font-mono font-bold text-slate-800 text-sm sm:text-base truncate block">
+                        {selectedDeal?.quotationNo || "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="text-right">
+                        <span className="text-[8px] sm:text-[10px] uppercase font-semibold tracking-wider text-slate-400 block">
+                          Revisiosdn
+                        </span>
+                        <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-md text-xs sm:text-sm font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          {selectedDeal?.quotationRevision || "R0"}
+                        </span>
+                      </div>
+                      <div className="hidden xs:block w-px h-8 bg-slate-200" />
+                      <div className="hidden xs:block text-right">
+                        <span className="text-[8px] sm:text-[10px] uppercase font-semibold tracking-wider text-slate-400 block">
+                          Amountss
+                        </span>
+                        <span className="font-bold text-slate-800 text-sm sm:text-base">
                           {formatCurrency(
-                            rev.quotationAmount || 0,
-                            selectedDeal?.leadCountry || 'IN',
+                            selectedDeal?.quotationAmount || 0,
+                            selectedDeal?.leadCountry,
                           )}
                         </span>
-                        {diff !== null && diff !== 0 && (
-                          <span
-                            className={`inline-flex items-center gap-0.5 text-[8px] sm:text-[10px] font-bold ${
-                              diff > 0
-                                ? "text-emerald-600"
-                                : "text-rose-600"
-                            }`}
-                          >
-                            <Icon
-                              name={
-                                diff > 0 ? "mdi:arrow-up" : "mdi:arrow-down"
-                              }
-                              className="w-2.5 h-2.5 sm:w-3 sm:h-3"
-                            />
-                            {formatCurrency(
-                              Math.abs(diff),
-                              selectedDeal?.leadCountry || 'IN',
-                            )}
-                          </span>
-                        )}
                       </div>
                     </div>
- 
-                    {/* Hide the entire Date & Time section for current revision */}
-                    {!isLatest && (
-                      <div>
-                        <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
-                          Date & Time
-                        </span>
-                        <span className="font-semibold text-gray-700 text-[10px] sm:text-xs">
-                          {rev.updatedDate ?
-                            new Date(rev.updatedDate).toLocaleDateString(
-                              "en-IN",
-                              {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              },
-                            ) + " · " + new Date(rev.updatedDate).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                            : "Date not available"
-                          }
-                        </span>
-                      </div>
-                    )}
                   </div>
- 
-                  <div className="text-[10px] sm:text-xs text-gray-600 leading-relaxed bg-slate-50/20 p-2 rounded-lg border border-dashed border-gray-100">
-                    <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-0.5">
-                      Remarks
-                    </span>
-                    {rev.remarks || rev.followUpRemark || (
-                      <em className="text-gray-400">No remarks added.</em>
-                    )}
-                  </div>
-                  {/* Files */}
-<div className="mt-3">
-  <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-2">
-    Files ({rev.documentCount || 0})
-  </span>
-
-  {rev.documents && rev.documents.length > 0 ? (
-    <div className="space-y-2">
-      {rev.documents.map((doc) => (
-        <div
-          key={doc.id}
-          className="flex items-center justify-between rounded-lg border bg-gray-50 px-3 py-2"
-        >
-          <div className="flex items-center gap-2 overflow-hidden">
-            <Icon
-              name={
-                doc.fileType?.includes("pdf")
-                  ? "mdi:file-pdf-box"
-                  : doc.fileType?.includes("image")
-                  ? "mdi:file-image"
-                  : "mdi:file-outline"
-              }
-              className={`w-5 h-5 ${
-                doc.fileType?.includes("pdf")
-                  ? "text-red-600"
-                  : "text-blue-600"
-              }`}
-            />
-
-            <div className="overflow-hidden">
-              <p className="truncate text-xs font-medium">
-                {doc.fileName}
-              </p>
-              <p className="text-[10px] text-gray-400">
-                {(doc.fileSize / 1024).toFixed(1)} KB
-              </p>
-            </div>
-          </div>
-
-          <button
-  type="button"
-  onClick={() =>
-   negotiationApi.handleViewDocument(
-      doc.fileUrl
-    )
-  }
-  className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[10px] text-white hover:bg-blue-700"
->
-  <Icon name="mdi:eye-outline" className="w-3.5 h-3.5" />
-  View
-</button>
-
-        </div>
-      ))}
-    </div>
-  ) : (
-    <div className="text-xs text-gray-400 italic">
-      No documents attached.
-    </div>
-  )}
-</div>
-
                 </div>
               </div>
-            );
-          });
-        })()}
-      </div>
-    </div>
-  </div>
-)}
- 
+            </div>
+
+            <div className="p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto bg-gray-50/30 space-y-4 sm:space-y-6">
+              {(() => {
+                return uniqueRevisions.map((rev, idx) => {
+                  const prevRev =
+                    idx < uniqueRevisions.length - 1
+                      ? uniqueRevisions[idx + 1]
+                      : null;
+
+                  const diff = prevRev
+                    ? Number(rev.quotationAmount || 0) -
+                      Number(prevRev.quotationAmount || 0)
+                    : null;
+
+                  const isLatest = idx === 0;
+
+                  return (
+                    <div
+                      key={rev.id}
+                      className="relative flex gap-4 sm:gap-6 pl-4 pb-2 last:pb-0"
+                    >
+                      {idx < revisions.length - 1 && (
+                        <span
+                          className="absolute left-[21px] sm:left-[25px] top-6 bottom-0 w-0.5 bg-blue-100"
+                          aria-hidden="true"
+                        />
+                      )}
+
+                      <div className="relative z-10 flex h-4 w-4 sm:h-5 sm:w-5 flex-none items-center justify-center rounded-full bg-white mt-1">
+                        {isLatest ? (
+                          <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-blue-600 ring-4 ring-blue-100" />
+                        ) : (
+                          <div className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-gray-300 ring-4 ring-gray-150" />
+                        )}
+                      </div>
+
+                      <div
+                        className={`flex-1 bg-white rounded-xl border p-3 sm:p-4 shadow-sm hover:shadow-md transition-all duration-200 ${
+                          isLatest
+                            ? "border-blue-200 ring-1 ring-blue-50"
+                            : "border-gray-200/60"
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] sm:text-xs font-bold text-gray-900">
+                              Revision {rev?.revisionNo}
+                            </span>
+                            {isLatest ? (
+                              <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                                Active
+                              </span>
+                            ) : (
+                              <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-200/60">
+                                Superseded
+                              </span>
+                            )}
+                          </div>
+
+                          <span className={getRevStatusClass(status)}>
+                            {status}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 bg-gray-50/50 p-2 sm:p-2.5 rounded-lg border border-gray-100 mb-2 text-[10px] sm:text-xs">
+                          <div>
+                            <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
+                              Amount
+                            </span>
+                            <div className="flex flex-wrap items-baseline gap-1">
+                              <span className="font-bold text-gray-900 text-xs sm:text-sm">
+                                {formatCurrency(
+                                  rev.quotationAmount || 0,
+                                  selectedDeal?.leadCountry || "IN",
+                                )}
+                              </span>
+                              {diff !== null && diff !== 0 && (
+                                <span
+                                  className={`inline-flex items-center gap-0.5 text-[8px] sm:text-[10px] font-bold ${
+                                    diff > 0
+                                      ? "text-emerald-600"
+                                      : "text-rose-600"
+                                  }`}
+                                >
+                                  <Icon
+                                    name={
+                                      diff > 0
+                                        ? "mdi:arrow-up"
+                                        : "mdi:arrow-down"
+                                    }
+                                    className="w-2.5 h-2.5 sm:w-3 sm:h-3"
+                                  />
+                                  {formatCurrency(
+                                    Math.abs(diff),
+                                    selectedDeal?.leadCountry || "IN",
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Hide the entire Date & Time section for current revision */}
+                          {!isLatest && (
+                            <div>
+                              <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
+                                Date & Time
+                              </span>
+                              <span className="font-semibold text-gray-700 text-[10px] sm:text-xs">
+                                {rev.updatedDate
+                                  ? new Date(
+                                      rev.updatedDate,
+                                    ).toLocaleDateString("en-IN", {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric",
+                                    }) +
+                                    " · " +
+                                    new Date(
+                                      rev.updatedDate,
+                                    ).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })
+                                  : "Date not available"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="text-[10px] sm:text-xs text-gray-600 leading-relaxed bg-slate-50/20 p-2 rounded-lg border border-dashed border-gray-100">
+                          <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-0.5">
+                            Remarks
+                          </span>
+                          {rev.remarks || rev.followUpRemark || (
+                            <em className="text-gray-400">No remarks added.</em>
+                          )}
+                        </div>
+                        {/* Files */}
+                        <div className="mt-3">
+                          <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-2">
+                            Files ({rev.documentCount || 0})
+                          </span>
+
+                          {rev.documents && rev.documents.length > 0 ? (
+                            <div className="space-y-2">
+                              {rev.documents.map((doc) => (
+                                <div
+                                  key={doc.id}
+                                  className="flex items-center justify-between rounded-lg border bg-gray-50 px-3 py-2"
+                                >
+                                  <div className="flex items-center gap-2 overflow-hidden">
+                                    <Icon
+                                      name={
+                                        doc.fileType?.includes("pdf")
+                                          ? "mdi:file-pdf-box"
+                                          : doc.fileType?.includes("image")
+                                            ? "mdi:file-image"
+                                            : "mdi:file-outline"
+                                      }
+                                      className={`w-5 h-5 ${
+                                        doc.fileType?.includes("pdf")
+                                          ? "text-red-600"
+                                          : "text-blue-600"
+                                      }`}
+                                    />
+
+                                    <div className="overflow-hidden">
+                                      <p className="truncate text-xs font-medium">
+                                        {doc.fileName}
+                                      </p>
+                                      <p className="text-[10px] text-gray-400">
+                                        {(doc.fileSize / 1024).toFixed(1)} KB
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      negotiationApi.handleViewDocument(
+                                        doc.fileUrl,
+                                      )
+                                    }
+                                    className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[10px] text-white hover:bg-blue-700"
+                                  >
+                                    <Icon
+                                      name="mdi:eye-outline"
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    View
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400 italic">
+                              No documents attached.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1143,10 +1249,10 @@ export default function NegotiationPage() {
 //   // Check if document exists - only when negotiationId changes
 //   useEffect(() => {
 //     let isMounted = true;
-    
+
 //     const checkDocument = async () => {
 //       if (!negotiationId) return;
-      
+
 //       try {
 //         setChecking(true);
 //         const exists = await negotiationApi.checkDocument(negotiationId);
@@ -1190,24 +1296,24 @@ export default function NegotiationPage() {
 //     try {
 //       setUploading(true);
 //       setUploadProgress(0);
-      
+
 //       const interval = setInterval(() => {
 //         setUploadProgress(prev => Math.min(prev + 10, 90));
 //       }, 200);
 
 //       await negotiationApi.uploadDocument(negotiationId, documentFile);
-      
+
 //       clearInterval(interval);
 //       setUploadProgress(100);
 //       setDocumentFile(null);
 //       // Reset the file input
 //       const input = document.getElementById(`doc-upload-${negotiationId}`);
 //       if (input) input.value = '';
-      
+
 //       // Check again to update the UI
 //       const exists = await negotiationApi.checkDocument(negotiationId);
 //       setDocumentExists(exists);
-      
+
 //       setTimeout(() => setUploadProgress(0), 1000);
 //       alert('Document uploaded successfully!');
 //     } catch (err) {
@@ -1231,7 +1337,7 @@ export default function NegotiationPage() {
 
 //   const handleDelete = async () => {
 //     if (!window.confirm('Are you sure you want to delete this document?')) return;
-    
+
 //     try {
 //       await negotiationApi.deleteDocument(negotiationId);
 //       setDocumentExists(false);

@@ -7,10 +7,13 @@ export const useAuthStore = create(
       token: null,
       user: null,
       selectedCompanyId: null,
+      selectedTeamMemberId: null,
       hasHydrated: false,
 
       setHasHydrated: (state) => set({ hasHydrated: state }),
       setSelectedCompanyId: (id) => set({ selectedCompanyId: id }),
+      setSelectedTeamMemberId: (id) => set({ selectedTeamMemberId: id }),
+
 
       isAuthenticated: () => !!get().token,
       currentUser: () => get().user,
@@ -39,8 +42,9 @@ export const useAuthStore = create(
       },
 
       logout: () => {
-        set({ token: null, user: null, selectedCompanyId: null }) // ✅ persist will handle removal
+        set({ token: null, user: null, selectedCompanyId: null, selectedTeamMemberId: null })
       },
+
     }),
     {
       name: 'auth-storage',

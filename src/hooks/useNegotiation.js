@@ -25,6 +25,10 @@ export function useNegotiation() {
   const getRevisions = (id) =>
     api.get(`/negotiations/${id}/revisions`);
 
+  const getRevisionsByLeadId = (leadId) =>
+    api.get(`/negotiations/lead/${leadId}/revisions`);
+
+
   const createRevision = (id, data) =>
     api.post(`/negotiations/${id}/revision`, data);
 
@@ -239,7 +243,9 @@ const uploadQuotationDocuments = async (quotationNo, files) => {
     getById,
     getByLeadId,
     getRevisions,
+    getRevisionsByLeadId,
     createRevision,
+
     update,
     remove,
     getDetails,

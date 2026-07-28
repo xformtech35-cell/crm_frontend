@@ -189,10 +189,19 @@ const LEAD_EXPORT_FIELDS = [
     value: (lead) => formatDate(lead.leadCreatedDate) || "",
   },
   {
+    header: "Created By",
+    value: (lead) => lead.createdBy || "",
+  },
+  {
+    header: "Updated By",
+    value: (lead) => lead.updatedBy || lead.createdBy || "",
+  },
+  {
     header: "Lead Score",
     value: (_lead, score) => (score ? `${score.score}/100` : ""),
   },
 ];
+
 const AVATAR_COLORS = [
   "bg-blue-100 text-blue-700",
   "bg-violet-100 text-violet-700",
@@ -314,6 +323,7 @@ function NotesModal({ isOpen, onClose, lead, formatDate }) {
 
   // Get notes from the lead - adjust based on your data structure
   const notes = lead.notes || lead.leadNotes || lead.comments || [];
+  
 
   return (
     <div
@@ -3386,9 +3396,16 @@ if (leadStatusFilter) {
                       <th className="w-[250px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         REMARKS
                       </th>
+                      <th className="w-[160px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        CREATED BY
+                      </th>
+                      <th className="w-[160px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        UPDATED BY
+                      </th>
                       <th className="sticky right-0 z-20 w-[120px] bg-gray-50 py-2.5 pl-3 pr-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide shadow-[-8px_0_12px_rgba(15,23,42,0.04)]">
                         ACTIONS
                       </th>
+
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -3825,8 +3842,19 @@ if (leadStatusFilter) {
                                 : lead.followUpRemark
                               : "-"}
                           </td>
+                          <td className="px-3 py-2 text-xs font-medium whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                              {lead.createdBy || "-"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-xs font-medium whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                              {lead.updatedBy || lead.createdBy || "-"}
+                            </span>
+                          </td>
                           <td
                             className={`sticky right-0 pl-3 pr-4 py-2 shadow-[-8px_0_12px_rgba(15,23,42,0.04)] ${selectedIds.has(lead.leadId) ? "bg-blue-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
+
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="flex items-center justify-end gap-1">

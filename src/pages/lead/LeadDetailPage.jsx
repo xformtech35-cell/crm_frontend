@@ -89,6 +89,7 @@ export default function LeadDetailPage() {
   const { getAll: getAllOrganizations } = useOrganization();
   const { getAll: getAllContacts } = useContact();
   const negotiationApi = useNegotiation();
+  const { getRevisionsByLeadId } = negotiationApi;
 
   const [previewFile, setPreviewFile] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -119,6 +120,9 @@ export default function LeadDetailPage() {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const uploadInput = useRef(null);
+  const [revisionHistory, setRevisionHistory] = useState([]);
+  const [revisionLoading, setRevisionLoading] = useState(false);
+  const [expandedRevision, setExpandedRevision] = useState(null);
 
   const [leadForm, setLeadForm] = useState({ leadFirstName: "", leadLastName: "", leadTitle: "", leadEmail: "", leadMobileNo: "", leadPhoneNo: "", leadOrganisationName: "", leadWebsite: "", leadIndustry: "", leadStatus: "New Lead", leadSource: "", leadCountry: "", leadCity: "", leadState: "", leadAddress: "", noOfEmployee: undefined, leadType: "", designation: "", leadReason: "", leadRef: "", enquiryStatus: "", quotationRevision: "" });
 
@@ -178,6 +182,21 @@ export default function LeadDetailPage() {
   }, [id]); // eslint-disable-line
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Load revision history when documents tab is active
+  useEffect(() => {
+    if (activeTab === "documents" && id) {
+      setRevisionLoading(true);
+      getRevisionsByLeadId(id)
+        .then((data) => {
+          // useApi.get() already unwraps to res.data.data, so data is directly the array
+          const revs = Array.isArray(data) ? data : [];
+          setRevisionHistory(revs);
+        })
+        .catch(() => setRevisionHistory([]))
+        .finally(() => setRevisionLoading(false));
+    }
+  }, [activeTab, id]); // eslint-disable-line
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
@@ -256,7 +275,10 @@ export default function LeadDetailPage() {
       { label: "Lead Reason", icon: "mdi:information-outline", value: lead.leadReason || "Not set" },
       { label: "Unique Query ID", icon: "mdi:identifier", value: lead.uniqueQueryId || "Not set" },
       { label: "Created", icon: "mdi:clock-outline", value: lead.leadCreatedDate ? formatDateTime(lead.leadCreatedDate) : "Not set" },
+      { label: "Created By", icon: "mdi:account-outline", value: lead.createdBy || "Admin" },
+      { label: "Updated By", icon: "mdi:account-edit-outline", value: lead.updatedBy || lead.createdBy || "Admin" },
     ];
+
   }, [lead]);
 
   const timelineItems = useMemo(() => {
@@ -1096,6 +1118,214 @@ export default function LeadDetailPage() {
                     <p className="text-xs mt-1">Upload files using the upload zone above</p>
                   </div>
                 )}
+
+                {/* ─── Revision History ─── */}
+                <div className="mt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                      <Icon name="mdi:history" className="h-5 w-5 text-indigo-500" />
+                      Revision History
+                    </h3>
+                    {revisionHistory.length > 0 && (
+                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                        {revisionHistory.length} revision{revisionHistory.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+
+                  {revisionLoading ? (
+                    <div className="flex items-center justify-center py-10">
+                      <Icon name="mdi:loading" className="h-8 w-8 text-indigo-400 animate-spin" />
+                      <span className="ml-3 text-sm text-gray-400">Loading revision history...</span>
+                    </div>
+                  ) : revisionHistory.length === 0 ? (
+                    <div className="text-center py-10 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
+                      <Icon name="mdi:timeline-outline" className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm font-medium text-gray-400">No revision history yet</p>
+                      <p className="text-xs text-gray-300 mt-1">Revisions will appear here after lead updates</p>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      {/* Timeline line */}
+                      <div className="absolute left-5 top-4 bottom-4 w-0.5 bg-gradient-to-b from-indigo-200 via-blue-100 to-gray-100" />
+
+                      <div className="space-y-3">
+                        {revisionHistory.map((rev, idx) => {
+                          const revKey = rev.id ?? idx;
+                          const isExpanded = expandedRevision === revKey;
+                          const isCurrent = rev.isCurrent === true;
+                          const statusColors = {
+                            'Won': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                            'Open': 'bg-blue-100 text-blue-700 border-blue-200',
+                            'Lost': 'bg-red-100 text-red-700 border-red-200',
+                            'Closed': 'bg-gray-100 text-gray-600 border-gray-200',
+                          };
+                          const statusClass = statusColors[rev.negotiationStatus] || 'bg-indigo-100 text-indigo-700 border-indigo-200';
+                          const docCount = rev.documentCount ?? rev.documents?.length ?? 0;
+
+                          return (
+                            <div key={String(revKey)} className="relative pl-12">
+                              {/* Timeline dot */}
+                              <div className={`absolute left-3.5 top-4 h-3 w-3 rounded-full border-2 border-white shadow-sm ${
+                                isCurrent ? 'bg-emerald-500' : 'bg-blue-200'
+                              }`} />
+
+                              <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all">
+                                {/* Revision Header */}
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedRevision(isExpanded ? null : revKey)}
+                                  className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-gray-50/50 transition-colors"
+                                >
+                                  {/* Revision Badge */}
+                                  <div className="flex-shrink-0 h-9 w-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                    <span className="text-xs font-bold text-indigo-600">
+                                      {rev.revisionNo || `R${revisionHistory.length - idx - 1}`}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-sm font-semibold text-gray-800 truncate">
+                                        {rev.quotationNo || 'No Quotation No.'}
+                                      </span>
+                                      {rev.negotiationStatus && (
+                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${statusClass}`}>
+                                          {rev.negotiationStatus}
+                                        </span>
+                                      )}
+                                      {isCurrent && (
+                                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                          ● Active
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                      {rev.updatedDate
+                                        ? new Date(rev.updatedDate).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+                                        : isCurrent ? 'Current active revision' : 'Unknown date'
+                                      }
+                                      {docCount > 0 && (
+                                        <span className="ml-2 inline-flex items-center gap-1">
+                                          <Icon name="mdi:file-outline" className="h-3 w-3" />
+                                          {docCount} file{docCount !== 1 ? 's' : ''}
+                                        </span>
+                                      )}
+                                    </p>
+                                  </div>
+
+                                  {/* Amount */}
+                                  {rev.quotationAmount != null && (
+                                    <div className="flex-shrink-0 text-right">
+                                      <p className="text-sm font-bold text-gray-800">
+                                        ₹{Number(rev.quotationAmount).toLocaleString('en-IN')}
+                                      </p>
+                                      <p className="text-[10px] text-gray-400">Amount</p>
+                                    </div>
+                                  )}
+
+                                  <Icon
+                                    name={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'}
+                                    className="h-4 w-4 text-gray-400 flex-shrink-0"
+                                  />
+                                </button>
+
+                                {/* Expanded Details */}
+                                {isExpanded && (
+                                  <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50 space-y-3">
+                                    {/* Details Grid */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {rev.quotationDate && (
+                                        <div>
+                                          <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Quotation Date</p>
+                                          <p className="text-sm text-gray-700">
+                                            {new Date(rev.quotationDate).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                                          </p>
+                                        </div>
+                                      )}
+                                      {rev.revisionNo && (
+                                        <div>
+                                          <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Revision No.</p>
+                                          <p className="text-sm text-gray-700">{rev.revisionNo}</p>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Remarks */}
+                                    {rev.remarks && (
+                                      <div>
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Remarks</p>
+                                        <p className="text-sm text-gray-700 leading-relaxed">{rev.remarks}</p>
+                                      </div>
+                                    )}
+
+                                    {/* Enquiry Description */}
+                                    {rev.enquiryDescription && (
+                                      <div>
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Enquiry Description</p>
+                                        <p className="text-sm text-gray-700 leading-relaxed">{rev.enquiryDescription}</p>
+                                      </div>
+                                    )}
+
+                                    {/* Documents in this revision */}
+                                    {rev.documents && rev.documents.length > 0 && (
+                                      <div>
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-2">Attached Files</p>
+                                        <div className="space-y-1.5">
+                                          {rev.documents.map((doc, dIdx) => {
+                                            const ext = (doc.fileName || '').split('.').pop()?.toLowerCase();
+                                            const isPdf = ext === 'pdf';
+                                            const isImg = ['jpg','jpeg','png','gif','webp'].includes(ext);
+                                            return (
+                                              <div key={doc.id ?? dIdx} className="flex items-center gap-2 p-2 rounded-lg bg-white border border-gray-100">
+                                                <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                                  isImg ? 'bg-pink-50' : isPdf ? 'bg-red-50' : 'bg-blue-50'
+                                                }`}>
+                                                  <Icon
+                                                    name={isImg ? 'mdi:image-outline' : isPdf ? 'mdi:file-pdf-box' : 'mdi:file-document-outline'}
+                                                    className={`h-4 w-4 ${
+                                                      isImg ? 'text-pink-500' : isPdf ? 'text-red-500' : 'text-blue-500'
+                                                    }`}
+                                                  />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <p className="text-xs font-medium text-gray-700 truncate">{doc.fileName || `File ${dIdx + 1}`}</p>
+                                                  {doc.uploadedDate && (
+                                                    <p className="text-[10px] text-gray-400">
+                                                      {new Date(doc.uploadedDate).toLocaleDateString('en-IN')}
+                                                    </p>
+                                                  )}
+                                                </div>
+                                                {doc.fileUrl && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => negotiationApi.handleViewDocument(doc.fileUrl)}
+                                                    className="flex-shrink-0 px-2 py-1 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-medium hover:bg-emerald-100 transition-colors"
+                                                  >
+                                                    <Icon name="mdi:download" className="h-3 w-3 inline mr-0.5" />Download
+                                                  </button>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {(!rev.documents || rev.documents.length === 0) && (
+                                      <p className="text-xs text-gray-400 text-center py-2">No files attached to this revision</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
               </section>
             )}
 

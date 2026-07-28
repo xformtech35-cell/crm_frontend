@@ -7,7 +7,9 @@ import { useAuth } from "../hooks/useAuth";
 import { useLead } from "../hooks/useLead";
 import { useOpportunity } from "../hooks/useOpportunity";
 import { useCalendar } from "../hooks/useCalendar";
+import { useTeamMember } from "../hooks/useTeamMember";
 import { getInitials } from "../utils/format";
+
 
 const pageTitles = {
   "/home": "Dashboard",
@@ -78,6 +80,29 @@ export default function DefaultLayout() {
   const leadApi = useLead();
   const opportunityApi = useOpportunity();
   const calendarApi = useCalendar();
+  const teamMemberApi = useTeamMember();
+
+  const selectedTeamMemberId = useAuthStore((s) => s.selectedTeamMemberId);
+  const setSelectedTeamMemberId = useAuthStore((s) => s.setSelectedTeamMemberId);
+  const [teamMemberList, setTeamMemberList] = useState([]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      teamMemberApi.getAll().then((res) => {
+        let list = [];
+        if (Array.isArray(res)) {
+          list = res;
+        } else if (Array.isArray(res?.data)) {
+          list = res.data;
+        } else if (Array.isArray(res?.data?.data)) {
+          list = res.data.data;
+        }
+        setTeamMemberList(list);
+      }).catch((err) => console.error("Error fetching team members for View Context:", err));
+    }
+  }, [isAdmin]);
+
+
 
   // All useState hooks MUST come before any early returns (Rules of Hooks)
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -823,6 +848,35 @@ export default function DefaultLayout() {
 
               {/* Right section */}
               <div className="flex items-center gap-2 flex-shrink-0">
+                {/* View Context Selector for Admin */}
+                {isAdmin && (
+                  <div className="flex items-center gap-2 mr-2 flex-shrink-0">
+                    <span className={`text-xs font-semibold ${theme === "dark" ? "text-purple-400" : "text-purple-700"} hidden sm:inline`}>
+                      View Context:
+                    </span>
+                    <select
+                      value={selectedTeamMemberId || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedTeamMemberId(val ? Number(val) : null);
+                        window.location.reload();
+                      }}
+                      className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer ${
+                        theme === "dark"
+                          ? "border-white/10 bg-[#0c0e1c] text-slate-200 hover:bg-[#131730]"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <option value="">Global (All Team Members)</option>
+                      {teamMemberList.map((tm) => (
+                        <option key={tm.userid || tm.teamMemberId} value={tm.userid || tm.teamMemberId}>
+                          {tm.teamMemberName || tm.teamMemberEmail} ({tm.teamMemberEmail})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* Search Button */}
                 {/* <button
                   type="button"
