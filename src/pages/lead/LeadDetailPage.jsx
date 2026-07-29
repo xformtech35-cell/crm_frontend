@@ -70,11 +70,11 @@ const PIPELINE_STEPS = ["New Lead", "Qualified", "Negotiation", "Won"];
 
 const TABS = [
   { key: "overview", label: "Overview", icon: "mdi:view-grid-outline" },
-  { key: "activity", label: "Timeline", icon: "mdi:timeline-outline" },
+  //{ key: "activity", label: "Timeline", icon: "mdi:timeline-outline" },
   { key: "notes", label: "Notes", icon: "mdi:note-text-outline" },
   { key: "reminders", label: "Reminders", icon: "mdi:bell-outline" },
   { key: "documents", label: "Documents", icon: "mdi:file-multiple-outline" },
-  { key: "related", label: "Related", icon: "mdi:link-variant" },
+ // { key: "related", label: "Related", icon: "mdi:link-variant" },
 ];
 
 /* ─── Main Component ─── */
@@ -272,8 +272,8 @@ export default function LeadDetailPage() {
   const customFields = useMemo(() => {
     if (!lead) return [];
     return [
-      { label: "Lead Reason", icon: "mdi:information-outline", value: lead.leadReason || "Not set" },
-      { label: "Unique Query ID", icon: "mdi:identifier", value: lead.uniqueQueryId || "Not set" },
+     // { label: "Lead Reason", icon: "mdi:information-outline", value: lead.leadReason || "Not set" },
+     // { label: "Unique Query ID", icon: "mdi:identifier", value: lead.uniqueQueryId || "Not set" },
       { label: "Created", icon: "mdi:clock-outline", value: lead.leadCreatedDate ? formatDateTime(lead.leadCreatedDate) : "Not set" },
       { label: "Created By", icon: "mdi:account-outline", value: lead.createdBy || "Admin" },
       { label: "Updated By", icon: "mdi:account-edit-outline", value: lead.updatedBy || lead.createdBy || "Admin" },
@@ -316,31 +316,33 @@ export default function LeadDetailPage() {
     }
   }
 
-  async function transitionToStage(newStage) {
-    setActionLoading(true);
-    try {
-      if (newStage === "Won") {
-        await updateLeadOutcomeStatus(lead.leadId, "Won");
-      } else if (newStage === "Closed") {
-        await updateLeadOutcomeStatus(lead.leadId, "Closed");
-      } else if (newStage === "Open") {
-        await updateLeadOutcomeStatus(lead.leadId, "Open");
-      } else if (newStage === "Qualified") {
-        await updateStatus(lead.leadId, "Qualified");
-        await updateLeadOutcomeStatus(lead.leadId, "");
-      } else if (newStage === "New Lead") {
-        await updateStatus(lead.leadId, "New Lead");
-        await updateLeadOutcomeStatus(lead.leadId, "");
-      }
-      showToastMsg("success", `Lead moved to ${newStage}`);
-      await loadAll();
-    } catch (err) {
-      console.error(err);
-      showToastMsg("error", "Failed to update status");
-    } finally {
-      setActionLoading(false);
+ async function transitionToStage(newStage) {
+  setActionLoading(true);
+  try {
+    if (newStage === "Won") {
+      await updateLeadOutcomeStatus(lead.leadId, "Won");
+    } else if (newStage === "Closed") {
+      await updateLeadOutcomeStatus(lead.leadId, "Closed");
+    } else if (newStage === "Open") {
+      await updateLeadOutcomeStatus(lead.leadId, "Open");
+    } else if (newStage === "Negotiation") {
+      await updateLeadOutcomeStatus(lead.leadId, "Negotiation");
+    } else if (newStage === "Qualified") {
+      await updateStatus(lead.leadId, "Qualified");
+      await updateLeadOutcomeStatus(lead.leadId, "");
+    } else if (newStage === "New Lead") {
+      await updateStatus(lead.leadId, "New Lead");
+      await updateLeadOutcomeStatus(lead.leadId, "");
     }
+    showToastMsg("success", `Lead moved to ${newStage}`);
+    await loadAll();
+  } catch (err) {
+    console.error(err);
+    showToastMsg("error", "Failed to update status");
+  } finally {
+    setActionLoading(false);
   }
+}
 
   async function submitNote(e) {
     e.preventDefault();
@@ -617,9 +619,9 @@ export default function LeadDetailPage() {
           Back to Leads
         </Link>
         <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors shadow-sm" onClick={() => navigate("/task")}>
+          {/* <button className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors shadow-sm" onClick={() => navigate("/task")}>
             <Icon name="mdi:clipboard-check-outline" className="h-4 w-4" /> Add Task
-          </button>
+          </button> */}
           <button className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors shadow-sm" onClick={() => { setActiveTab("reminders"); }}>
             <Icon name="mdi:bell-outline" className="h-4 w-4" /> Reminder
           </button>
@@ -662,7 +664,7 @@ export default function LeadDetailPage() {
                   </span>
                 )}
               </div>
-              <p className="text-slate-400 text-sm">Lead #{lead.leadId} · {lead.leadOrganisationName || "No organization"}</p>
+              {/* <p className="text-slate-400 text-sm">Lead #{lead.leadId} · {lead.leadOrganisationName || "No organization"}</p> */}
               <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-slate-300">
                 {lead.leadMobileNo && (
                   <a href={`tel:${lead.leadMobileNo}`} className="flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors">
@@ -720,13 +722,13 @@ export default function LeadDetailPage() {
       {/* ─── KPI Cards ─── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          {
-            label: "Lead Score", icon: "mdi:star-circle-outline", iconColor: "text-amber-500",
-            iconBg: "bg-amber-50",
-            value: score ? `${score.score}` : "—",
-            sub: score ? `Grade ${score.grade}` : "Not scored",
-            accent: "border-l-amber-400",
-          },
+          // {
+          //   label: "Lead Score", icon: "mdi:star-circle-outline", iconColor: "text-amber-500",
+          //   iconBg: "bg-amber-50",
+          //   value: score ? `${score.score}` : "—",
+          //   sub: score ? `Grade ${score.grade}` : "Not scored",
+          //   accent: "border-l-amber-400",
+          // },
           {
             label: "Quotation Value", icon: getCurrencyConfig(lead.leadCountry).icon, iconColor: "text-emerald-600",
             iconBg: "bg-emerald-50",
@@ -1390,17 +1392,17 @@ export default function LeadDetailPage() {
                 Already Converted
               </button>
             )}
-            <a href={`mailto:${lead.leadEmail || ""}`} className="w-full inline-flex items-center gap-2 px-3 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+            {/* <a href={`mailto:${lead.leadEmail || ""}`} className="w-full inline-flex items-center gap-2 px-3 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
               <Icon name="mdi:email-send-outline" className="h-4 w-4 text-violet-500" /> Send Email
-            </a>
+            </a> */}
             <button className="w-full inline-flex items-center gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors" disabled={actionLoading} onClick={() => setShowDeleteConfirm(true)}>
               <Icon name="mdi:trash-can-outline" className="h-4 w-4" /> Delete Lead
             </button>
           </div>
 
           {/* Lead Score Card */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Lead Score</h3>
+          {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+<h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Lead Score</h3>
             {score ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
@@ -1411,9 +1413,9 @@ export default function LeadDetailPage() {
                     <p className="text-3xl font-bold text-gray-900">{score.score}</p>
                     <p className="text-xs text-gray-400">out of 100</p>
                   </div>
-                </div>
+                </div> */}
                 {/* Score bar */}
-                <div className="space-y-1">
+                {/* <div className="space-y-1">
                   <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full transition-all duration-700 ${score.score >= 80 ? "bg-emerald-500" : score.score >= 60 ? "bg-blue-500" : score.score >= 40 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${score.score}%` }} />
                   </div>
@@ -1435,7 +1437,7 @@ export default function LeadDetailPage() {
                 <p className="text-xs">Score not available</p>
               </div>
             )}
-          </div>
+          </div> */}
 
           {/* Status & Tags */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
@@ -1475,7 +1477,7 @@ export default function LeadDetailPage() {
           </div>
 
           {/* Related Records */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Related</h3>
             <div className="space-y-2">
               {[
@@ -1490,10 +1492,10 @@ export default function LeadDetailPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </div> */}
 
           {/* Tasks */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Upcoming Tasks</h3>
               <button className="text-xs text-blue-600 hover:text-blue-700 font-medium" onClick={() => navigate("/task")}>+ Add</button>
@@ -1513,10 +1515,10 @@ export default function LeadDetailPage() {
             ) : (
               <p className="text-xs text-gray-400 text-center py-3">No linked tasks</p>
             )}
-          </div>
+          </div> */}
 
           {/* Team */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Assignee</h3>
             <div className="flex items-center gap-3 rounded-lg border border-gray-100 p-2.5 bg-gray-50/50">
               <div className="h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
@@ -1527,7 +1529,7 @@ export default function LeadDetailPage() {
                 <p className="text-xs text-gray-400">Sales Representative</p>
               </div>
             </div>
-          </div>
+          </div> */}
         </aside>
       </div>
 
