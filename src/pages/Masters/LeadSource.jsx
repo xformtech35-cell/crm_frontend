@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 import AppDrawer from '/src/components/common/AppDrawer';
 import Icon from '/src/components/Icon';
 import { useLeadSource } from '/src/hooks/useMaster';
-
+ 
 const emptyForm = { sourceName: '' };
-
+ 
 export default function LeadSource() {
   const leadSourceHook = useLeadSource();
   const [sources, setSources] = useState([]);
@@ -17,7 +17,7 @@ export default function LeadSource() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [form, setForm] = useState(emptyForm);
-
+ 
   async function loadData() {
     setLoading(true);
     try {
@@ -30,12 +30,12 @@ export default function LeadSource() {
       setLoading(false);
     }
   }
-
+ 
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
+ 
   const filteredSources = useMemo(() => {
     const text = query.trim().toLowerCase();
     if (!text) return sources;
@@ -43,26 +43,31 @@ export default function LeadSource() {
       item.sourceName?.toLowerCase().includes(text)
     );
   }, [sources, query]);
-
+ 
   function openCreate() {
     setEditingSource(null);
     setForm(emptyForm);
     setModalOpen(true);
   }
-
+ 
   function openEdit(source) {
     setEditingSource(source);
     setForm({ sourceName: source.sourceName || '' });
     setModalOpen(true);
   }
-
+ 
   async function saveSource(e) {
     e.preventDefault();
     if (!form.sourceName.trim()) return;
     setSaving(true);
     try {
       if (editingSource) {
-        await leadSourceHook.update(editingSource.id, form);
+        // FIX: Pass the complete source object with updated sourceName
+        const updatedSource = {
+          ...editingSource,
+          sourceName: form.sourceName
+        };
+        await leadSourceHook.update(editingSource.id, updatedSource);
       } else {
         await leadSourceHook.create(form);
       }
@@ -75,36 +80,23 @@ export default function LeadSource() {
       setSaving(false);
     }
   }
-
-  // async function deleteSource(source) {
-  //   if (!confirm(`Delete source "${source.sourceName}"?`)) return;
-  //   setSaving(true);
-  //   try {
-  //     await leadSourceHook.remove(source.id);
-  //     await loadData();
-  //   } catch (error) {
-  //     console.error('Delete failed:', error);
-  //     alert('Unable to delete lead source.');
-  //   } finally {
-  //     setSaving(false);
-  //   }
-  // }
-    function deleteSource(source) {
+ 
+  function deleteSource(source) {
     setSelectedSource(source);
     setDeleteModalOpen(true);
   }
-
-   async function confirmDelete() {
+ 
+  async function confirmDelete() {
     if (!selectedSource) return;
-
+ 
     setSaving(true);
-
+ 
     try {
       await leadSourceHook.remove(selectedSource.id);
-
+ 
       setDeleteModalOpen(false);
       setSelectedSource(null);
-
+ 
       await loadData();
     } catch (error) {
       console.error(error);
@@ -113,6 +105,7 @@ export default function LeadSource() {
       setSaving(false);
     }
   }
+ 
   return (
     <div className="animate-fade-in space-y-3 pb-6">
       {/* Search Bar with New Source Button - Compact */}
@@ -140,7 +133,7 @@ export default function LeadSource() {
           New Source
         </button>
       </div>
-
+ 
       {/* Table */}
       <section className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         {loading ? (
@@ -218,7 +211,7 @@ export default function LeadSource() {
             </table>
           </div>
         )}
-        
+       
         {/* Table footer with count */}
         {filteredSources.length > 0 && (
           <div className="border-t border-gray-100 px-4 py-2 bg-gray-50/50">
@@ -233,7 +226,7 @@ export default function LeadSource() {
           </div>
         )}
       </section>
-
+ 
       {/* Drawer */}
       <AppDrawer
         open={modalOpen}
@@ -243,17 +236,17 @@ export default function LeadSource() {
         icon={editingSource ? 'mdi:pencil-outline' : 'mdi:plus-circle-outline'}
         footer={
           <div className="flex items-center gap-3 w-full">
-            <button 
-              type="button" 
-              className="flex-1 btn-secondary" 
+            <button
+              type="button"
+              className="flex-1 btn-secondary"
               onClick={() => setModalOpen(false)}
             >
               Cancel
             </button>
-            <button 
-              form="lead-source-form" 
-              type="submit" 
-              className="flex-1 btn-primary" 
+            <button
+              form="lead-source-form"
+              type="submit"
+              className="flex-1 btn-primary"
               disabled={saving}
             >
               {saving ? (
@@ -298,7 +291,7 @@ export default function LeadSource() {
             </div>
             <p className="text-xs text-gray-400 mt-1">Enter a unique name for this lead source</p>
           </div>
-
+ 
           {editingSource && (
             <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
               <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -309,15 +302,12 @@ export default function LeadSource() {
           )}
         </form>
       </AppDrawer>
-
+ 
       {deleteModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-
           <div className="w-full max-w-[340px] rounded-xl bg-white shadow-2xl">
-
             {/* Body */}
             <div className="px-5 py-5 text-center">
-
               {/* Icon */}
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
                 <Icon
@@ -325,17 +315,14 @@ export default function LeadSource() {
                   className="h-6 w-6 text-red-500"
                 />
               </div>
-
               {/* Title */}
               <h2 className="mt-3 text-xl font-bold text-gray-900">
                 Delete Source
               </h2>
-
               {/* Description */}
               <p className="mt-2 text-sm text-gray-500 leading-5">
                 Are you sure you want to delete this source?
               </p>
-
               {/* Source Name */}
               <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
                 <Icon
@@ -344,12 +331,9 @@ export default function LeadSource() {
                 />
                 {selectedSource?.sourceName}
               </div>
-
             </div>
-
             {/* Footer */}
             <div className="flex gap-2 border-t border-gray-100 p-4">
-
               <button
                 onClick={() => {
                   setDeleteModalOpen(false);
@@ -359,7 +343,6 @@ export default function LeadSource() {
               >
                 Cancel
               </button>
-
               <button
                 onClick={confirmDelete}
                 disabled={saving}
@@ -367,14 +350,11 @@ export default function LeadSource() {
               >
                 {saving ? "Deleting..." : "Delete"}
               </button>
-
             </div>
-
           </div>
-
         </div>
       )}
-
     </div>
   );
 }
+ 

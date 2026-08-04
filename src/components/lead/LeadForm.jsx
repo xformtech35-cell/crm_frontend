@@ -156,6 +156,24 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // New state for typing functionality
+  const [isNewSource, setIsNewSource] = useState(false);
+  const [isNewGroup, setIsNewGroup] = useState(false);
+  const [newSourceValue, setNewSourceValue] = useState('');
+  const [newGroupValue, setNewGroupValue] = useState('');
+  const [sourceSearchTerm, setSourceSearchTerm] = useState('');
+  const [groupSearchTerm, setGroupSearchTerm] = useState('');
+  const [showSourceDropdown, setShowSourceDropdown] = useState(false);
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+
+  // Search states for Country, State, City
+  const [countrySearchTerm, setCountrySearchTerm] = useState('');
+  const [stateSearchTerm, setStateSearchTerm] = useState('');
+  const [citySearchTerm, setCitySearchTerm] = useState('');
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [showStateDropdown, setShowStateDropdown] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+
   const currencyConfig = getCurrencyConfig(form.leadCountry);
 
   const [countryCode, setCountryCode] = useState("");
@@ -186,6 +204,33 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
     if (isNaN(date.getTime())) return 'Unknown date';
     return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
+
+  // Filter sources and groups based on search term
+  const filteredSources = leadSources.filter(source => 
+    source.sourceName?.toLowerCase().includes(sourceSearchTerm.toLowerCase())
+  );
+
+  const filteredGroups = leadGroups.filter(group => 
+    group.groupName?.toLowerCase().includes(groupSearchTerm.toLowerCase())
+  );
+
+  // Get all countries
+  const allCountries = Country.getAllCountries();
+  const filteredCountries = allCountries.filter(country =>
+    country.name.toLowerCase().includes(countrySearchTerm.toLowerCase())
+  );
+
+  // Get states based on selected country
+  const allStates = countryCode ? State.getStatesOfCountry(countryCode) : [];
+  const filteredStates = allStates.filter(state =>
+    state.name.toLowerCase().includes(stateSearchTerm.toLowerCase())
+  );
+
+  // Get cities based on selected state
+  const allCities = (countryCode && stateCode) ? City.getCitiesOfState(countryCode, stateCode) : [];
+  const filteredCities = allCities.filter(city =>
+    city.name.toLowerCase().includes(citySearchTerm.toLowerCase())
+  );
 
   // Fetch last serial number
   const fetchLastSerialNumber = async () => {
@@ -224,6 +269,27 @@ const apiiii = import.meta.env.VITE_API_BASE
     fetchLastSerialNumber();
     loadMasters();
   }, []);
+
+  // Sync country and state codes from initial data
+  useEffect(() => {
+    if (initial?.leadCountry) {
+      const country = allCountries.find(c => c.name === initial.leadCountry);
+      if (country) {
+        setCountryCode(country.isoCode);
+        setCountrySearchTerm(initial.leadCountry);
+      }
+    }
+    if (initial?.leadState && countryCode) {
+      const state = State.getStatesOfCountry(countryCode).find(s => s.name === initial.leadState);
+      if (state) {
+        setStateCode(state.isoCode);
+        setStateSearchTerm(initial.leadState);
+      }
+    }
+    if (initial?.leadCity) {
+      setCitySearchTerm(initial.leadCity);
+    }
+  }, [initial, countryCode]);
 
   useEffect(() => {
     if (initial?.quotationNumber) {
@@ -297,6 +363,98 @@ const apiiii = import.meta.env.VITE_API_BASE
       leadOutcomeStatus: val === "Qualified" ? "Open" : "",
     }));
   }
+
+  // Handle lead source selection or creation
+  const handleSourceSelect = (sourceName) => {
+    if (sourceName === 'add-new') {
+      setIsNewSource(true);
+      setShowSourceDropdown(false);
+      setSourceSearchTerm('');
+      return;
+    }
+    set('leadSource', sourceName);
+    setSourceSearchTerm(sourceName);
+    setShowSourceDropdown(false);
+    setIsNewSource(false);
+  };
+
+  const handleCreateNewSource = async () => {
+    if (newSourceValue.trim()) {
+      try {
+        await sourceHook.create({ sourceName: newSourceValue.trim() });
+        await loadMasters(); // Refresh the list
+        set('leadSource', newSourceValue.trim());
+        setSourceSearchTerm(newSourceValue.trim());
+        setIsNewSource(false);
+        setNewSourceValue('');
+        setShowSourceDropdown(false);
+      } catch (error) {
+        console.error("Failed to create new source:", error);
+      }
+    }
+  };
+
+  // Handle lead group selection or creation
+  const handleGroupSelect = (groupName) => {
+    if (groupName === 'add-new') {
+      setIsNewGroup(true);
+      setShowGroupDropdown(false);
+      setGroupSearchTerm('');
+      return;
+    }
+    set('leadGroup', groupName);
+    setGroupSearchTerm(groupName);
+    setShowGroupDropdown(false);
+    setIsNewGroup(false);
+  };
+
+  const handleCreateNewGroup = async () => {
+    if (newGroupValue.trim()) {
+      try {
+        await groupHook.create({ groupName: newGroupValue.trim() });
+        await loadMasters(); // Refresh the list
+        set('leadGroup', newGroupValue.trim());
+        setGroupSearchTerm(newGroupValue.trim());
+        setIsNewGroup(false);
+        setNewGroupValue('');
+        setShowGroupDropdown(false);
+      } catch (error) {
+        console.error("Failed to create new group:", error);
+      }
+    }
+  };
+
+  // Handle country selection
+  const handleCountrySelect = (country) => {
+    setCountryCode(country.isoCode);
+    setCountrySearchTerm(country.name);
+    set('leadCountry', country.name);
+    setShowCountryDropdown(false);
+    // Reset state and city when country changes
+    setStateCode('');
+    setStateSearchTerm('');
+    set('leadState', '');
+    setCitySearchTerm('');
+    set('leadCity', '');
+  };
+
+  // Handle state selection
+  const handleStateSelect = (state) => {
+    setStateCode(state.isoCode);
+    setStateSearchTerm(state.name);
+    set('leadState', state.name);
+    setShowStateDropdown(false);
+    // Reset city when state changes
+    setCitySearchTerm('');
+    set('leadCity', '');
+  };
+
+  // Handle city selection
+  const handleCitySelect = (city) => {
+    setCitySearchTerm(city.name);
+    set('leadCity', city.name);
+    setShowCityDropdown(false);
+  };
 
   function handleSubmit(e) {
     e?.preventDefault();
@@ -393,23 +551,21 @@ async function uploadFiles(files) {
               />
             </div>
           </div>
-
-          <div>
-            <label className={labelCls}>Contact Phone</label>
-            <div className="relative">
-              <Icon name="mdi:phone-outline" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              <input
-                type="tel"
-                value={form.leadMobileNo}
-                onChange={(e) =>
-                  set("leadMobileNo", e.target.value.replace(/\D/g, ""))
-                }
-                placeholder="Phone/Mobile Number"
-                maxLength={10}
-                className={`${inputCls} pl-9`}
-              />
-            </div>
-          </div>
+<div>
+  <label className={labelCls}>Contact Phone</label>
+  <div className="relative">
+    <Icon name="mdi:phone-outline" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+    <input
+      type="tel"
+      value={form.leadMobileNo}
+      onChange={(e) =>
+        set("leadMobileNo", e.target.value.replace(/\D/g, ""))
+      }
+      placeholder="Phone/Mobile Number"
+      className={`${inputCls} pl-9`}
+    />
+  </div>
+</div>
 
           <div>
             <label className={labelCls}>Contact Email</label>
@@ -459,38 +615,197 @@ async function uploadFiles(files) {
             </select>
           </div>
 
-          {/* Lead Source */}
-          <div>
+          {/* Lead Source - Updated with typing functionality */}
+          <div className="relative">
             <label className={labelCls}>Lead Source</label>
-            <select
-              className={selectCls}
-              value={form.leadSource || ""}
-              onChange={(e) => set('leadSource', e.target.value)}
-            >
-              <option value="">Select Source</option>
-              {leadSources.map((item) => (
-                <option key={item.id} value={item.sourceName}>
-                  {item.sourceName}
-                </option>
-              ))}
-            </select>
+            {!isNewSource ? (
+              <div className="relative">
+                <input
+                  type="text"
+                  value={sourceSearchTerm}
+                  onChange={(e) => {
+                    setSourceSearchTerm(e.target.value);
+                    setShowSourceDropdown(true);
+                    if (!e.target.value) {
+                      set('leadSource', '');
+                    }
+                  }}
+                  onFocus={() => setShowSourceDropdown(true)}
+                  onBlur={() => {
+                    // Delay hiding to allow click on dropdown items
+                    setTimeout(() => setShowSourceDropdown(false), 200);
+                  }}
+                  placeholder="Search or type new source..."
+                  className={inputCls}
+                />
+                {showSourceDropdown && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredSources.length > 0 ? (
+                      filteredSources.map((source) => (
+                        <div
+                          key={source.id}
+                          className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                          onMouseDown={() => handleSourceSelect(source.sourceName)}
+                        >
+                          {source.sourceName}
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        <div className="px-3 py-2 text-sm text-gray-500">
+                          No matching sources found
+                        </div>
+                        <div
+                          className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-blue-600 border-t border-gray-100"
+                          onMouseDown={() => handleSourceSelect('add-new')}
+                        >
+                          <Icon name="mdi:plus" className="inline w-4 h-4 mr-1" />
+                          Add new source: "{sourceSearchTerm}"
+                        </div>
+                      </>
+                    )}
+                    {filteredSources.length > 0 && (
+                      <div
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-blue-600 border-t border-gray-100"
+                        onMouseDown={() => handleSourceSelect('add-new')}
+                      >
+                        <Icon name="mdi:plus" className="inline w-4 h-4 mr-1" />
+                        Add new source
+                      </div>
+                    )}
+                  </div>
+                )}
+                {sourceSearchTerm && !showSourceDropdown && (
+                  <div className="text-xs text-gray-400 mt-1">
+                    Selected: {sourceSearchTerm}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newSourceValue}
+                  onChange={(e) => setNewSourceValue(e.target.value)}
+                  placeholder="Enter new source name..."
+                  className={inputCls}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateNewSource}
+                  className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                >
+                  Create
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNewSource(false);
+                    setNewSourceValue('');
+                  }}
+                  className="px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Lead Group */}
-          <div>
+          {/* Lead Group - Updated with typing functionality */}
+          <div className="relative">
             <label className={labelCls}>Lead Group</label>
-            <select
-              className={selectCls}
-              value={form.leadGroup || ""}
-              onChange={(e) => set('leadGroup', e.target.value)}
-            >
-              <option value="">Select Group</option>
-              {leadGroups.map((item) => (
-                <option key={item.id} value={item.groupName}>
-                  {item.groupName}
-                </option>
-              ))}
-            </select>
+            {!isNewGroup ? (
+              <div className="relative">
+                <input
+                  type="text"
+                  value={groupSearchTerm}
+                  onChange={(e) => {
+                    setGroupSearchTerm(e.target.value);
+                    setShowGroupDropdown(true);
+                    if (!e.target.value) {
+                      set('leadGroup', '');
+                    }
+                  }}
+                  onFocus={() => setShowGroupDropdown(true)}
+                  onBlur={() => {
+                    setTimeout(() => setShowGroupDropdown(false), 200);
+                  }}
+                  placeholder="Search or type new group..."
+                  className={inputCls}
+                />
+                {showGroupDropdown && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredGroups.length > 0 ? (
+                      filteredGroups.map((group) => (
+                        <div
+                          key={group.id}
+                          className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                          onMouseDown={() => handleGroupSelect(group.groupName)}
+                        >
+                          {group.groupName}
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        <div className="px-3 py-2 text-sm text-gray-500">
+                          No matching groups found
+                        </div>
+                        <div
+                          className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-blue-600 border-t border-gray-100"
+                          onMouseDown={() => handleGroupSelect('add-new')}
+                        >
+                          <Icon name="mdi:plus" className="inline w-4 h-4 mr-1" />
+                          Add new group: "{groupSearchTerm}"
+                        </div>
+                      </>
+                    )}
+                    {filteredGroups.length > 0 && (
+                      <div
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-blue-600 border-t border-gray-100"
+                        onMouseDown={() => handleGroupSelect('add-new')}
+                      >
+                        <Icon name="mdi:plus" className="inline w-4 h-4 mr-1" />
+                        Add new group
+                      </div>
+                    )}
+                  </div>
+                )}
+                {groupSearchTerm && !showGroupDropdown && (
+                  <div className="text-xs text-gray-400 mt-1">
+                    Selected: {groupSearchTerm}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newGroupValue}
+                  onChange={(e) => setNewGroupValue(e.target.value)}
+                  placeholder="Enter new group name..."
+                  className={inputCls}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateNewGroup}
+                  className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                >
+                  Create
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNewGroup(false);
+                    setNewGroupValue('');
+                  }}
+                  className="px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
           <div>
@@ -507,65 +822,156 @@ async function uploadFiles(files) {
             </select>
           </div>
 
-          <div>
+          {/* Country - Searchable */}
+          <div className="relative">
             <label className={labelCls}>Country</label>
-            <select
-              value={countryCode}
-              onChange={(e) => {
-                const code = e.target.value;
-                setCountryCode(code);
-                setStateCode("");
-                set("leadCountry", code ? Country.getCountryByCode(code)?.name : "");
-                set("leadState", "");
-                set("leadCity", "");
-              }}
-              className={inputCls}
-            >
-              <option value="">Select Country</option>
-              {Country.getAllCountries().map((country) => (
-                <option key={country.isoCode} value={country.isoCode}>
-                  {country.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <input
+                type="text"
+                value={countrySearchTerm}
+                onChange={(e) => {
+                  setCountrySearchTerm(e.target.value);
+                  setShowCountryDropdown(true);
+                  if (!e.target.value) {
+                    set('leadCountry', '');
+                    setCountryCode('');
+                  }
+                }}
+                onFocus={() => setShowCountryDropdown(true)}
+                onBlur={() => {
+                  setTimeout(() => setShowCountryDropdown(false), 200);
+                }}
+                placeholder="Search country..."
+                className={inputCls}
+              />
+              {showCountryDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredCountries.length > 0 ? (
+                    filteredCountries.map((country) => (
+                      <div
+                        key={country.isoCode}
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                        onMouseDown={() => handleCountrySelect(country)}
+                      >
+                        {country.name}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-gray-500">
+                      No countries found
+                    </div>
+                  )}
+                </div>
+              )}
+              {countrySearchTerm && !showCountryDropdown && (
+                <div className="text-xs text-gray-400 mt-1">
+                  Selected: {countrySearchTerm}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div>
+          {/* State - Searchable */}
+          <div className="relative">
             <label className={labelCls}>State</label>
-            <select
-              value={stateCode}
-              onChange={(e) => {
-                const code = e.target.value;
-                setStateCode(code);
-                set("leadState", code ? State.getStateByCodeAndCountry(code, countryCode)?.name : "");
-                set("leadCity", "");
-              }}
-              className={inputCls}
-              disabled={!countryCode}
-            >
-              <option value="">Select State</option>
-              {State.getStatesOfCountry(countryCode).map((state) => (
-                <option key={state.isoCode} value={state.isoCode}>
-                  {state.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <input
+                type="text"
+                value={stateSearchTerm}
+                onChange={(e) => {
+                  setStateSearchTerm(e.target.value);
+                  setShowStateDropdown(true);
+                  if (!e.target.value) {
+                    set('leadState', '');
+                    setStateCode('');
+                  }
+                }}
+                onFocus={() => {
+                  if (countryCode) setShowStateDropdown(true);
+                }}
+                onBlur={() => {
+                  setTimeout(() => setShowStateDropdown(false), 200);
+                }}
+                placeholder={countryCode ? "Search state..." : "Select country first"}
+                className={inputCls}
+                disabled={!countryCode}
+              />
+              {showStateDropdown && countryCode && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredStates.length > 0 ? (
+                    filteredStates.map((state) => (
+                      <div
+                        key={state.isoCode}
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                        onMouseDown={() => handleStateSelect(state)}
+                      >
+                        {state.name}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-gray-500">
+                      {stateSearchTerm ? 'No states found' : 'Type to search states'}
+                    </div>
+                  )}
+                </div>
+              )}
+              {stateSearchTerm && !showStateDropdown && (
+                <div className="text-xs text-gray-400 mt-1">
+                  Selected: {stateSearchTerm}
+                </div>
+              )}
+            </div>
           </div>
-          <div>
+
+          {/* City - Searchable */}
+          <div className="relative">
             <label className={labelCls}>City</label>
-            <select
-              value={form.leadCity}
-              onChange={(e) => set("leadCity", e.target.value)}
-              className={inputCls}
-              disabled={!stateCode}
-            >
-              <option value="">Select City</option>
-              {City.getCitiesOfState(countryCode, stateCode).map((city) => (
-                <option key={city.name} value={city.name}>
-                  {city.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <input
+                type="text"
+                value={citySearchTerm}
+                onChange={(e) => {
+                  setCitySearchTerm(e.target.value);
+                  setShowCityDropdown(true);
+                  if (!e.target.value) {
+                    set('leadCity', '');
+                  }
+                }}
+                onFocus={() => {
+                  if (stateCode) setShowCityDropdown(true);
+                }}
+                onBlur={() => {
+                  setTimeout(() => setShowCityDropdown(false), 200);
+                }}
+                placeholder={stateCode ? "Search city..." : "Select state first"}
+                className={inputCls}
+                disabled={!stateCode}
+              />
+              {showCityDropdown && stateCode && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredCities.length > 0 ? (
+                    filteredCities.map((city) => (
+                      <div
+                        key={city.name}
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                        onMouseDown={() => handleCitySelect(city)}
+                      >
+                        {city.name}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-gray-500">
+                      {citySearchTerm ? 'No cities found' : 'Type to search cities'}
+                    </div>
+                  )}
+                </div>
+              )}
+              {citySearchTerm && !showCityDropdown && (
+                <div className="text-xs text-gray-400 mt-1">
+                  Selected: {citySearchTerm}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="sm:col-span-2">
@@ -835,40 +1241,6 @@ async function uploadFiles(files) {
                 </div>
                 <p className="text-sm font-bold text-slate-800">Documents</p>
               </div>
-
-              {/* Existing Documents */}
-              {/* {filesFromLead.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {filesFromLead.map((doc, index) => {
-                    let path = doc.path || "";
-                    if (path.startsWith("uploads") && !path.startsWith("uploads/")) {
-                      path = path.replace("uploads", "uploads/");
-                    }
-                    const fileUrl = path.startsWith("http") ? path : `${apiiii}/${path}`;
-                    const ext = doc.name.split(".").pop()?.toLowerCase();
-                    const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(ext);
-                    const isPdf = ext === "pdf";
-
-                    return (
-                      <div key={doc.id || index} className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 flex items-center gap-3 hover:border-blue-200 hover:bg-blue-50/20 transition-all">
-                        <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${isImage ? "bg-pink-50" : isPdf ? "bg-red-50" : "bg-blue-50"}`}>
-                          <Icon name={isImage ? "mdi:image-outline" : isPdf ? "mdi:file-pdf-box" : "mdi:file-document-outline"} className={`h-6 w-6 ${isImage ? "text-pink-500" : isPdf ? "text-red-500" : "text-blue-500"}`} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-800 truncate">{doc.name}</p>
-                          <p className="text-xs text-gray-400">{doc.uploadedAt ? formatDate(doc.uploadedAt) : "Unknown date"}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          
-                          <a href={fileUrl} download target="_blank" rel="noopener noreferrer" className="px-2.5 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-medium hover:bg-emerald-200 transition-colors">
-                            <Icon name="mdi:download" className="h-3.5 w-3.5 inline mr-1" />Download
-                          </a>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )} */}
 
               {/* Upload zone */}
               <div

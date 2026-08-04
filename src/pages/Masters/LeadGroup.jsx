@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import AppDrawer from '/src/components/common/AppDrawer';
 import Icon from '/src/components/Icon';
 import { useLeadGroup } from '/src/hooks/useMaster';
-
+ 
 const emptyForm = { groupName: '' };
-
+ 
 export default function LeadGroup() {
   const leadGroupHook = useLeadGroup();
-
+ 
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -16,14 +16,14 @@ export default function LeadGroup() {
   const [editingGroup, setEditingGroup] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
-
+ 
   const [form, setForm] = useState(emptyForm);
-
-
-
+ 
+ 
+ 
   async function loadData() {
     setLoading(true);
-
+ 
     try {
       const data = await leadGroupHook.getAll();
       setGroups(Array.isArray(data) ? data : []);
@@ -34,51 +34,56 @@ export default function LeadGroup() {
       setLoading(false);
     }
   }
-
+ 
   useEffect(() => {
     loadData();
   }, []);
-
+ 
   const filteredGroups = useMemo(() => {
     const text = query.trim().toLowerCase();
-
+ 
     if (!text) return groups;
-
+ 
     return groups.filter((item) =>
       item.groupName?.toLowerCase().includes(text)
     );
   }, [groups, query]);
-
+ 
   function openCreate() {
     setEditingGroup(null);
     setForm(emptyForm);
     setModalOpen(true);
   }
-
+ 
   function openEdit(group) {
     setEditingGroup(group);
-
+ 
     setForm({
       groupName: group.groupName || '',
     });
-
+ 
     setModalOpen(true);
   }
-
+ 
   async function saveGroup(e) {
     e.preventDefault();
-
+ 
     if (!form.groupName.trim()) return;
-
+ 
     setSaving(true);
-
+ 
     try {
       if (editingGroup) {
-        await leadGroupHook.update(editingGroup.id, form);
+        // FIX: Pass the complete group object with updated groupName
+        const updatedGroup = {
+          ...editingGroup,
+          groupName: form.groupName
+        };
+        await leadGroupHook.update(editingGroup.id, updatedGroup);
       } else {
         await leadGroupHook.create(form);
       }
-
+ 
       setModalOpen(false);
       await loadData();
     } catch (error) {
@@ -88,39 +93,23 @@ export default function LeadGroup() {
       setSaving(false);
     }
   }
-
-  // async function deleteGroup(group) {
-  //   if (!confirm(`Delete group "${group.groupName}"?`)) return;
-
-  //   setSaving(true);
-
-  //   try {
-  //     await leadGroupHook.remove(group.id);
-  //     await loadData();
-  //   } catch (error) {
-  //     console.error('Delete failed:', error);
-  //     alert('Unable to delete lead group.');
-  //   } finally {
-  //     setSaving(false);
-  //   }
-  // }
-
+ 
   function deleteGroup(group) {
     setSelectedGroup(group);
     setDeleteModalOpen(true);
   }
-
+ 
   async function confirmDelete() {
     if (!selectedGroup) return;
-
+ 
     setSaving(true);
-
+ 
     try {
       await leadGroupHook.remove(selectedGroup.id);
-
+ 
       setDeleteModalOpen(false);
       setSelectedGroup(null);
-
+ 
       await loadData();
     } catch (error) {
       console.error(error);
@@ -129,6 +118,7 @@ export default function LeadGroup() {
       setSaving(false);
     }
   }
+ 
   return (
     <div className="animate-fade-in space-y-3 pb-6">
       {/* Search Bar with New Group Button - Compact */}
@@ -159,7 +149,7 @@ export default function LeadGroup() {
           New Group
         </button>
       </div>
-
+ 
       {/* Table */}
       <section className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         {loading ? (
@@ -237,7 +227,7 @@ export default function LeadGroup() {
             </table>
           </div>
         )}
-
+ 
         {/* Table footer with count */}
         {filteredGroups.length > 0 && (
           <div className="border-t border-gray-100 px-4 py-2 bg-gray-50/50">
@@ -252,7 +242,7 @@ export default function LeadGroup() {
           </div>
         )}
       </section>
-
+ 
       {/* Drawer */}
       <AppDrawer
         open={modalOpen}
@@ -317,7 +307,7 @@ export default function LeadGroup() {
             </div>
             <p className="text-xs text-gray-400 mt-1">Enter a unique name for this lead group</p>
           </div>
-
+ 
           {editingGroup && (
             <div className="bg-purple-50/50 rounded-lg p-3 border border-purple-100">
               <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -330,12 +320,12 @@ export default function LeadGroup() {
       </AppDrawer>
       {deleteModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-
+ 
           <div className="w-full max-w-[340px] rounded-xl bg-white shadow-2xl">
-
+ 
             {/* Body */}
             <div className="px-5 py-5 text-center">
-
+ 
               {/* Icon */}
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
                 <Icon
@@ -343,17 +333,17 @@ export default function LeadGroup() {
                   className="h-6 w-6 text-red-500"
                 />
               </div>
-
+ 
               {/* Title */}
               <h2 className="mt-3 text-xl font-bold text-gray-900">
                 Delete Group
               </h2>
-
+ 
               {/* Description */}
               <p className="mt-2 text-sm text-gray-500 leading-5">
                 Are you sure you want to delete this group?
               </p>
-
+ 
               {/* Group Name */}
               <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
                 <Icon
@@ -362,12 +352,12 @@ export default function LeadGroup() {
                 />
                 {selectedGroup?.groupName}
               </div>
-
+ 
             </div>
-
+ 
             {/* Footer */}
             <div className="flex gap-2 border-t border-gray-100 p-4">
-
+ 
               <button
                 onClick={() => {
                   setDeleteModalOpen(false);
@@ -377,7 +367,7 @@ export default function LeadGroup() {
               >
                 Cancel
               </button>
-
+ 
               <button
                 onClick={confirmDelete}
                 disabled={saving}
@@ -385,13 +375,14 @@ export default function LeadGroup() {
               >
                 {saving ? "Deleting..." : "Delete"}
               </button>
-
+ 
             </div>
-
+ 
           </div>
-
+ 
         </div>
       )}
     </div>
   );
 }
+ 
