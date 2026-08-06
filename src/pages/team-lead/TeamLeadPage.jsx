@@ -1,18 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
-import AppDrawer from '../../components/common/AppDrawer'
-import Icon from '../../components/Icon'
-import { useCreateTeam } from '../../hooks/useCreateTeam'
-import { useTeam } from '../../hooks/useTeam'
-import { useTeamMember } from '../../hooks/useTeamMember'
-import { useRole } from '../../hooks/useRole'
-import { useAuthStore } from '../../stores/auth'
+import { useEffect, useMemo, useState } from 'react';
+import AppDrawer from '../../components/common/AppDrawer';
+import Icon from '../../components/Icon';
+import { useCreateTeam } from '../../hooks/useCreateTeam';
+import { useTeam } from '../../hooks/useTeam';
+import { useTeamMember } from '../../hooks/useTeamMember';
+import { useRole } from '../../hooks/useRole';
 import {
-  assignmentIdsForMember,
   getMemberId,
   getMemberLabel,
   getTeamLabel,
   teamsForMember,
-} from '../../utils/teamRelations'
+} from '../../utils/teamRelations';
 
 const emptyForm = {
   selectedMemberId: '',
@@ -21,53 +19,54 @@ const emptyForm = {
   teamMemberMobile: '',
   teamIdFk: '',
   password: '',
-}
+};
 
 export default function TeamLeadPage() {
-  const teamMemberHook = useTeamMember()
-  const teamHook = useTeam()
-  const createTeamHook = useCreateTeam()
-  const roleHook = useRole()
+  const teamMemberHook = useTeamMember();
+  const teamHook = useTeam();
+  const createTeamHook = useCreateTeam();
+  const roleHook = useRole();
 
-  const [members, setMembers] = useState([])
-  const [teams, setTeams] = useState([])
-  const [assignments, setAssignments] = useState([])
-  const [roles, setRoles] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [query, setQuery] = useState('')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingLead, setEditingLead] = useState(null)
-  const [form, setForm] = useState(emptyForm)
+  const [members, setMembers] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState('');
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'table'
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
+  const [form, setForm] = useState(emptyForm);
 
   async function loadData() {
-    setLoading(true)
+    setLoading(true);
     try {
       const [memberData, teamData, assignmentData, roleData] = await Promise.all([
         teamMemberHook.getAll(),
         teamHook.getAll(),
         createTeamHook.getAll(),
         roleHook.getAll(),
-      ])
-      setMembers(Array.isArray(memberData) ? memberData : [])
-      setTeams(Array.isArray(teamData) ? teamData : [])
-      setAssignments(Array.isArray(assignmentData) ? assignmentData : [])
-      setRoles(Array.isArray(roleData) ? roleData : [])
+      ]);
+      setMembers(Array.isArray(memberData) ? memberData : []);
+      setTeams(Array.isArray(teamData) ? teamData : []);
+      setAssignments(Array.isArray(assignmentData) ? assignmentData : []);
+      setRoles(Array.isArray(roleData) ? roleData : []);
     } catch (error) {
-      console.error('Failed to load team lead master:', error)
-      setMembers([])
-      setTeams([])
-      setAssignments([])
-      setRoles([])
+      console.error('Failed to load team lead master:', error);
+      setMembers([]);
+      setTeams([]);
+      setAssignments([]);
+      setRoles([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadData()
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   // Identify Team Lead role ID from roles catalog
   const teamLeadRoleObj = useMemo(() => {
@@ -76,44 +75,44 @@ export default function TeamLeadPage() {
         r.roleName?.toUpperCase() === 'TEAM LEAD' ||
         r.roleName?.toUpperCase() === 'TEAM_LEAD' ||
         r.roleName?.toUpperCase() === 'TEAM LEADER'
-    )
-  }, [roles])
+    );
+  }, [roles]);
 
   const teamLeads = useMemo(() => {
     return members.filter((member) => {
-      const roleObj = roles.find((r) => String(r.roleId) === String(member.teamMemberRole))
+      const roleObj = roles.find((r) => String(r.roleId) === String(member.teamMemberRole));
       const isRoleMatch = roleObj
         ? roleObj.roleName?.toUpperCase().includes('TEAM LEAD') || roleObj.roleName?.toUpperCase().includes('TEAM_LEAD')
-        : String(member.teamMemberRole).toUpperCase().includes('LEAD')
+        : String(member.teamMemberRole).toUpperCase().includes('LEAD');
       
-      const isAssignedLead = teams.some((t) => Number(t.teamLeadId) === Number(getMemberId(member)))
-      return isRoleMatch || isAssignedLead
-    })
-  }, [members, roles, teams])
+      const isAssignedLead = teams.some((t) => Number(t.teamLeadId) === Number(getMemberId(member)));
+      return isRoleMatch || isAssignedLead;
+    });
+  }, [members, roles, teams]);
 
   const filteredTeamLeads = useMemo(() => {
-    const text = query.trim().toLowerCase()
-    if (!text) return teamLeads
+    const text = query.trim().toLowerCase();
+    if (!text) return teamLeads;
     return teamLeads.filter((member) => {
-      const linkedTeams = teamsForMember(getMemberId(member), teams, assignments)
-      return [getMemberLabel(member), member.teamMemberMobile, ...linkedTeams.map(getTeamLabel)]
+      const linkedTeams = teamsForMember(getMemberId(member), teams, assignments);
+      return [getMemberLabel(member), member.teamMemberMobile, member.teamMemberEmail, ...linkedTeams.map(getTeamLabel)]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
-        .includes(text)
-    })
-  }, [assignments, members, query, teamLeads, teams])
+        .includes(text);
+    });
+  }, [assignments, members, query, teamLeads, teams]);
 
   function openCreate() {
-    setEditingLead(null)
-    setForm(emptyForm)
-    setModalOpen(true)
+    setEditingLead(null);
+    setForm(emptyForm);
+    setModalOpen(true);
   }
 
   function openEdit(member) {
-    const linkedTeams = teamsForMember(getMemberId(member), teams, assignments)
-    const firstTeam = linkedTeams[0]?.teamId || ''
-    setEditingLead(member)
+    const linkedTeams = teamsForMember(getMemberId(member), teams, assignments);
+    const firstTeam = linkedTeams[0]?.teamId || '';
+    setEditingLead(member);
     setForm({
       selectedMemberId: String(getMemberId(member)),
       teamMemberName: member.teamMemberName || '',
@@ -121,8 +120,8 @@ export default function TeamLeadPage() {
       teamMemberMobile: member.teamMemberMobile || '',
       teamIdFk: firstTeam ? String(firstTeam) : '',
       password: '',
-    })
-    setModalOpen(true)
+    });
+    setModalOpen(true);
   }
 
   function handleSelectMember(memberId) {
@@ -133,10 +132,10 @@ export default function TeamLeadPage() {
         teamMemberName: '',
         teamMemberEmail: '',
         teamMemberMobile: '',
-      }))
-      return
+      }));
+      return;
     }
-    const found = members.find((m) => String(getMemberId(m)) === String(memberId))
+    const found = members.find((m) => String(getMemberId(m)) === String(memberId));
     if (found) {
       setForm((cur) => ({
         ...cur,
@@ -144,310 +143,511 @@ export default function TeamLeadPage() {
         teamMemberName: found.teamMemberName || '',
         teamMemberEmail: found.teamMemberEmail || '',
         teamMemberMobile: found.teamMemberMobile || '',
-      }))
+      }));
     }
   }
 
-  function updateField(name, value) {
-    setForm((current) => ({ ...current, [name]: value }))
-  }
-
-  async function saveLead(e) {
-    e.preventDefault()
-    setSaving(true)
+  async function saveTeamLead(e) {
+    e.preventDefault();
+    if (!form.teamMemberName.trim() || !form.teamMemberEmail.trim()) {
+      alert('Name and Email are required.');
+      return;
+    }
+    setSaving(true);
     try {
-      const roleIdToUse = teamLeadRoleObj ? teamLeadRoleObj.roleId : 3
-      const targetMemberId = form.selectedMemberId || (editingLead ? getMemberId(editingLead) : null)
+      const roleIdToUse = teamLeadRoleObj ? teamLeadRoleObj.roleId : null;
+      const payload = {
+        teamMemberName: form.teamMemberName.trim(),
+        teamMemberEmail: form.teamMemberEmail.trim(),
+        teamMemberMobile: form.teamMemberMobile.trim(),
+        teamMemberRole: roleIdToUse,
+        password: form.password,
+      };
 
-      let savedMemberId = targetMemberId
-
-      if (targetMemberId) {
-        // Update existing member role to Team Lead
-        const existingMember = members.find((m) => String(getMemberId(m)) === String(targetMemberId))
-        const updatePayload = {
-          teamMemberName: form.teamMemberName.trim(),
-          teamMemberEmail: form.teamMemberEmail.trim(),
-          teamMemberMobile: form.teamMemberMobile.trim(),
-          teamMemberRole: roleIdToUse,
-        }
-        if (form.password) {
-          updatePayload.password = form.password
-        }
-        await teamMemberHook.update(targetMemberId, updatePayload)
+      let savedMember;
+      if (editingLead) {
+        savedMember = await teamMemberHook.update(getMemberId(editingLead), payload);
+      } else if (form.selectedMemberId) {
+        savedMember = await teamMemberHook.update(form.selectedMemberId, payload);
       } else {
-        // Create new Team Member with Team Lead role
-        const createPayload = {
-          teamMemberName: form.teamMemberName.trim(),
-          teamMemberEmail: form.teamMemberEmail.trim(),
-          teamMemberMobile: form.teamMemberMobile.trim(),
-          teamMemberRole: roleIdToUse,
-          password: form.password,
-        }
-        const created = await teamMemberHook.create(createPayload)
-        savedMemberId = getMemberId(created)
+        savedMember = await teamMemberHook.create(payload);
       }
 
-      // Update designated team if selected
-      if (form.teamIdFk && savedMemberId) {
-        const teamObj = teams.find((t) => Number(t.teamId) === Number(form.teamIdFk))
+      // If team is selected, assign this lead to the team
+      if (form.teamIdFk && savedMember) {
+        const teamId = Number(form.teamIdFk);
+        const teamObj = teams.find((t) => Number(t.teamId) === teamId);
         if (teamObj) {
-          await teamHook.update(teamObj.teamId, {
+          await teamHook.update(teamId, {
             teamName: teamObj.teamName,
-            teamLeadId: Number(savedMemberId),
-          })
-          // Also add team assignment record if missing
-          const existingIds = assignmentIdsForMember(savedMemberId, assignments)
-          if (existingIds.length === 0) {
-            await createTeamHook.create({
-              teamIdFk: Number(teamObj.teamId),
-              teamMemberIdFk: Number(savedMemberId),
-              roleIdFk: Number(roleIdToUse),
-            })
-          }
+            teamLeadId: getMemberId(savedMember),
+          });
         }
+        await createTeamHook.create({
+          teamIdFk: teamId,
+          teamMemberIdFk: getMemberId(savedMember),
+          roleIdFk: roleIdToUse,
+        });
       }
 
-      setModalOpen(false)
-      await loadData()
+      setModalOpen(false);
+      await loadData();
     } catch (error) {
-      console.error('Failed to save Team Lead:', error)
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error.message ||
-        'Unable to save Team Lead. Please check details.'
-      alert(message)
+      console.error('Failed to save Team Lead:', error);
+      alert(error?.response?.data?.message || 'Failed to save Team Lead.');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
-  async function deleteLead(member) {
-    if (!confirm(`Delete Team Lead "${member.teamMemberName || member.teamMemberEmail}"?`)) return
-    setSaving(true)
+  async function removeTeamLead(member) {
+    if (!confirm(`Are you sure you want to remove Team Lead role for ${getMemberLabel(member)}?`)) return;
+    setSaving(true);
     try {
-      const assignmentIds = assignmentIdsForMember(getMemberId(member), assignments)
-      await Promise.all(assignmentIds.map((id) => createTeamHook.remove(id)))
-      await teamMemberHook.remove(getMemberId(member))
-      await loadData()
+      // Find teams led by this member and clear lead ID
+      const ledTeams = teams.filter((t) => Number(t.teamLeadId) === Number(getMemberId(member)));
+      await Promise.all(
+        ledTeams.map((t) =>
+          teamHook.update(t.teamId, {
+            teamName: t.teamName,
+            teamLeadId: null,
+          })
+        )
+      );
+      await loadData();
     } catch (error) {
-      console.error('Failed to delete Team Lead:', error)
-      alert('Unable to delete Team Lead.')
+      console.error('Failed to remove team lead:', error);
+      alert('Failed to update team lead role.');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
+
+  // Summary stats
+  const totalLeadsCount = teamLeads.length;
+  const managedTeamsCount = teams.filter((t) => t.teamLeadId).length;
 
   return (
-    <div className="animate-fade-in space-y-4 pb-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="animate-fade-in space-y-6 pb-12">
+      {/* Top Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Team Leads Master</h1>
-          <p className="text-sm text-gray-500">Select team members from master to assign as Team Lead and manage team rosters.</p>
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+              <Icon name="mdi:account-star-outline" className="h-5 w-5" />
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Team Leads Center</h1>
+          </div>
+          <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+            Designate team leaders, manage lead portfolios, and oversee departmental reporting hierarchies.
+          </p>
         </div>
-        <button onClick={openCreate} className="btn-primary">
-          <Icon name="mdi:plus" className="h-4 w-4" />
-          Add / Assign Team Lead
+
+        <button
+          onClick={openCreate}
+          className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-amber-500/20 hover:scale-105 transition-all self-start sm:self-auto"
+          style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+        >
+          <Icon name="mdi:crown" className="h-4 w-4" />
+          Add / Designate Team Lead
         </button>
       </div>
 
-      {/* Stats */}
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Total Team Leads</p>
-          <p className="mt-1 text-2xl font-bold text-purple-600">{teamLeads.length}</p>
+      {/* Metrics Banner */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">Total Team Leads</span>
+            <span className="p-2 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+              <Icon name="mdi:crown" className="w-5 h-5" />
+            </span>
+          </div>
+          <p className="mt-2 text-2xl font-extrabold text-gray-900 dark:text-white">{totalLeadsCount}</p>
+          <p className="text-[11px] text-gray-400 mt-1">Active team leaders</p>
         </div>
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Total Teams</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{teams.length}</p>
-        </div>
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Total Members Master</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{members.length}</p>
-        </div>
-      </section>
 
-      {/* Filter Bar */}
-      <div className="relative w-full sm:w-80">
-        <Icon name="mdi:magnify" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-          placeholder="Search Team Leads or teams..."
-          type="search"
-        />
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">Managed Teams</span>
+            <span className="p-2 rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+              <Icon name="mdi:folder-account-outline" className="w-5 h-5" />
+            </span>
+          </div>
+          <p className="mt-2 text-2xl font-extrabold text-gray-900 dark:text-white">{managedTeamsCount}</p>
+          <p className="text-[11px] text-gray-400 mt-1">Teams with active leads</p>
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400">Hierarchy Level</span>
+            <span className="p-2 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+              <Icon name="mdi:shield-account" className="w-5 h-5" />
+            </span>
+          </div>
+          <p className="mt-2 text-2xl font-extrabold text-gray-900 dark:text-white">Mid-Tier</p>
+          <p className="text-[11px] text-gray-400 mt-1">Manages team members data</p>
+        </div>
       </div>
 
-      {/* Main Table */}
-      <section className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-        {loading ? (
-          <div className="p-6 text-center text-sm text-gray-500">Loading Team Leads...</div>
-        ) : filteredTeamLeads.length === 0 ? (
-          <div className="p-10 text-center text-sm text-gray-500">No Team Leads found.</div>
-        ) : (
+      {/* Toolbar & Filters */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm dark:bg-slate-900 dark:border-white/10">
+        <div className="relative w-full sm:w-80">
+          <Icon name="mdi:magnify" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 bg-slate-50 py-2 pl-9 pr-3 text-xs focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 dark:bg-slate-800 dark:border-white/10 dark:text-white"
+            placeholder="Search lead name, email, mobile, or team..."
+            type="search"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <span className="text-xs text-gray-400 mr-1">View Mode:</span>
+          <div className="flex items-center rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'cards'
+                  ? 'bg-white text-amber-700 shadow-sm dark:bg-slate-700 dark:text-white'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-slate-400'
+              }`}
+            >
+              <Icon name="mdi:view-grid-outline" className="w-4 h-4" />
+              Lead Cards
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'table'
+                  ? 'bg-white text-amber-700 shadow-sm dark:bg-slate-700 dark:text-white'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-slate-400'
+              }`}
+            >
+              <Icon name="mdi:format-list-bulleted" className="w-4 h-4" />
+              Structured List
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      {loading ? (
+        <div className="rounded-3xl border border-gray-100 bg-white p-12 text-center text-sm text-gray-500 dark:bg-slate-900 dark:border-white/10">
+          <Icon name="mdi:loading" className="w-8 h-8 animate-spin mx-auto text-amber-600 mb-2" />
+          Loading Team Leads...
+        </div>
+      ) : filteredTeamLeads.length === 0 ? (
+        <div className="rounded-3xl border border-gray-100 bg-white p-12 text-center dark:bg-slate-900 dark:border-white/10">
+          <Icon name="mdi:account-star-outline" className="w-12 h-12 mx-auto text-gray-300 dark:text-slate-600 mb-3" />
+          <h3 className="text-base font-bold text-gray-800 dark:text-white">No Team Leads Found</h3>
+          <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
+            {query ? 'No team leads match your search query.' : 'Designate staff members as Team Leads to manage teams and view team data.'}
+          </p>
+          <button
+            onClick={openCreate}
+            className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 hover:underline"
+          >
+            + Add / Designate Team Lead
+          </button>
+        </div>
+      ) : viewMode === 'cards' ? (
+        /* Team Lead Cards View */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredTeamLeads.map((member) => {
+            const memberId = getMemberId(member);
+            const name = getMemberLabel(member);
+            const email = member.teamMemberEmail;
+            const mobile = member.teamMemberMobile;
+            const ledTeams = teams.filter((t) => Number(t.teamLeadId) === Number(memberId));
+            const memberTeams = teamsForMember(memberId, teams, assignments);
+
+            return (
+              <div
+                key={memberId}
+                className="group rounded-3xl border border-amber-100 bg-gradient-to-b from-amber-50/40 via-white to-white p-6 shadow-sm hover:shadow-md transition-all dark:bg-slate-900 dark:border-amber-500/20 flex flex-col justify-between"
+              >
+                <div>
+                  {/* Card Header */}
+                  <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-100 dark:border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center font-bold text-sm shadow-sm dark:bg-amber-900/40 dark:text-amber-300">
+                        {name.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="text-base font-bold text-gray-900 dark:text-white">{name}</h3>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                            👑 TEAM LEAD
+                          </span>
+                        </div>
+                        {email && <p className="text-xs text-gray-400 mt-0.5">{email}</p>}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEdit(member)}
+                        className="rounded-xl p-2 text-gray-400 hover:bg-amber-50 hover:text-amber-600 transition-colors"
+                        title="Edit Team Lead"
+                      >
+                        <Icon name="mdi:pencil-outline" className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => removeTeamLead(member)}
+                        className="rounded-xl p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        title="Remove Team Lead Role"
+                      >
+                        <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Portfolio Information */}
+                  <div className="space-y-3">
+                    {mobile && (
+                      <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-slate-300">
+                        <Icon name="mdi:phone-outline" className="w-4 h-4 text-gray-400" />
+                        <span>{mobile}</span>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Teams Led ({ledTeams.length})</p>
+                      {ledTeams.length === 0 ? (
+                        <p className="text-xs text-amber-700 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200 inline-block">
+                          No team assigned yet
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {ledTeams.map((t) => (
+                            <span
+                              key={t.teamId}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-purple-50 text-purple-700 font-bold text-xs border border-purple-200 dark:bg-purple-900/30 dark:text-purple-300"
+                            >
+                              <Icon name="mdi:folder-outline" className="w-3.5 h-3.5" />
+                              {getTeamLabel(t)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-3 border-t border-gray-100 dark:border-white/5 flex items-center justify-between">
+                  <span className="text-xs text-gray-400">{memberTeams.length} Total Teams</span>
+                  <button
+                    onClick={() => openEdit(member)}
+                    className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1"
+                  >
+                    Manage Lead <Icon name="mdi:chevron-right" className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Structured Table View */
+        <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm dark:bg-slate-900 dark:border-white/10">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+            <table className="w-full min-w-[700px] text-left text-xs">
+              <thead className="bg-slate-50 text-gray-500 uppercase font-bold dark:bg-slate-800 dark:text-slate-300">
                 <tr>
-                  <th className="px-4 py-3">Team Lead</th>
-                  <th className="px-4 py-3">Mobile</th>
-                  <th className="px-4 py-3">Assigned Team(s)</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-6 py-3.5">Team Lead Name</th>
+                  <th className="px-6 py-3.5">Contact Details</th>
+                  <th className="px-6 py-3.5">Assigned Teams Led</th>
+                  <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100 dark:divide-white/5">
                 {filteredTeamLeads.map((member) => {
-                  const linkedTeams = teamsForMember(getMemberId(member), teams, assignments)
-                  const ledTeams = teams.filter((t) => Number(t.teamLeadId) === Number(getMemberId(member)))
-                  const displayTeams = Array.from(new Set([...linkedTeams, ...ledTeams]))
+                  const memberId = getMemberId(member);
+                  const name = getMemberLabel(member);
+                  const email = member.teamMemberEmail;
+                  const mobile = member.teamMemberMobile;
+                  const ledTeams = teams.filter((t) => Number(t.teamLeadId) === Number(memberId));
 
                   return (
-                    <tr key={getMemberId(member)} className="border-t border-gray-100">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-purple-700 font-bold text-xs">
-                            <Icon name="mdi:star" className="h-4 w-4 text-purple-600" />
-                          </span>
+                    <tr key={memberId} className="hover:bg-slate-50/70 transition-colors dark:hover:bg-slate-800/50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-800 border border-amber-300 font-bold flex items-center justify-center text-xs dark:bg-amber-900/40 dark:text-amber-300">
+                            {name.substring(0, 2).toUpperCase()}
+                          </div>
                           <div>
-                            <p className="font-semibold text-gray-900">{member.teamMemberName || '-'}</p>
-                            <p className="text-xs text-gray-500">{member.teamMemberEmail || '-'}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-bold text-gray-900 dark:text-white">{name}</p>
+                              <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                👑 LEAD
+                              </span>
+                            </div>
+                            <p className="text-gray-400 text-[11px]">ID: #{memberId}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">{member.teamMemberMobile || '-'}</td>
-                      <td className="px-4 py-3">
-                        {displayTeams.length ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {displayTeams.map((team) => (
-                              <span key={team.teamId} className="rounded-full bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700 border border-purple-100">
-                                {getTeamLabel(team)}
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-gray-800 dark:text-slate-200">{email || '-'}</p>
+                        {mobile && <p className="text-gray-400 text-[11px]">{mobile}</p>}
+                      </td>
+                      <td className="px-6 py-4">
+                        {ledTeams.length === 0 ? (
+                          <span className="text-gray-400 italic">No teams assigned</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {ledTeams.map((t) => (
+                              <span
+                                key={t.teamId}
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-purple-50 text-purple-700 font-bold text-[11px] border border-purple-200 dark:bg-purple-900/30 dark:text-purple-300"
+                              >
+                                <Icon name="mdi:folder-outline" className="w-3 h-3" />
+                                {getTeamLabel(t)}
                               </span>
                             ))}
                           </div>
-                        ) : (
-                          <span className="text-gray-400">Not assigned to team</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1">
-                          <button className="rounded-lg p-2 text-gray-500 hover:bg-purple-50 hover:text-purple-600" onClick={() => openEdit(member)} title="Edit Team Lead">
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            onClick={() => openEdit(member)}
+                            className="rounded-xl p-2 text-gray-500 hover:bg-amber-50 hover:text-amber-600 transition-colors"
+                            title="Edit Team Lead"
+                          >
                             <Icon name="mdi:pencil-outline" className="h-4 w-4" />
                           </button>
-                          <button className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600" onClick={() => deleteLead(member)} title="Delete Team Lead">
+                          <button
+                            onClick={() => removeTeamLead(member)}
+                            className="rounded-xl p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            title="Remove Team Lead Role"
+                          >
                             <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  )
+                  );
                 })}
               </tbody>
             </table>
           </div>
-        )}
-      </section>
+        </div>
+      )}
 
-      {/* AppDrawer Modal */}
+      {/* Team Lead Modal Drawer */}
       <AppDrawer
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingLead ? 'Edit Team Lead' : 'Assign Team Lead from Members'}
-        subtitle={editingLead ? 'Update Team Lead information and assigned team' : 'Select an existing team member from master to designate as Team Lead'}
+        title={editingLead ? 'Edit Team Lead' : 'Designate / Add Team Lead'}
+        subtitle={editingLead ? 'Update team lead details and assigned department' : 'Create or convert a staff member into a Team Lead'}
         icon="mdi:account-star-outline"
         footer={
           <>
-            <button type="button" className="btn-secondary" onClick={() => setModalOpen(false)}>Cancel</button>
-            <button form="team-lead-form" type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Team Lead'}
+            <button
+              type="button"
+              className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-slate-800"
+              onClick={() => setModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              form="team-lead-form"
+              type="submit"
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-white shadow-md disabled:opacity-60 hover:scale-105 transition-transform"
+              style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : editingLead ? 'Save Changes' : 'Assign Team Lead'}
             </button>
           </>
         }
       >
-        <form id="team-lead-form" onSubmit={saveLead} className="space-y-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <form id="team-lead-form" onSubmit={saveTeamLead} className="space-y-5">
+          <div className="space-y-4">
             {!editingLead && (
-              <label className="md:col-span-2 block rounded-xl border border-purple-100 bg-purple-50/50 p-3">
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-purple-800">
-                  Select Team Member from Master *
-                </span>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-slate-300">Promote Existing Team Member (Optional)</span>
                 <select
-                  className="input-field bg-white"
+                  className="w-full px-3 py-2.5 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 text-gray-800 dark:bg-slate-800 dark:border-white/10 dark:text-white transition-colors"
                   value={form.selectedMemberId}
                   onChange={(e) => handleSelectMember(e.target.value)}
                 >
-                  <option value="">-- Choose Existing Team Member --</option>
-                  {members.map((member) => (
-                    <option key={getMemberId(member)} value={getMemberId(member)}>
-                      {getMemberLabel(member)}
+                  <option value="">Create New Team Lead Account</option>
+                  {members.map((m) => (
+                    <option key={getMemberId(m)} value={getMemberId(m)}>
+                      {getMemberLabel(m)} ({m.teamMemberEmail || 'No email'})
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-purple-600">
-                  Selecting a member auto-fills their details and assigns them the Team Lead role.
-                </p>
               </label>
             )}
 
-            <label className="md:col-span-2 block">
-              <span className="mb-1 block text-sm font-medium text-gray-700">Team Lead Name *</span>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-slate-300">Full Name *</span>
               <input
-                className="input-field"
+                className="w-full px-3 py-2.5 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 text-gray-800 dark:bg-slate-800 dark:border-white/10 dark:text-white transition-colors"
+                placeholder="Team Lead Full Name"
                 value={form.teamMemberName}
-                onChange={(e) => updateField('teamMemberName', e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
+                onChange={(e) => setForm((cur) => ({ ...cur, teamMemberName: e.target.value }))}
                 required
-                autoFocus={!editingLead}
               />
             </label>
+
             <label className="block">
-              <span className="mb-1 block text-sm font-medium text-gray-700">Email *</span>
+              <span className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-slate-300">Email Address *</span>
               <input
-                className="input-field"
                 type="email"
+                className="w-full px-3 py-2.5 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 text-gray-800 dark:bg-slate-800 dark:border-white/10 dark:text-white transition-colors"
+                placeholder="lead@company.com"
                 value={form.teamMemberEmail}
-                onChange={(e) => updateField('teamMemberEmail', e.target.value)}
+                onChange={(e) => setForm((cur) => ({ ...cur, teamMemberEmail: e.target.value }))}
                 required
               />
             </label>
+
             <label className="block">
-              <span className="mb-1 block text-sm font-medium text-gray-700">Mobile</span>
+              <span className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-slate-300">Mobile Number</span>
               <input
-                className="input-field"
+                className="w-full px-3 py-2.5 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 text-gray-800 dark:bg-slate-800 dark:border-white/10 dark:text-white transition-colors"
+                placeholder="+91 9876543210"
                 value={form.teamMemberMobile}
-                onChange={(e) => updateField('teamMemberMobile', e.target.value.replace(/[^0-9]/g, ''))}
+                onChange={(e) => setForm((cur) => ({ ...cur, teamMemberMobile: e.target.value }))}
               />
             </label>
-            <label className="md:col-span-2 block">
-              <span className="mb-1 block text-sm font-medium text-gray-700">Assign Team Lead To Team</span>
+
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-slate-300">Assign to Team</span>
               <select
-                className="input-field"
+                className="w-full px-3 py-2.5 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 text-gray-800 dark:bg-slate-800 dark:border-white/10 dark:text-white transition-colors"
                 value={form.teamIdFk}
-                onChange={(e) => updateField('teamIdFk', e.target.value)}
+                onChange={(e) => setForm((cur) => ({ ...cur, teamIdFk: e.target.value }))}
               >
-                <option value="">Select Team (Optional)</option>
+                <option value="">Select Team to Lead (Optional)</option>
                 {teams.map((t) => (
                   <option key={t.teamId} value={t.teamId}>
-                    {t.teamName}
+                    📁 {t.teamName} (Team #{t.teamId})
                   </option>
                 ))}
               </select>
             </label>
-            <label className="md:col-span-2 block">
-              <span className="mb-1 block text-sm font-medium text-gray-700">
-                {form.selectedMemberId || editingLead ? 'Password (leave blank to keep unchanged)' : 'Password *'}
+
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-slate-300">
+                {editingLead ? 'Reset Password (Leave blank to keep unchanged)' : 'Password *'}
               </span>
               <input
-                className="input-field"
                 type="password"
+                className="w-full px-3 py-2.5 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 text-gray-800 dark:bg-slate-800 dark:border-white/10 dark:text-white transition-colors"
+                placeholder="Account password"
                 value={form.password}
-                onChange={(e) => updateField('password', e.target.value)}
-                required={!form.selectedMemberId && !editingLead}
+                onChange={(e) => setForm((cur) => ({ ...cur, password: e.target.value }))}
+                required={!editingLead}
               />
             </label>
           </div>
         </form>
       </AppDrawer>
     </div>
-  )
+  );
 }
