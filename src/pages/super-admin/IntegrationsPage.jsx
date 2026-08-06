@@ -75,7 +75,8 @@ export default function IntegrationsPage() {
   const api = useApi();
   const { getAll } = useTeamMember();
   const user = useAuthStore((s) => s.user);
-  const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin());
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
+  const isSuperAdmin = user?.role?.toLowerCase() === "super_admin" || user?.role?.toLowerCase() === "super admin";
   
   const [configs, setConfigs] = useState({});
   const [teamMembers, setTeamMembers] = useState([]);
@@ -88,6 +89,10 @@ export default function IntegrationsPage() {
   const [formData, setFormData] = useState({});
 
   const toastRef = { current: null };
+
+  if (!hasHydrated) {
+    return <div className="p-6 text-center text-slate-400">Loading...</div>;
+  }
 
   if (!isSuperAdmin && !user?.integrationsAccess) {
     return <Navigate to="/home" replace />;
