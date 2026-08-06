@@ -30,7 +30,8 @@ export default function ProtectedRoute({ children, requiredPermission, adminOnly
 
   if (requiredPermission) {
     const perms = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission]
-    if (!hasAnyPermission(perms)) {
+    const hasIntegrationsAccess = perms.includes("integrations.view") && !!user?.integrationsAccess;
+    if (!hasAnyPermission(perms) && !hasIntegrationsAccess) {
       return <Navigate to="/home" replace />
     }
   }
