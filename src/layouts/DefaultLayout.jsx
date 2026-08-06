@@ -394,10 +394,11 @@ export default function DefaultLayout() {
   };
 
   const canAccess = (item) => {
-    if (isSuperAdmin || isAdmin) return true;
+    if (isSuperAdmin) return true;
     if (item.to === "/integrations") {
       return !!user?.integrationsAccess || hasAnyPermission(item.permissions);
     }
+    if (isSuperAdmin || isAdmin) return true;
     if (!item.permissions || item.permissions.length === 0) return true;
     return hasAnyPermission(item.permissions);
   };
