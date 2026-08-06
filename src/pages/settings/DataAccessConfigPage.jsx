@@ -134,7 +134,7 @@ export default function DataAccessConfigPage() {
     if (matrix[key]) return matrix[key]
     if (type === 'user') {
       // Fallback to user's role scope
-      const member = members.find((m) => String(m.teamMemberId) === String(id) || String(m.id) === String(id))
+      const member = members.find((m) => String(m.userid) === String(id) || String(m.teamMemberId) === String(id) || String(m.id) === String(id))
       if (member) {
         return getScope('role', member.teamMemberRole, moduleName)
       }
@@ -379,7 +379,7 @@ export default function DataAccessConfigPage() {
               </thead>
               <tbody>
                 {filteredMembers.map((member) => {
-                  const memberId = member.teamMemberId || member.id
+                  const memberId = member.userid || member.teamMemberId || member.id
 
                   return (
                     <tr key={memberId} className="border-t border-gray-100 hover:bg-slate-50 transition-colors">
