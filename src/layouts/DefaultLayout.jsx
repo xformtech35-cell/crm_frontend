@@ -36,6 +36,7 @@ const pageTitles = {
   "/create-team": "Manage Teams",
   "/role": "Roles & Permissions",
   "/settings": "Settings",
+  "/profile": "My Profile",
 };
 
 function getDateValue(...values) {
@@ -163,6 +164,18 @@ export default function DefaultLayout() {
     () => getInitials(user?.username || user?.userEmail || ""),
     [user]
   );
+
+  const [avatarImage, setAvatarImage] = useState(() => localStorage.getItem(`crm_avatar_${user?.userid}`) || "");
+  const [avatarGradient, setAvatarGradient] = useState(() => localStorage.getItem(`crm_avatar_bg_${user?.userid}`) || "linear-gradient(135deg, #4f46e5, #7c3aed)");
+
+  useEffect(() => {
+    const syncAvatar = () => {
+      setAvatarImage(localStorage.getItem(`crm_avatar_${user?.userid}`) || "");
+      setAvatarGradient(localStorage.getItem(`crm_avatar_bg_${user?.userid}`) || "linear-gradient(135deg, #4f46e5, #7c3aed)");
+    };
+    window.addEventListener("crm-avatar-updated", syncAvatar);
+    return () => window.removeEventListener("crm-avatar-updated", syncAvatar);
+  }, [user?.userid]);
 
   useEffect(() => {
     localStorage.setItem("crm-read-notifications", JSON.stringify([...readNotificationIds]));
@@ -530,10 +543,7 @@ export default function DefaultLayout() {
           },
         ],
       },
-    ];
-
-    if (isAdmin) {
-      groups.push({
+      {
         label: "ADMINISTRATION",
         items: [
           {
@@ -549,6 +559,12 @@ export default function DefaultLayout() {
             permissions: ["roles.view"],
           },
           {
+            to: "/settings/data-access",
+            label: "Data Access Config",
+            icon: "mdi:security-network",
+            permissions: ["data_access.view", "roles.view"],
+          },
+          {
             to: "/integrations",
             label: "Integrations",
             icon: "mdi:connection",
@@ -561,8 +577,8 @@ export default function DefaultLayout() {
             permissions: ["settings.view"],
           },
         ],
-      });
-    }
+      },
+    ];
 
     return groups
       .map((group) => ({
@@ -787,16 +803,27 @@ export default function DefaultLayout() {
 
         {/* User info */}
         <div className={`px-3 py-4 border-t ${theme === "dark" ? "border-white/5" : "border-slate-100"}`}>
-          <div className={`flex items-center gap-3 px-2 py-2 rounded-2xl transition-colors group ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-slate-50"}`}>
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center shadow-sm flex-shrink-0">
-              <span className="text-white font-bold text-sm">{initials}</span>
+          <div
+            onClick={() => navigateTo("/profile")}
+            className={`flex items-center gap-3 px-2 py-2 rounded-2xl transition-colors cursor-pointer group ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-slate-50"}`}
+            title="View My Profile"
+          >
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 overflow-hidden" style={{ background: avatarGradient }}>
+              {avatarImage ? (
+                <img src={avatarImage} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white font-bold text-sm">{initials}</span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-semibold truncate ${theme === "dark" ? "text-white" : "text-slate-800"}`}>
                 {user?.username}
               </p>
-              <p className="text-xs text-slate-500 truncate capitalize">
-                {user?.role}
+              <p className="text-xs text-slate-500 truncate capitalize flex items-center justify-between">
+                <span>{user?.role}</span>
+                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5 opacity-80 group-hover:opacity-100">
+                  <Icon name="mdi:account-circle-outline" className="w-3.5 h-3.5" /> Profile
+                </span>
               </p>
             </div>
           </div>
@@ -815,32 +842,32 @@ export default function DefaultLayout() {
             boxShadow: theme === "dark" ? "none" : "0 1px 8px rgb(0 0 0 / 0.06)",
           }}
         >
-          <div className="px-4 md:px-6 py-3">
+          <div className="px-4 md:px-6 py-2">
             <div className="flex items-center justify-between gap-4">
               {/* Left section */}
-              <div className="flex items-center gap-4 min-w-0 flex-1">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <button
                   onClick={() => setSidebarOpen((v) => !v)}
-                  className={`md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors flex-shrink-0 ${theme === "dark" ? "text-slate-400 hover:bg-white/10" : "text-slate-500 hover:bg-slate-100"
+                  className={`md:hidden inline-flex h-9 w-9 items-center justify-center rounded-xl transition-colors flex-shrink-0 ${theme === "dark" ? "text-slate-400 hover:bg-white/10" : "text-slate-500 hover:bg-slate-100"
                     }`}
                 >
                   <Icon name="mdi:menu" className="w-5 h-5" />
                 </button>
 
-                <div className="hidden h-9 w-1 rounded-full bg-gradient-to-b from-indigo-600 to-sky-500 md:block flex-shrink-0" />
+                <div className="hidden h-8 w-1 rounded-full bg-gradient-to-b from-indigo-600 to-sky-500 md:block flex-shrink-0" />
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className={`text-xl font-bold truncate ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                    <h1 className={`text-lg font-bold truncate ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
                       {pageTitle}
                     </h1>
                     {headerBadge != null && (
-                      <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700 whitespace-nowrap">
+                      <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 whitespace-nowrap">
                         {headerBadge}
                       </span>
                     )}
                   </div>
-                  <p className="hidden truncate text-xs leading-5 text-slate-500 lg:block">
+                  <p className="hidden truncate text-[11px] leading-4 text-slate-500 lg:block">
                     Command center for pipeline and team operations.
                   </p>
                 </div>
@@ -861,7 +888,7 @@ export default function DefaultLayout() {
                         setSelectedTeamMemberId(val ? Number(val) : null);
                         window.location.reload();
                       }}
-                      className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer ${
+                      className={`rounded-xl border px-2.5 py-1 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer ${
                         theme === "dark"
                           ? "border-white/10 bg-[#0c0e1c] text-slate-200 hover:bg-[#131730]"
                           : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -877,31 +904,18 @@ export default function DefaultLayout() {
                   </div>
                 )}
 
-                {/* Search Button */}
-                {/* <button
-                  type="button"
-                  className="hidden lg:flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-500 shadow-sm transition-colors hover:border-indigo-300 hover:text-indigo-600 whitespace-nowrap"
-                  onClick={() => setCommandPaletteOpen(true)}
-                >
-                  <Icon name="mdi:magnify" className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Search...</span>
-                  <kbd className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                    ⌘K
-                  </kbd> */}
-                {/* </button> */}
-
                 {/* Quick Create */}
                 <button
                   type="button"
-                  className="hidden md:flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-slate-950 px-3 text-sm font-semibold text-white shadow-sm whitespace-nowrap"
+                  className="hidden md:flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-950 px-3 text-xs font-semibold text-white shadow-sm whitespace-nowrap hover:bg-slate-800 transition-colors"
                   onClick={() => setQuickCreateOpen(true)}
                 >
-                  <Icon name="mdi:plus" className="w-4 h-4" />
+                  <Icon name="mdi:plus" className="w-3.5 h-3.5" />
                   <span>Quick Create</span>
                 </button>
 
                 {/* Calendar */}
-                <div className="hidden xl:flex h-10 items-center gap-2 rounded-xl border border-slate-100 bg-white px-3 text-sm text-slate-500 shadow-sm whitespace-nowrap">
+                <div className="hidden xl:flex h-9 items-center gap-1.5 rounded-xl border border-slate-100 bg-white px-3 text-xs text-slate-500 shadow-sm whitespace-nowrap">
                   <Icon name="mdi:calendar-today" className="w-3.5 h-3.5 text-indigo-500" />
                   <span>{new Date().toLocaleDateString("en-IN", {
                     day: "numeric",
@@ -914,28 +928,28 @@ export default function DefaultLayout() {
                 <button
                   type="button"
                   onClick={toggleTheme}
-                  className={`h-10 w-10 items-center justify-center rounded-xl border shadow-sm hidden md:inline-flex flex-shrink-0 transition-colors ${theme === "dark"
+                  className={`h-9 w-9 items-center justify-center rounded-xl border shadow-sm hidden md:inline-flex flex-shrink-0 transition-colors ${theme === "dark"
                     ? "border-white/5 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
                     : "border-slate-100 bg-white text-slate-500 hover:text-slate-800"
                     }`}
                   title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
                 >
-                  <Icon name={theme === "dark" ? "mdi:white-balance-sunny" : "mdi:weather-night"} className="w-5 h-5" />
+                  <Icon name={theme === "dark" ? "mdi:white-balance-sunny" : "mdi:weather-night"} className="w-4 h-4" />
                 </button>
 
                 {/* Notifications */}
                 <div className="relative relative-notif-container">
                   <button
                     type="button"
-                    className={`relative h-10 w-10 items-center justify-center rounded-xl border shadow-sm hidden md:inline-flex flex-shrink-0 transition-colors ${theme === "dark"
+                    className={`relative h-9 w-9 items-center justify-center rounded-xl border shadow-sm hidden md:inline-flex flex-shrink-0 transition-colors ${theme === "dark"
                       ? "border-white/5 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
                       : "border-slate-100 bg-white text-slate-500 hover:text-slate-800"
                       }`}
                     onClick={() => setNotificationsOpen((v) => !v)}
                   >
-                    <Icon name="mdi:bell-outline" className="w-5 h-5" />
+                    <Icon name="mdi:bell-outline" className="w-4 h-4" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center">
+                      <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center">
                         {unreadCount}
                       </span>
                     )}
@@ -1209,19 +1223,29 @@ export default function DefaultLayout() {
                 {/* Logout Button */}
                 <button
                   onClick={logout}
-                  className={`flex h-10 items-center gap-2 rounded-xl border transition-all shadow-sm whitespace-nowrap ${theme === "dark"
+                  className={`flex h-9 items-center gap-1.5 rounded-xl border transition-all shadow-sm whitespace-nowrap ${theme === "dark"
                     ? "border-red-500/20 text-red-400 hover:bg-red-500/10 bg-red-500/5"
-                    : "border-red-200 bg-white px-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-300"
+                    : "border-red-200 bg-white px-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:border-red-300"
                     }`}
                 >
-                  <Icon name="mdi:logout-variant" className="w-4 h-4" />
+                  <Icon name="mdi:logout-variant" className="w-3.5 h-3.5" />
                   <span className="hidden lg:inline">Logout</span>
                 </button>
 
                 {/* User Avatar */}
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 text-xs font-bold text-white shadow-sm flex-shrink-0">
-                  {initials}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => navigateTo("/profile")}
+                  title="View My Profile"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold text-white shadow-sm flex-shrink-0 hover:ring-2 hover:ring-indigo-400 transition-all cursor-pointer overflow-hidden"
+                  style={{ background: avatarGradient }}
+                >
+                  {avatarImage ? (
+                    <img src={avatarImage} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    initials
+                  )}
+                </button>
               </div>
             </div>
           </div>

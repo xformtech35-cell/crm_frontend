@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {useSearchParams} from 'react-router-dom'
 import Icon from '../Icon'
 import { LEAD_SOURCES, INDUSTRIES, COUNTRIES, LEAD_GROUPS } from '../../utils/constants'
 import { useTeamMember } from '../../hooks/useTeamMember'
+import { useTeam } from '../../hooks/useTeam'
+import { useCreateTeam } from '../../hooks/useCreateTeam'
 import { useAuthStore } from '../../stores/auth'
 import { useLeadSource, useLeadGroup } from "/src/hooks/useMaster";
-import { getMemberId } from '../../utils/teamRelations'
+import { getMemberId, getTeamId, getTeamLabel, groupMembersByTeam } from '../../utils/teamRelations'
 import { getCurrencyConfig, convertToBase, convertFromBase } from '../../utils/currency'
 import { Country, State, City } from "country-state-city";
 import { useLead } from '../../hooks/useLead'
@@ -140,6 +142,8 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const sourceHook = useLeadSource();
   const groupHook = useLeadGroup();
   const { getAll } = useTeamMember();
+  const teamHook = useTeam();
+  const createTeamHook = useCreateTeam();
   const isAdmin = useAuthStore(s => s.isAdmin());
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
@@ -153,6 +157,8 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const [qYear, setQYear] = useState('');
   const [isManualQuotation, setIsManualQuotation] = useState(false);
   const [teamMembers, setTeamMembers] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -331,13 +337,21 @@ const apiiii = import.meta.env.VITE_API_BASE
     }
   }, [form.inquiryDate]);
 
-  // Load team members for admin
+  // Load team members, teams, and assignments for team-wise display
   useEffect(() => {
     async function load() {
       try {
-        const members = await getAll();
-        console.log('Team Members:', members);
-        setTeamMembers(Array.isArray(members) ? members : []);
+        const [membersRes, teamsRes, assignRes] = await Promise.all([
+          getAll().catch(() => []),
+          teamHook.getAll().catch(() => []),
+          createTeamHook.getAll().catch(() => []),
+        ]);
+        const membersList = Array.isArray(membersRes) ? membersRes : Array.isArray(membersRes?.data) ? membersRes.data : [];
+        const teamsList = Array.isArray(teamsRes) ? teamsRes : Array.isArray(teamsRes?.data) ? teamsRes.data : [];
+        const assignList = Array.isArray(assignRes) ? assignRes : Array.isArray(assignRes?.data) ? assignRes.data : [];
+        setTeamMembers(membersList);
+        setTeams(teamsList);
+        setAssignments(assignList);
       } catch (err) {
         console.error(err);
       }
@@ -345,6 +359,10 @@ const apiiii = import.meta.env.VITE_API_BASE
 
     load();
   }, []);
+
+  const groupedData = useMemo(() => {
+    return groupMembersByTeam(teams, teamMembers, assignments);
+  }, [teams, teamMembers, assignments]);
   
   // Sync form when initial changes
   useEffect(() => {
@@ -604,14 +622,30 @@ async function uploadFiles(files) {
               className={inputCls}
             >
               <option value="">Select Team Member</option>
-              {teamMembers.map((member) => (
-                <option
-                  key={member.teamMemberId || member.userid || member.id}
-                  value={member.teamMemberName}
-                >
-                  {member.teamMemberName}
-                </option>
+              {groupedData.groupedTeams.map(({ team, members }) => (
+                <optgroup key={getTeamId(team)} label={`📁 ${getTeamLabel(team)}`}>
+                  {members.map((member) => (
+                    <option
+                      key={getMemberId(member)}
+                      value={member.teamMemberName}
+                    >
+                      {member.teamMemberName} ({member.teamMemberRole || 'Member'})
+                    </option>
+                  ))}
+                </optgroup>
               ))}
+              {groupedData.unassigned.length > 0 && (
+                <optgroup label="👤 General / Unassigned Members">
+                  {groupedData.unassigned.map((member) => (
+                    <option
+                      key={getMemberId(member)}
+                      value={member.teamMemberName}
+                    >
+                      {member.teamMemberName} ({member.teamMemberRole || 'Member'})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
 

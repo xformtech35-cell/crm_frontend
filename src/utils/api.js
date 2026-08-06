@@ -163,3 +163,6 @@ export function refreshApiClient() {
   instance = null
   return getApiClient(instance?.defaults?.baseURL || '')
 }
+
+export const api = getApiClient()
+export default api

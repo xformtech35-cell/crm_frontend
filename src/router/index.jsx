@@ -20,7 +20,9 @@ import TaskPage from "../pages/task/TaskPage";
 import TeamPage from "../pages/team/TeamPage";
 import TeamDetailPage from "../pages/team/TeamDetailPage";
 import TeamMemberPage from "../pages/team-member/TeamMemberPage";
+import TeamLeadPage from "../pages/team-lead/TeamLeadPage";
 import RolePage from "../pages/role/RolePage";
+import DataAccessConfigPage from "../pages/settings/DataAccessConfigPage";
 import SettingsPage from "../pages/settings/SettingsPage";
 import PipelinePage from "../pages/pipeline/PipelinePage";
 import DealsPage from "../pages/deals/DealsPage";
@@ -48,6 +50,7 @@ import LeadGroup from "../pages/Masters/LeadGroup.jsx";
 import NegotiationPage from "../pages/negotiation/NegotiationPage.jsx";
 import NegotiationDetailPage from "../pages/Negotiation/NegotiationDetailPage.jsx";
 import QuotationDetailPage from "../pages/Negotiation/QuotationDetailPage.jsx";
+import ProfilePage from "../pages/profile/ProfilePage";
 
 
 export default function AppRouter() {
@@ -68,48 +71,51 @@ export default function AppRouter() {
           </ProtectedRoute>
         }
       >
-        <Route path="/home" element={<HomePage />} />
+        <Route path="/home" element={<ProtectedRoute requiredPermission="dashboard.view"><HomePage /></ProtectedRoute>} />
         
         {/* Core CRM */}
-        <Route path="/lead" element={<LeadListPage />} />
-        <Route path="/lead/import" element={<LeadImportPage />} />
-        <Route path="/lead/pipeline" element={<LeadPipelinePage />} />
-        <Route path="/lead/:id" element={<LeadDetailPage />} />
-        <Route path="/negotiation" element={<NegotiationPage />} />
-        <Route path="/negotiation/:id" element={<NegotiationDetailPage />} />
-        <Route path="/quotation/:id" element={<QuotationDetailPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/contact/:id" element={<ContactDetailPage />} />
-        <Route path="/opportunity" element={<OpportunityPage />} />
-        <Route path="/organization" element={<OrganizationPage />} />
-        <Route path="/organization/:id" element={<OrganizationDetailPage />} />
-        <Route path="/project" element={<ProjectPage />} />
-        <Route path="/project/:id" element={<ProjectDetailPage />} />
+        <Route path="/lead" element={<ProtectedRoute requiredPermission="leads.view"><LeadListPage /></ProtectedRoute>} />
+        <Route path="/lead/import" element={<ProtectedRoute requiredPermission="leads.view"><LeadImportPage /></ProtectedRoute>} />
+        <Route path="/lead/pipeline" element={<ProtectedRoute requiredPermission="leads.view"><LeadPipelinePage /></ProtectedRoute>} />
+        <Route path="/lead/:id" element={<ProtectedRoute requiredPermission="leads.view"><LeadDetailPage /></ProtectedRoute>} />
+        <Route path="/negotiation" element={<ProtectedRoute requiredPermission="leads.view"><NegotiationPage /></ProtectedRoute>} />
+        <Route path="/negotiation/:id" element={<ProtectedRoute requiredPermission="leads.view"><NegotiationDetailPage /></ProtectedRoute>} />
+        <Route path="/quotation/:id" element={<ProtectedRoute requiredPermission="leads.view"><QuotationDetailPage /></ProtectedRoute>} />
+        <Route path="/contact" element={<ProtectedRoute requiredPermission="contacts.view"><ContactPage /></ProtectedRoute>} />
+        <Route path="/contact/:id" element={<ProtectedRoute requiredPermission="contacts.view"><ContactDetailPage /></ProtectedRoute>} />
+        <Route path="/opportunity" element={<ProtectedRoute requiredPermission="opportunities.view"><OpportunityPage /></ProtectedRoute>} />
+        <Route path="/organization" element={<ProtectedRoute requiredPermission="organizations.view"><OrganizationPage /></ProtectedRoute>} />
+        <Route path="/organization/:id" element={<ProtectedRoute requiredPermission="organizations.view"><OrganizationDetailPage /></ProtectedRoute>} />
+        <Route path="/project" element={<ProtectedRoute requiredPermission="projects.view"><ProjectPage /></ProtectedRoute>} />
+        <Route path="/project/:id" element={<ProtectedRoute requiredPermission="projects.view"><ProjectDetailPage /></ProtectedRoute>} />
         
-        <Route path="/task" element={<TaskPage />} />
-        <Route path="/team" element={<TeamPage />} />
-        <Route path="/leadsource" element={<LeadSource />} />
-        <Route path="/leadgroup" element={<LeadGroup />} />
-        <Route path="/team/:id" element={<TeamDetailPage />} />
-        <Route path="/team-member" element={<TeamMemberPage />} />
-        <Route path="/create-team" element={<CreateTeamPage />} />
-        <Route path="/role" element={<RolePage />} />
-        <Route path="/attendance" element={<AttendancePage />} />
+        <Route path="/task" element={<ProtectedRoute requiredPermission="tasks.view"><TaskPage /></ProtectedRoute>} />
+        <Route path="/team" element={<ProtectedRoute requiredPermission="teams.view"><TeamPage /></ProtectedRoute>} />
+        <Route path="/team-lead" element={<ProtectedRoute requiredPermission="teams.view"><TeamLeadPage /></ProtectedRoute>} />
+        <Route path="/leadsource" element={<ProtectedRoute requiredPermission="leads.view"><LeadSource /></ProtectedRoute>} />
+        <Route path="/leadgroup" element={<ProtectedRoute requiredPermission="leads.view"><LeadGroup /></ProtectedRoute>} />
+        <Route path="/team/:id" element={<ProtectedRoute requiredPermission="teams.view"><TeamDetailPage /></ProtectedRoute>} />
+        <Route path="/team-member" element={<ProtectedRoute requiredPermission="users.view"><TeamMemberPage /></ProtectedRoute>} />
+        <Route path="/create-team" element={<ProtectedRoute requiredPermission="teams.view" adminOnly><CreateTeamPage /></ProtectedRoute>} />
+        <Route path="/role" element={<ProtectedRoute requiredPermission="roles.view" adminOnly><RolePage /></ProtectedRoute>} />
+        <Route path="/attendance" element={<ProtectedRoute requiredPermission="attendance.view"><AttendancePage /></ProtectedRoute>} />
         
-        <Route path="/pipeline" element={<PipelinePage />} />
-        <Route path="/deals" element={<DealsPage />} />
-        <Route path="/activities" element={<ActivitiesPage />} />
-        <Route path="/emails" element={<EmailsPage />} />
-        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/pipeline" element={<ProtectedRoute requiredPermission="opportunities.view"><PipelinePage /></ProtectedRoute>} />
+        <Route path="/deals" element={<ProtectedRoute requiredPermission="opportunities.view"><DealsPage /></ProtectedRoute>} />
+        <Route path="/activities" element={<ProtectedRoute requiredPermission="activities.view"><ActivitiesPage /></ProtectedRoute>} />
+        <Route path="/emails" element={<ProtectedRoute requiredPermission="emails.view"><EmailsPage /></ProtectedRoute>} />
+        <Route path="/calendar" element={<ProtectedRoute requiredPermission="calendar.view"><CalendarPage /></ProtectedRoute>} />
         
         {/* Analytics & Configuration */}
-        <Route path="/analytics" element={<AnalyticsPage />} />
-        <Route path="/reports" element={<ReportsPage />} />
-        <Route path="/automation" element={<AutomationPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/analytics" element={<ProtectedRoute requiredPermission="analytics.view"><AnalyticsPage /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute requiredPermission="reports.view"><ReportsPage /></ProtectedRoute>} />
+        <Route path="/automation" element={<ProtectedRoute requiredPermission="automation.view"><AutomationPage /></ProtectedRoute>} />
+        <Route path="/settings/data-access" element={<ProtectedRoute requiredPermission="roles.view" adminOnly><DataAccessConfigPage /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute requiredPermission="settings.view" adminOnly><SettingsPage /></ProtectedRoute>} />
 
         {/* Global Configuration Modules (managed by Role Matrix) */}
-        <Route path="/integrations" element={<IntegrationsPage />} />
+        <Route path="/integrations" element={<ProtectedRoute requiredPermission="integrations.view"><IntegrationsPage /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       </Route>
 
       {/* ─── SUPER ADMIN CONSOLE (via SuperAdminLayout) ─── */}
@@ -126,6 +132,7 @@ export default function AppRouter() {
         <Route path="/super-admin/analytics" element={<SuperAdminAnalyticsPage />} />
         <Route path="/super-admin/audit" element={<SuperAdminAuditPage />} />
         <Route path="/super-admin/settings" element={<SuperAdminSettingsPage />} />
+        <Route path="/super-admin/profile" element={<ProfilePage />} />
 
         {/* CRM Modules inside SuperAdminLayout to maintain design symmetry */}
         <Route path="/super-admin/home" element={<HomePage />} />
@@ -142,10 +149,12 @@ export default function AppRouter() {
         <Route path="/super-admin/project/:id" element={<ProjectDetailPage />} />
         <Route path="/super-admin/task" element={<TaskPage />} />
         <Route path="/super-admin/team" element={<TeamPage />} />
+        <Route path="/super-admin/team-lead" element={<TeamLeadPage />} />
         <Route path="/super-admin/team/:id" element={<TeamDetailPage />} />
         <Route path="/super-admin/team-member" element={<TeamMemberPage />} />
         <Route path="/super-admin/create-team" element={<CreateTeamPage />} />
         <Route path="/super-admin/role" element={<RolePage />} />
+        <Route path="/super-admin/data-access" element={<DataAccessConfigPage />} />
         <Route path="/super-admin/attendance" element={<AttendancePage />} />
         <Route path="/super-admin/leadsource" element={<LeadSource />} />
         <Route path="/super-admin/leadgroup" element={<LeadGroup />} />

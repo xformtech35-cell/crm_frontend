@@ -174,6 +174,13 @@ const groupedPermissions = [
         ]
       },
       {
+        name: "Data Access Config",
+        viewPermission: { key: "data_access.view", label: "View Data Access Config" },
+        actions: [
+          { key: "data_access.edit", label: "Configure Access Scopes" }
+        ]
+      },
+      {
         name: "Settings",
         viewPermission: { key: "settings.view", label: "View Settings" },
         actions: []
@@ -190,7 +197,9 @@ export default function RolePage() {
   const currentUser = useAuthStore((s) => s.user);
 
   const visibleGroups = useMemo(() => {
-    if (isSuperAdmin) return groupedPermissions;
+    if (isSuperAdmin || currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN') {
+      return groupedPermissions;
+    }
     
     return groupedPermissions.map(group => {
       const filteredModules = group.modules.map(mod => {
@@ -210,7 +219,7 @@ export default function RolePage() {
         modules: filteredModules
       };
     }).filter(Boolean);
-  }, [isSuperAdmin, currentUserPermissions]);
+  }, [isSuperAdmin, currentUser, currentUserPermissions]);
 
   const [roles, setRoles] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);

@@ -6,6 +6,7 @@ import { useAuthStore } from "../stores/auth";
 import { useAuth } from "../hooks/useAuth";
 import { getInitials } from "../utils/format";
 import { useApi } from "../hooks/useApi";
+import ChangePasswordModal from "../components/common/ChangePasswordModal";
 
 const pageTitles = {
   "/super-admin": "Super Admin Dashboard",
@@ -30,13 +31,16 @@ const pageTitles = {
   "/super-admin/project": "Projects",
   "/super-admin/task": "Tasks",
   "/super-admin/team": "Teams",
+  "/super-admin/team-lead": "Team Leads",
   "/super-admin/team-member": "Team Members",
   "/super-admin/crm-analytics": "CRM Analytics",
   "/super-admin/reports": "Reports",
   "/super-admin/automation": "Automation",
   "/super-admin/create-team": "Manage Teams",
   "/super-admin/role": "Roles & Permissions",
+  "/super-admin/data-access": "Data Access Config",
   "/super-admin/crm-settings": "CRM Settings",
+  "/super-admin/profile": "My Profile",
 };
 
 const navGroups = [
@@ -170,6 +174,11 @@ const navGroups = [
         icon: "mdi:account-group-outline",
       },
       {
+        to: "/super-admin/team-lead",
+        label: "Team Leads",
+        icon: "mdi:account-star-outline",
+      },
+      {
         to: "/super-admin/team-member",
         label: "Team Members",
         icon: "mdi:account-multiple-outline",
@@ -200,6 +209,11 @@ const navGroups = [
         icon: "mdi:shield-account-outline",
       },
       {
+        to: "/super-admin/data-access",
+        label: "Data Access Config",
+        icon: "mdi:shield-key-outline",
+      },
+      {
         to: "/super-admin/crm-settings",
         label: "CRM Settings",
         icon: "mdi:cog-outline",
@@ -222,6 +236,7 @@ export default function SuperAdminLayout() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [headerBadge, setHeaderBadge] = useState(null);
 
   const [theme, setTheme] = useState(() => {
@@ -273,6 +288,18 @@ export default function SuperAdminLayout() {
     () => getInitials(user?.username || user?.userEmail || ""),
     [user]
   );
+
+  const [avatarImage, setAvatarImage] = useState(() => localStorage.getItem(`crm_avatar_${user?.userid}`) || "");
+  const [avatarGradient, setAvatarGradient] = useState(() => localStorage.getItem(`crm_avatar_bg_${user?.userid}`) || "linear-gradient(135deg, #7c3aed, #4f46e5)");
+
+  useEffect(() => {
+    const syncAvatar = () => {
+      setAvatarImage(localStorage.getItem(`crm_avatar_${user?.userid}`) || "");
+      setAvatarGradient(localStorage.getItem(`crm_avatar_bg_${user?.userid}`) || "linear-gradient(135deg, #7c3aed, #4f46e5)");
+    };
+    window.addEventListener("crm-avatar-updated", syncAvatar);
+    return () => window.removeEventListener("crm-avatar-updated", syncAvatar);
+  }, [user?.userid]);
 
   const pageTitle = useMemo(() => {
     for (const [path, title] of Object.entries(pageTitles)) {
@@ -435,12 +462,12 @@ export default function SuperAdminLayout() {
             backdropFilter: "blur(20px)",
           }}
         >
-          <div className="px-4 md:px-6 py-4">
+          <div className="px-4 md:px-6 py-2">
             <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 min-w-0 flex-1">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <button
                   onClick={() => setSidebarOpen((v) => !v)}
-                  className={`md:hidden h-10 w-10 flex items-center justify-center rounded-xl border transition-colors ${
+                  className={`md:hidden h-9 w-9 flex items-center justify-center rounded-xl border transition-colors ${
                     theme === "dark" ? "text-slate-400 border-white/5 hover:bg-white/10" : "text-slate-600 border-gray-200 hover:bg-gray-100"
                   }`}
                 >
@@ -473,7 +500,7 @@ export default function SuperAdminLayout() {
                   <select
                     value={selectedCompanyId || ""}
                     onChange={handleCompanyChange}
-                    className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer ${
+                    className={`rounded-xl border px-2.5 py-1 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer ${
                       theme === "dark"
                         ? "border-white/10 bg-[#0c0e1c] text-slate-200 hover:bg-[#131730]"
                         : "border-gray-200 bg-white text-slate-700 hover:bg-gray-50"
@@ -491,19 +518,19 @@ export default function SuperAdminLayout() {
                 {/* Theme Toggle */}
                 <button
                   onClick={toggleTheme}
-                  className={`h-10 w-10 flex items-center justify-center rounded-xl border transition-all ${
+                  className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all ${
                     theme === "dark"
                       ? "border-white/5 text-slate-400 hover:text-white hover:bg-white/10 bg-white/5"
                       : "border-gray-200 text-slate-500 hover:text-slate-800 hover:bg-gray-100 bg-white"
                   }`}
                   title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
                 >
-                  <Icon name={theme === "dark" ? "mdi:white-balance-sunny" : "mdi:weather-night"} className="w-5 h-5" />
+                  <Icon name={theme === "dark" ? "mdi:white-balance-sunny" : "mdi:weather-night"} className="w-4 h-4" />
                 </button>
 
                 {/* Notifications */}
                 <button
-                  className={`h-10 w-10 flex items-center justify-center rounded-xl border transition-all ${
+                  className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all ${
                     theme === "dark"
                       ? "border-white/5 text-slate-400 hover:text-white hover:bg-white/10 bg-white/5"
                       : "border-gray-200 text-slate-500 hover:text-slate-800 hover:bg-gray-100 bg-white"
@@ -511,36 +538,46 @@ export default function SuperAdminLayout() {
                   onClick={() => setNotificationsOpen(true)}
                   title="Notifications"
                 >
-                  <Icon name="mdi:bell-outline" className="w-5 h-5" />
+                  <Icon name="mdi:bell-outline" className="w-4 h-4" />
                 </button>
 
                 {/* Role badge */}
-                <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border ${
+                <div className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-xl border ${
                   theme === "dark"
                     ? "border-purple-500/20 bg-purple-500/10 text-purple-400"
                     : "border-purple-200 bg-purple-50 text-purple-700"
                 }`}>
-                  <Icon name="mdi:shield-crown-outline" className="w-4 h-4" />
-                  <span className="text-xs font-bold tracking-wide uppercase">Super Admin</span>
+                  <Icon name="mdi:shield-crown-outline" className="w-3.5 h-3.5" />
+                  <span className="text-[11px] font-bold tracking-wide uppercase">Super Admin</span>
                 </div>
 
                 {/* Logout */}
                 <button
                   onClick={logout}
-                  className={`flex h-10 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-all ${
+                  className={`flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold transition-all ${
                     theme === "dark"
                       ? "border-red-500/20 text-red-400 hover:bg-red-500/10 bg-red-500/5"
                       : "border-red-200 text-red-600 hover:bg-red-50 bg-white"
                   }`}
                 >
-                  <Icon name="mdi:logout-variant" className="w-4 h-4" />
+                  <Icon name="mdi:logout-variant" className="w-3.5 h-3.5" />
                   <span className="hidden lg:inline">Logout</span>
                 </button>
 
                 {/* Avatar */}
-                <div className="h-10 w-10 flex items-center justify-center rounded-xl text-xs font-bold text-white shadow-md border border-white/10" style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
-                  {initials}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/super-admin/profile")}
+                  title="View My Profile"
+                  className="h-9 w-9 flex items-center justify-center rounded-xl text-xs font-bold text-white shadow-md border border-white/10 hover:ring-2 hover:ring-purple-400 transition-all cursor-pointer overflow-hidden flex-shrink-0"
+                  style={{ background: avatarGradient }}
+                >
+                  {avatarImage ? (
+                    <img src={avatarImage} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    initials
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -567,6 +604,12 @@ export default function SuperAdminLayout() {
           <p className="mt-2 text-sm font-medium">No new notifications</p>
         </div>
       </AppModal>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        open={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+      />
     </div>
   );
 }

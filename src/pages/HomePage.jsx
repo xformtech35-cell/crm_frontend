@@ -605,7 +605,7 @@ export default function HomePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* <div
+          <div
             className={`relative rounded-xl transition-all ${selectedGroup
                 ? "bg-blue-50 border border-blue-300"
                 : "bg-white border border-gray-200"
@@ -628,10 +628,10 @@ export default function HomePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
-          </div> */}
+          </div>
 
           {/* Date range picker */}
-          {/* <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <input
               type="date"
               value={dateFrom}
@@ -645,7 +645,7 @@ export default function HomePage() {
               onChange={(e) => setDateTo(e.target.value)}
               className="text-[10px] sm:text-xs border border-gray-200 rounded-lg px-1.5 sm:px-2.5 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 max-w-[100px] sm:max-w-full"
             />
-          </div> */}
+          </div>
 
           <button
             onClick={fetchAll}
@@ -991,7 +991,7 @@ export default function HomePage() {
               </div>
 
               {/* Activity Feed */}
-              {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
                   <div>
                     <p className="text-xs sm:text-sm font-semibold text-gray-800">Recent Activity</p>
@@ -1019,7 +1019,7 @@ export default function HomePage() {
                     <div className="px-3 sm:px-5 py-6 sm:py-8 text-center text-xs sm:text-sm text-gray-400">No recent activity.</div>
                   )}
                 </div>
-              </div> */}
+              </div>
             </div>
 
             {/* RIGHT COLUMN */}
@@ -1290,7 +1290,7 @@ export default function HomePage() {
               </div>
 
               {/* Tasks */}
-              {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
                   <div>
                     <p className="text-xs sm:text-sm font-semibold text-gray-800">Tasks - {DATE_LABELS[dateRange]}</p>
@@ -1326,10 +1326,10 @@ export default function HomePage() {
                     <div className="px-3 sm:px-5 py-4 sm:py-5 text-center text-xs sm:text-sm text-gray-400">No tasks found.</div>
                   )}
                 </div>
-              </div> */}
+              </div>
 
               {/* Reminders */}
-              {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
                   <div>
                     <p className="text-xs sm:text-sm font-semibold text-gray-800">Reminders - {DATE_LABELS[dateRange]}</p>
@@ -1365,7 +1365,7 @@ export default function HomePage() {
                     <div className="px-3 sm:px-5 py-4 sm:py-5 text-center text-xs sm:text-sm text-gray-400">No reminders found.</div>
                   )}
                 </div>
-              </div> */}
+              </div>
 
               {/* Team Leaderboard */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
@@ -1406,7 +1406,7 @@ export default function HomePage() {
               </div>
 
               {/* Quick Actions */}
-              {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
                 <div className="px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
                   <p className="text-xs sm:text-sm font-semibold text-gray-800">Quick Actions</p>
                 </div>
@@ -1430,7 +1430,7 @@ export default function HomePage() {
                     </Link>
                   ))}
                 </div>
-              </div> */}
+              </div>
             </div>
           </div>
         </>

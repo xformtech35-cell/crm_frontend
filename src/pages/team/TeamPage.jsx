@@ -13,7 +13,7 @@ import {
   membersForTeam,
 } from '../../utils/teamRelations'
 
-const emptyForm = { teamName: '', memberToAdd: '', memberIds: [] }
+const emptyForm = { teamName: '', teamLeadId: '', memberToAdd: '', memberIds: [] }
 
 export default function TeamPage() {
   const teamHook = useTeam()
@@ -60,7 +60,8 @@ export default function TeamPage() {
     if (!text) return teams
     return teams.filter((team) => {
       const teamMembers = membersForTeam(getTeamId(team), members, assignments)
-      return [getTeamLabel(team), ...teamMembers.map(getMemberLabel)]
+      const leadMember = members.find((m) => Number(getMemberId(m)) === Number(team.teamLeadId))
+      return [getTeamLabel(team), leadMember ? getMemberLabel(leadMember) : '', ...teamMembers.map(getMemberLabel)]
         .join(' ')
         .toLowerCase()
         .includes(text)
@@ -88,6 +89,7 @@ export default function TeamPage() {
     setEditingTeam(team)
     setForm({
       teamName: getTeamLabel(team),
+      teamLeadId: team.teamLeadId ? String(team.teamLeadId) : '',
       memberToAdd: '',
       memberIds: membersForTeam(teamId, members, assignments).map((member) => Number(getMemberId(member))),
     })
@@ -132,9 +134,13 @@ export default function TeamPage() {
     if (!teamName) return
     setSaving(true)
     try {
+      const payload = {
+        teamName,
+        teamLeadId: form.teamLeadId ? Number(form.teamLeadId) : null,
+      }
       const team = editingTeam
-        ? await teamHook.update(getTeamId(editingTeam), { teamName })
-        : await teamHook.create({ teamName })
+        ? await teamHook.update(getTeamId(editingTeam), payload)
+        : await teamHook.create(payload)
       await syncTeamMembers(getTeamId(team), form.memberIds)
       setModalOpen(false)
       await loadData()
@@ -206,6 +212,7 @@ export default function TeamPage() {
               <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
                   <th className="px-4 py-3">Team</th>
+                  <th className="px-4 py-3">Team Lead</th>
                   <th className="px-4 py-3">Members</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -213,11 +220,22 @@ export default function TeamPage() {
               <tbody>
                 {filteredTeams.map((team) => {
                   const teamMembers = membersForTeam(getTeamId(team), members, assignments)
+                  const leadMember = members.find((m) => Number(getMemberId(m)) === Number(team.teamLeadId))
                   return (
                     <tr key={getTeamId(team)} className="border-t border-gray-100">
                       <td className="px-4 py-3">
                         <p className="font-semibold text-gray-900">{getTeamLabel(team)}</p>
                         <p className="text-xs text-gray-400">Team #{getTeamId(team)}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {leadMember ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700">
+                            <Icon name="mdi:star" className="h-3.5 w-3.5 text-purple-500" />
+                            {leadMember.teamMemberName || leadMember.teamMemberEmail}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">Not assigned</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {teamMembers.length ? (
@@ -255,7 +273,7 @@ export default function TeamPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingTeam ? 'Edit Team' : 'Create New Team'}
-        subtitle={editingTeam ? 'Update team name and members' : 'Create a new team and add members'}
+        subtitle={editingTeam ? 'Update team name, team lead, and members' : 'Create a new team, assign team lead, and add members'}
         icon="mdi:account-group-outline"
         footer={
           <>
@@ -271,12 +289,28 @@ export default function TeamPage() {
             <span className="mb-1 block text-sm font-medium text-gray-700">Team Name *</span>
             <input
               value={form.teamName}
-              onChange={(e) => setForm((current) => ({ ...current, teamName: e.target.value.replace(/[^a-zA-Z]/g, "") }))}
+              onChange={(e) => setForm((current) => ({ ...current, teamName: e.target.value.replace(/[^a-zA-Z\s]/g, "") }))}
               className="input-field"
               required
               autoFocus
             />
           </label>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Assign Team Lead</label>
+            <select
+              value={form.teamLeadId}
+              onChange={(e) => setForm((current) => ({ ...current, teamLeadId: e.target.value }))}
+              className="input-field"
+            >
+              <option value="">Select Team Lead</option>
+              {members.map((member) => (
+                <option key={getMemberId(member)} value={getMemberId(member)}>
+                  {getMemberLabel(member)}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Add Team Member</label>

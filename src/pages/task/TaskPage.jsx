@@ -10,7 +10,7 @@ import { useProject } from '../../hooks/useProject'
 import { useTaskTime } from '../../hooks/useTaskTime'
 import { useAuthStore } from '../../stores/auth'
 import { formatDate } from '../../utils/format'
-import { getMemberId, getMemberLabel, getTeamId, getTeamLabel, membersForTeam } from '../../utils/teamRelations'
+import { getMemberId, getMemberLabel, getTeamId, getTeamLabel, membersForTeam, groupMembersByTeam } from '../../utils/teamRelations'
 
 /* ─────────────────────────────── constants ─────────────────────────────── */
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical']
@@ -313,6 +313,11 @@ function TaskFormModal({ open, onClose, editingTask, teams, members, assignments
     [form.taskAssignedTeam, members, assignments]
   )
 
+  const groupedTaskMembers = useMemo(
+    () => groupMembersByTeam(teams, members, assignments),
+    [teams, members, assignments]
+  )
+
   function handleSubmit(e) {
     e.preventDefault()
     if (!form.taskName.trim()) return
@@ -423,7 +428,28 @@ function TaskFormModal({ open, onClose, editingTask, teams, members, assignments
               <label className={lbl}>Assign to Member</label>
               <select value={form.taskAssignedMember} onChange={e => setF('taskAssignedMember', e.target.value)} className={sel}>
                 <option value="">Unassigned</option>
-                {availableMembers.map(m => <option key={getMemberId(m)} value={getMemberId(m)}>{getMemberLabel(m)}</option>)}
+                {form.taskAssignedTeam ? (
+                  availableMembers.map(m => (
+                    <option key={getMemberId(m)} value={getMemberId(m)}>{getMemberLabel(m)}</option>
+                  ))
+                ) : (
+                  <>
+                    {groupedTaskMembers.groupedTeams.map(({ team, members }) => (
+                      <optgroup key={getTeamId(team)} label={`📁 ${getTeamLabel(team)}`}>
+                        {members.map(m => (
+                          <option key={getMemberId(m)} value={getMemberId(m)}>{getMemberLabel(m)}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                    {groupedTaskMembers.unassigned.length > 0 && (
+                      <optgroup label="👤 General Members">
+                        {groupedTaskMembers.unassigned.map(m => (
+                          <option key={getMemberId(m)} value={getMemberId(m)}>{getMemberLabel(m)}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </>
+                )}
               </select>
             </div>
           )}
@@ -663,6 +689,7 @@ export default function TaskPage() {
   const [query,        setQuery]       = useState('')
   const [filterPriority, setFilterPriority] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterTeam, setFilterTeam] = useState('')
 
   const [modalOpen,   setModalOpen]   = useState(false)
   const [editingTask, setEditingTask] = useState(null)
@@ -712,12 +739,13 @@ export default function TaskPage() {
     return tasks.filter(t => {
       if (filterPriority && t.taskPriority !== filterPriority) return false
       if (filterStatus   && t.taskAssign   !== filterStatus)   return false
+      if (filterTeam     && String(t.taskAssignedTeam) !== String(filterTeam)) return false
       if (!q) return true
       const member = memberById.get(Number(t.taskAssignedMember || t.taskAssignedTo))
       return [t.taskName, t.taskRelatedTo, t.taskPriority, getMemberLabel(member)]
         .filter(Boolean).join(' ').toLowerCase().includes(q)
     })
-  }, [tasks, query, filterPriority, filterStatus, memberById])
+  }, [tasks, query, filterPriority, filterStatus, filterTeam, memberById])
 
   /* ─── grouped for kanban ─── */
   const grouped = useMemo(() => {
@@ -853,14 +881,14 @@ export default function TaskPage() {
               {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
 
-            {/* Status filter (list view) */}
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="text-sm border border-gray-200 rounded-xl px-3 py-2 text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white">
-              <option value="">All Statuses</option>
-              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+            {/* Team filter */}
+            <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className="text-sm border border-gray-200 rounded-xl px-3 py-2 text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white">
+              <option value="">All Teams</option>
+              {teams.map(t => <option key={getTeamId(t)} value={getTeamId(t)}>📁 {getTeamLabel(t)}</option>)}
             </select>
 
-            {(query || filterPriority || filterStatus) && (
-              <button onClick={() => { setQuery(''); setFilterPriority(''); setFilterStatus('') }} className="text-xs text-indigo-600 hover:underline font-semibold">Clear filters</button>
+            {(query || filterPriority || filterStatus || filterTeam) && (
+              <button onClick={() => { setQuery(''); setFilterPriority(''); setFilterStatus(''); setFilterTeam(''); }} className="text-xs text-indigo-600 hover:underline font-semibold">Clear filters</button>
             )}
           </div>
 

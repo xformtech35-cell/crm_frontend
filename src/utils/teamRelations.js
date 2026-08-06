@@ -58,3 +58,27 @@ export function teamsForMember(memberId, teams, assignments) {
 
   return teams.filter((team) => selectedIds.has(Number(getTeamId(team))))
 }
+
+export function groupMembersByTeam(teams = [], members = [], assignments = []) {
+  const assignedMemberIds = new Set();
+  const groupedTeams = [];
+
+  teams.forEach((team) => {
+    const tId = Number(getTeamId(team));
+    const mForTeam = membersForTeam(tId, members, assignments);
+    if (mForTeam.length > 0) {
+      groupedTeams.push({
+        team,
+        members: mForTeam,
+      });
+      mForTeam.forEach((m) => assignedMemberIds.add(Number(getMemberId(m))));
+    }
+  });
+
+  const unassigned = members.filter((m) => !assignedMemberIds.has(Number(getMemberId(m))));
+
+  return {
+    groupedTeams,
+    unassigned,
+  };
+}
