@@ -3037,7 +3037,7 @@ if (leadStatusFilter) {
                 >
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
-                      <th className="sticky left-0 z-20 w-11 bg-gray-50 pl-4 py-2.5">
+                      <th className="w-10 pl-4 py-2.5">
                         <input
                           type="checkbox"
                           checked={allPageSelected}
@@ -3045,7 +3045,7 @@ if (leadStatusFilter) {
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                       </th>
-                      <th className="sticky left-11 z-20 w-[180px] bg-gray-50 whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                      <th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         <button
                           className="flex items-center gap-1 hover:text-gray-700 transition-colors"
                           onClick={() => toggleSort("leadFirstName")}
@@ -3420,7 +3420,7 @@ if (leadStatusFilter) {
                           // onClick={() => openPanel(lead)}
                         >
                           <td
-                            className={`sticky left-0 z-10 pl-4 py-2 ${selectedIds.has(lead.leadId) ? "bg-blue-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
+                            className="pl-4 py-2"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <input
@@ -3430,7 +3430,7 @@ if (leadStatusFilter) {
                               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                           </td>
-                          <td className={`sticky left-11 z-10 px-3 py-2 max-w-[200px] border-r border-gray-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)] ${selectedIds.has(lead.leadId) ? "bg-blue-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                          <td className="px-3 py-2 max-w-[200px]">
                             <div className="flex items-center gap-2.5">
                               <div className="min-w-0 flex-1">
                                 {lead.leadOrganisationName && (
