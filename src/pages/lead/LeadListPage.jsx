@@ -2691,10 +2691,10 @@ if (leadStatusFilter) {
       {/* Filter Bar */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 mb-3">
         {/* Row 1: Status Filters & Actions */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
           {/* Status Tabs */}
           {/* Status Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 xl:pb-0 scrollbar-none">
             {STATUS_TABS.filter((s) => {
               // Base tabs always visible (All, New Lead, Qualified, Disqualified, Ongoing)
               const baseTabs = ["All", "Qualified", "Disqualified"];
@@ -2739,7 +2739,7 @@ if (leadStatusFilter) {
             <strong> {filteredLeads.length}</strong>
           </div> */}
           {/* Quick Actions (Import, New, View Toggles) */}
-          <div className="flex items-center gap-2 self-end lg:self-auto">
+          <div className="flex items-center gap-2 self-end xl:self-auto">
             <Link
               to="/lead/import"
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
@@ -2789,7 +2789,7 @@ if (leadStatusFilter) {
           className={`flex flex-wrap items-center gap-3 border-t border-gray-100 transition-all duration-300 ease-in-out origin-top overflow-hidden ${
             filtersCollapsed
               ? "max-h-0 pt-0 border-t-0 opacity-0 pointer-events-none mt-0"
-              : "max-h-20 pt-3 opacity-100 mt-3"
+              : "max-h-96 pt-3 opacity-100 mt-3"
           }`}
         >
           {/* Search Input */}
@@ -3021,7 +3021,7 @@ if (leadStatusFilter) {
               <div
                 ref={tableContainerRef} // <-- ADD THIS
                 onScroll={handleTableScroll}
-                className="w-full overflow-x-auto overflow-y-auto"
+                className="w-full overflow-x-auto overflow-y-auto show-scrollbar"
                 style={{
                   maxHeight: filtersCollapsed
                     ? "calc(100vh - 225px)"
@@ -3031,13 +3031,13 @@ if (leadStatusFilter) {
                 <table
                   className="table-fixed text-sm"
                   style={{
-                    minWidth: "1800px",
+                    minWidth: "2200px",
                     width: "max-content",
                   }}
                 >
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
-                      <th className="w-10 pl-4 py-2.5">
+                      <th className="sticky left-0 z-20 w-11 bg-gray-50 pl-4 py-2.5">
                         <input
                           type="checkbox"
                           checked={allPageSelected}
@@ -3045,7 +3045,7 @@ if (leadStatusFilter) {
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                       </th>
-                      <th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky left-11 z-20 w-[180px] bg-gray-50 whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
                         <button
                           className="flex items-center gap-1 hover:text-gray-700 transition-colors"
                           onClick={() => toggleSort("leadFirstName")}
@@ -3420,7 +3420,7 @@ if (leadStatusFilter) {
                           // onClick={() => openPanel(lead)}
                         >
                           <td
-                            className="pl-4 py-2"
+                            className={`sticky left-0 z-10 pl-4 py-2 ${selectedIds.has(lead.leadId) ? "bg-blue-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <input
@@ -3430,7 +3430,7 @@ if (leadStatusFilter) {
                               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                           </td>
-                          <td className="px-3 py-2 max-w-[200px]">
+                          <td className={`sticky left-11 z-10 px-3 py-2 max-w-[200px] border-r border-gray-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)] ${selectedIds.has(lead.leadId) ? "bg-blue-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                             <div className="flex items-center gap-2.5">
                               <div className="min-w-0 flex-1">
                                 {lead.leadOrganisationName && (

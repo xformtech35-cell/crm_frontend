@@ -16,11 +16,12 @@ export default function ProtectedRoute({ children, requiredPermission, adminOnly
     return <Navigate to="/login" replace />
   }
 
-  if (isSuperAdmin) {
+  // Super admin and admin bypass all permission checks
+  if (isSuperAdmin || isAdmin) {
     return children
   }
 
-  if (adminOnly && !isAdmin) {
+  if (adminOnly) {
     return <Navigate to="/home" replace />
   }
 
@@ -32,4 +33,4 @@ export default function ProtectedRoute({ children, requiredPermission, adminOnly
   }
 
   return children
-}
+}

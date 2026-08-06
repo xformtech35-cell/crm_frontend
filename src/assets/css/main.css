@@ -1179,5 +1179,37 @@ body.light-theme .hero-dark-card .text-emerald-300 * {
   background: #444;
 }
 
+/* Scrollbar Utility for wide scrollable elements */
+.show-scrollbar {
+  scrollbar-width: thin !important;
+  -ms-overflow-style: auto !important;
+}
+
+.show-scrollbar::-webkit-scrollbar {
+  display: block !important;
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.show-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1 !important;
+  border-radius: 4px !important;
+}
+
+.show-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 4px !important;
+  border: 2px solid #f1f1f1 !important;
+}
+
+.show-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+.show-scrollbar::-webkit-scrollbar-thumb:active {
+  background: #64748b !important;
+}
+
+
 
 

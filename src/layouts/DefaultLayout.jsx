@@ -874,18 +874,18 @@ export default function DefaultLayout() {
                       </span>
                     )}
                   </div>
-                  <p className="hidden truncate text-[11px] leading-4 text-slate-500 lg:block">
+                  <p className="hidden truncate text-[11px] leading-4 text-slate-500 xl:block">
                     Command center for pipeline and team operations.
                   </p>
                 </div>
               </div>
 
               {/* Right section */}
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 {/* View Context Selector for Admin */}
                 {isAdmin && (
-                  <div className="flex items-center gap-2 mr-2 flex-shrink-0">
-                    <span className={`text-xs font-semibold ${theme === "dark" ? "text-purple-400" : "text-purple-700"} hidden sm:inline`}>
+                  <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
+                    <span className={`text-xs font-semibold ${theme === "dark" ? "text-purple-400" : "text-purple-700"} hidden lg:inline`}>
                       View Context:
                     </span>
                     <select
@@ -895,7 +895,7 @@ export default function DefaultLayout() {
                         setSelectedTeamMemberId(val ? Number(val) : null);
                         window.location.reload();
                       }}
-                      className={`rounded-xl border px-2.5 py-1 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer ${
+                      className={`rounded-xl border px-2 py-1 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer max-w-[150px] md:max-w-none ${
                         theme === "dark"
                           ? "border-white/10 bg-[#0c0e1c] text-slate-200 hover:bg-[#131730]"
                           : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -904,7 +904,7 @@ export default function DefaultLayout() {
                       <option value="">Global (All Team Members)</option>
                       {teamMemberList.map((tm) => (
                         <option key={tm.userid || tm.teamMemberId} value={tm.userid || tm.teamMemberId}>
-                          {tm.teamMemberName || tm.teamMemberEmail} ({tm.teamMemberEmail})
+                          {tm.teamMemberName || tm.teamMemberEmail}
                         </option>
                       ))}
                     </select>
@@ -914,15 +914,15 @@ export default function DefaultLayout() {
                 {/* Quick Create */}
                 <button
                   type="button"
-                  className="hidden md:flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-950 px-3 text-xs font-semibold text-white shadow-sm whitespace-nowrap hover:bg-slate-800 transition-colors"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-950 px-2.5 xl:px-3 text-xs font-semibold text-white shadow-sm whitespace-nowrap hover:bg-slate-800 transition-colors"
                   onClick={() => setQuickCreateOpen(true)}
                 >
                   <Icon name="mdi:plus" className="w-3.5 h-3.5" />
-                  <span>Quick Create</span>
+                  <span className="hidden xl:inline">Quick Create</span>
                 </button>
 
                 {/* Calendar */}
-                <div className="hidden xl:flex h-9 items-center gap-1.5 rounded-xl border border-slate-100 bg-white px-3 text-xs text-slate-500 shadow-sm whitespace-nowrap">
+                <div className="hidden 2xl:flex h-9 items-center gap-1.5 rounded-xl border border-slate-100 bg-white px-3 text-xs text-slate-500 shadow-sm whitespace-nowrap">
                   <Icon name="mdi:calendar-today" className="w-3.5 h-3.5 text-indigo-500" />
                   <span>{new Date().toLocaleDateString("en-IN", {
                     day: "numeric",
@@ -1230,13 +1230,13 @@ export default function DefaultLayout() {
                 {/* Logout Button */}
                 <button
                   onClick={logout}
-                  className={`flex h-9 items-center gap-1.5 rounded-xl border transition-all shadow-sm whitespace-nowrap ${theme === "dark"
+                  className={`flex h-9 items-center gap-1.5 rounded-xl border transition-all shadow-sm whitespace-nowrap px-2.5 ${theme === "dark"
                     ? "border-red-500/20 text-red-400 hover:bg-red-500/10 bg-red-500/5"
-                    : "border-red-200 bg-white px-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:border-red-300"
+                    : "border-red-200 bg-white text-xs font-semibold text-red-600 hover:bg-red-50 hover:border-red-300"
                     }`}
                 >
                   <Icon name="mdi:logout-variant" className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">Logout</span>
+                  <span className="hidden xl:inline">Logout</span>
                 </button>
 
                 {/* User Avatar */}

@@ -11,6 +11,7 @@ import {
   getMemberLabel,
   getTeamLabel,
   teamsForMember,
+  assignmentIdsForMember,
 } from '../../utils/teamRelations';
 
 const emptyMember = {
@@ -72,11 +73,11 @@ export default function TeamMemberPage() {
   const getRoleName = (roleId) => {
     if (!roleId) return '-';
     const roleObj = roles.find((r) => r.roleId === roleId || r.roleId?.toString() === roleId?.toString());
-    return roleObj ? roleObj.roleName : roleId;
+    return roleObj ? roleObj.roleName : String(roleId);
   };
 
   const isTeamLeadRole = (roleId, roleNameStr) => {
-    const name = roleNameStr || getRoleName(roleId);
+    const name = String(roleNameStr || getRoleName(roleId) || '');
     return name.toLowerCase().includes('lead') || name.toLowerCase().includes('manager');
   };
 
