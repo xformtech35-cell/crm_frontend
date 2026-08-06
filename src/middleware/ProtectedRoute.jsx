@@ -19,8 +19,18 @@ export default function ProtectedRoute({ children, requiredPermission, adminOnly
     return <Navigate to="/login" replace />
   }
 
-  // Super admin and admin bypass all permission checks
-  if (isSuperAdmin || isAdmin) {
+  // Super admin bypasses all permission checks
+  if (isSuperAdmin) {
+    return children
+  }
+
+  // Admin bypasses all checks except integrations access block
+  if (isAdmin) {
+    if (requiredPermission === "integrations.view" || (Array.isArray(requiredPermission) && requiredPermission.includes("integrations.view"))) {
+      if (!user?.integrationsAccess) {
+        return <Navigate to="/home" replace />
+      }
+    }
     return children
   }
 
