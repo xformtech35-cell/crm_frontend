@@ -75,9 +75,11 @@ export default function DefaultLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const isAdmin = useAuthStore((s) => s.isAdmin());
-  const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin());
   const hasAnyPermission = useAuthStore((s) => s.hasAnyPermission);
+
+  const userRole = user?.role?.toLowerCase();
+  const isAdmin = userRole === "admin" || userRole === "super_admin" || userRole === "super admin";
+  const isSuperAdmin = userRole === "super_admin" || userRole === "super admin";
   const { logout } = useAuth();
   const leadApi = useLead();
   const opportunityApi = useOpportunity();
@@ -392,7 +394,7 @@ export default function DefaultLayout() {
   };
 
   const canAccess = (item) => {
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isAdmin) return true;
     if (item.to === "/integrations") {
       return !!user?.integrationsAccess || hasAnyPermission(item.permissions);
     }

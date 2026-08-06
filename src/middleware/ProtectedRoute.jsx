@@ -4,9 +4,12 @@ import { useAuthStore } from "../stores/auth"
 export default function ProtectedRoute({ children, requiredPermission, adminOnly }) {
   const token = useAuthStore((s) => s.token)
   const hasHydrated = useAuthStore((s) => s.hasHydrated)
-  const isAdmin = useAuthStore((s) => s.isAdmin())
-  const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin())
+  const user = useAuthStore((s) => s.user)
   const hasAnyPermission = useAuthStore((s) => s.hasAnyPermission)
+
+  const role = user?.role?.toLowerCase()
+  const isAdmin = role === "admin" || role === "super_admin" || role === "super admin"
+  const isSuperAdmin = role === "super_admin" || role === "super admin"
 
   if (!hasHydrated) {
     return <div>Loading...</div>
