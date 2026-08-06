@@ -91,7 +91,7 @@ export default function AppRouter() {
         
         <Route path="/task" element={<ProtectedRoute requiredPermission="tasks.view"><TaskPage /></ProtectedRoute>} />
         <Route path="/team" element={<ProtectedRoute requiredPermission="teams.view"><TeamPage /></ProtectedRoute>} />
-        <Route path="/team-lead" element={<ProtectedRoute requiredPermission="teams.view"><TeamLeadPage /></ProtectedRoute>} />
+        <Route path="/team-lead" element={<ProtectedRoute requiredPermission="team_leads.view"><TeamLeadPage /></ProtectedRoute>} />
         <Route path="/leadsource" element={<ProtectedRoute requiredPermission="leads.view"><LeadSource /></ProtectedRoute>} />
         <Route path="/leadgroup" element={<ProtectedRoute requiredPermission="leads.view"><LeadGroup /></ProtectedRoute>} />
         <Route path="/team/:id" element={<ProtectedRoute requiredPermission="teams.view"><TeamDetailPage /></ProtectedRoute>} />

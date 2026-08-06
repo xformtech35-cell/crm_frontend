@@ -117,6 +117,13 @@ const groupedPermissions = [
         ]
       },
       {
+        name: "Team Leads",
+        viewPermission: { key: "team_leads.view", label: "View Team Leads" },
+        actions: [
+          { key: "team_leads.edit", label: "Manage Team Leads" }
+        ]
+      },
+      {
         name: "Team Members",
         viewPermission: { key: "users.view", label: "View Team Members" },
         actions: [

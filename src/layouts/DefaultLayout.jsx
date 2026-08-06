@@ -517,7 +517,7 @@ export default function DefaultLayout() {
             to: "/team-lead",
             label: "Team Leads",
             icon: "mdi:account-star-outline",
-            permissions: ["teams.view"],
+            permissions: ["team_leads.view", "teams.view"],
           },
           {
             to: "/team-member",
