@@ -30,6 +30,7 @@ const pageTitles = {
   "/calendar": "Calendar",
   "/attendance": "Attendance",
   "/team": "Teams",
+  "/team-lead": "Team Leads",
   "/leadsource": "Lead Sources",
   "/leadgroup": "Lead Groups",
   "/team-member": "Team Members",
@@ -510,6 +511,12 @@ export default function DefaultLayout() {
             to: "/team",
             label: "Teams",
             icon: "mdi:account-group-outline",
+            permissions: ["teams.view"],
+          },
+          {
+            to: "/team-lead",
+            label: "Team Leads",
+            icon: "mdi:account-star-outline",
             permissions: ["teams.view"],
           },
           {
