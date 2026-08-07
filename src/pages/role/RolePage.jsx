@@ -3,6 +3,7 @@ import Icon from "../../components/Icon";
 import { useRole } from "../../hooks/useRole";
 import { useTeamMember } from "../../hooks/useTeamMember";
 import { useAuthStore } from "../../stores/auth";
+import { useApi } from "../../hooks/useApi";
 
 const groupedPermissions = [
   {
@@ -191,6 +192,14 @@ const groupedPermissions = [
         name: "Settings",
         viewPermission: { key: "settings.view", label: "View Settings" },
         actions: []
+      },
+      {
+        name: "Trash / Recycle Bin",
+        viewPermission: { key: "trash.view", label: "View Trash" },
+        actions: [
+          { key: "trash.restore", label: "Restore Items" },
+          { key: "trash.delete", label: "Permanently Delete" }
+        ]
       }
     ]
   }
@@ -199,9 +208,13 @@ const groupedPermissions = [
 export default function RolePage() {
   const roleHook = useRole();
   const teamMemberHook = useTeamMember();
+  const api = useApi();
   const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin());
   const currentUserPermissions = useAuthStore((s) => s.user?.permissions || []);
   const currentUser = useAuthStore((s) => s.user);
+  // Super Admin View Context: which company admin is being viewed
+  const selectedCompanyId = useAuthStore((s) => s.selectedCompanyId);
+  const [contextCompany, setContextCompany] = useState(null);
 
   const visibleGroups = useMemo(() => {
     if (isSuperAdmin || currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN') {
@@ -285,6 +298,22 @@ export default function RolePage() {
     loadData();
   }, []);
 
+  // Load the company context user whenever selectedCompanyId changes (Super Admin View Context)
+  useEffect(() => {
+    if (isSuperAdmin && selectedCompanyId) {
+      api.get("/superadmin/companies")
+        .then((companies) => {
+          const found = Array.isArray(companies)
+            ? companies.find((c) => c.userid === selectedCompanyId || c.userid === Number(selectedCompanyId))
+            : null;
+          setContextCompany(found || null);
+        })
+        .catch(() => setContextCompany(null));
+    } else {
+      setContextCompany(null);
+    }
+  }, [isSuperAdmin, selectedCompanyId]);
+
   useEffect(() => {
     if (!selectedRole) {
       setSelectedPermissions([]);
@@ -295,7 +324,25 @@ export default function RolePage() {
       setLoadingPermissions(true);
       try {
         const permsData = await roleHook.getPermissions(selectedRole.roleId);
-        const permKeys = Array.isArray(permsData) ? permsData.map(p => p.grpPerm) : [];
+        let permKeys = Array.isArray(permsData) ? permsData.map(p => p.grpPerm) : [];
+
+        // BIDIRECTIONAL SYNC: If Super Admin is viewing a specific company's context
+        // and this is the ADMIN role, override integrations permissions based on
+        // that company's actual integrationsAccess flag (single source of truth)
+        const isGlobalAdminRole = selectedRole.roleName?.toUpperCase() === "ADMIN" && selectedRole.userIdFk == null;
+        if (isSuperAdmin && contextCompany && isGlobalAdminRole) {
+          const companyHasIntegrations = !!contextCompany.integrationsAccess;
+          if (!companyHasIntegrations) {
+            // Company has integrations disabled → remove integrations perms from displayed set
+            permKeys = permKeys.filter(k => k !== "integrations.view" && k !== "integrations.edit");
+          } else {
+            // Company has integrations enabled → ensure integrations.view is shown as checked
+            if (!permKeys.includes("integrations.view")) {
+              permKeys = [...permKeys, "integrations.view", "integrations.edit"];
+            }
+          }
+        }
+
         setSelectedPermissions(permKeys);
       } catch (error) {
         console.error("Failed to fetch permissions:", error);
@@ -307,7 +354,7 @@ export default function RolePage() {
     };
 
     fetchPermissions();
-  }, [selectedRole]);
+  }, [selectedRole, contextCompany]);
 
   const getRecordCount = (role) => {
     if (!role) return 0;
@@ -481,29 +528,58 @@ export default function RolePage() {
     return count > 0 && count < keys.length;
   };
 
-  // ENHANCED: Handle save permissions with admin role support
+  // ENHANCED: Handle save permissions with full bidirectional sync per company context
   const handleSavePermissions = async () => {
     if (!selectedRole) return;
     setSavingPermissions(true);
     try {
-      // Save permissions to backend
+      const isGlobalAdminRole = selectedRole.roleName?.toUpperCase() === "ADMIN" && selectedRole.userIdFk == null;
+      const integrationsNowEnabled = selectedPermissions.includes("integrations.view");
+
+      // Save permissions to backend (backend also syncs integrationsAccess on ALL admin users for global ADMIN role)
       await roleHook.savePermissions(selectedRole.roleId, selectedPermissions);
-      
+
+      // BIDIRECTIONAL SYNC - Direction 2: Role Matrix → Company Registry
+      // If Super Admin is editing the ADMIN role with a specific company context,
+      // also update THAT specific company's integrationsAccess flag directly
+      if (isSuperAdmin && isGlobalAdminRole && contextCompany) {
+        const currentCompanyIntegrations = !!contextCompany.integrationsAccess;
+        if (currentCompanyIntegrations !== integrationsNowEnabled) {
+          try {
+            const updatedCompany = {
+              ...contextCompany,
+              integrationsAccess: integrationsNowEnabled,
+              // Don't send password in this update
+              password: undefined,
+            };
+            await api.put(`/superadmin/companies/${contextCompany.userid}`, updatedCompany);
+            // Refresh local contextCompany state
+            setContextCompany({ ...contextCompany, integrationsAccess: integrationsNowEnabled });
+          } catch (syncErr) {
+            console.error("Failed to sync integrationsAccess to company:", syncErr);
+          }
+        }
+        showToast(
+          integrationsNowEnabled
+            ? `Permissions saved — Integrations enabled for ${contextCompany.username} ✓`
+            : `Permissions saved — Integrations disabled for ${contextCompany.username} ✓`,
+          "success"
+        );
+        return;
+      }
+
       // Check if current user has this role
       const currentUserRoleId = currentUser?.roleId;
       const isCurrentUserRole = currentUserRoleId === selectedRole.roleId;
-      
+
       if (isCurrentUserRole) {
         // Refresh user permissions from backend
         try {
-          // Try to refresh user data
           const refreshedUser = await roleHook.refreshUserPermissions?.();
           if (refreshedUser) {
-            // Update auth store with new permissions
             useAuthStore.setState({ user: refreshedUser });
             showToast("Permissions updated and applied successfully!", "success");
           } else {
-            // Fallback: reload page
             showToast("Permissions saved! Refreshing to apply changes...", "info");
             setTimeout(() => window.location.reload(), 1500);
           }
@@ -511,6 +587,13 @@ export default function RolePage() {
           console.error("Failed to refresh permissions:", refreshError);
           showToast("Permissions saved. Please refresh the page to see changes.", "info");
         }
+      } else if (isGlobalAdminRole) {
+        showToast(
+          integrationsNowEnabled
+            ? "Permissions saved — Integrations access enabled for all companies ✓"
+            : "Permissions saved — Integrations access revoked for all companies ✓",
+          "success"
+        );
       } else {
         showToast("Permissions updated successfully", "success");
       }

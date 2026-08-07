@@ -34,6 +34,7 @@ import ReportsPage from "../pages/reports/ReportsPage";
 import AutomationPage from "../pages/automation/AutomationPage";
 import CreateTeamPage from "../pages/create-team/CreateTeamPage";
 import AttendancePage from "../pages/attendance/AttendancePage.jsx.jsx";
+import TrashPage from "../pages/settings/TrashPage";
 
 // Generic Modules previously restricted to Super Admin
 import CompaniesPage from "../pages/super-admin/CompaniesPage";
@@ -112,6 +113,7 @@ export default function AppRouter() {
         <Route path="/automation" element={<ProtectedRoute requiredPermission="automation.view"><AutomationPage /></ProtectedRoute>} />
         <Route path="/settings/data-access" element={<ProtectedRoute requiredPermission="roles.view" adminOnly><DataAccessConfigPage /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute requiredPermission="settings.view" adminOnly><SettingsPage /></ProtectedRoute>} />
+        <Route path="/trash" element={<ProtectedRoute requiredPermission="trash.view"><TrashPage /></ProtectedRoute>} />
 
         {/* Global Configuration Modules (managed by Role Matrix) */}
         <Route path="/integrations" element={<ProtectedRoute requiredPermission="integrations.view"><IntegrationsPage /></ProtectedRoute>} />
@@ -155,6 +157,7 @@ export default function AppRouter() {
         <Route path="/super-admin/create-team" element={<CreateTeamPage />} />
         <Route path="/super-admin/role" element={<RolePage />} />
         <Route path="/super-admin/data-access" element={<DataAccessConfigPage />} />
+        <Route path="/super-admin/trash" element={<TrashPage />} />
         <Route path="/super-admin/attendance" element={<AttendancePage />} />
         <Route path="/super-admin/leadsource" element={<LeadSource />} />
         <Route path="/super-admin/leadgroup" element={<LeadGroup />} />

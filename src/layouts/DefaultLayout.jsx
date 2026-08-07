@@ -37,6 +37,7 @@ const pageTitles = {
   "/create-team": "Manage Teams",
   "/role": "Roles & Permissions",
   "/settings": "Settings",
+  "/trash": "Trash / Recycle Bin",
   "/profile": "My Profile",
 };
 
@@ -585,6 +586,12 @@ export default function DefaultLayout() {
             label: "Settings",
             icon: "mdi:cog-outline",
             permissions: ["settings.view"],
+          },
+          {
+            to: "/trash",
+            label: "Trash / Recycle Bin",
+            icon: "mdi:trash-can-outline",
+            permissions: ["trash.view"],
           },
         ],
       },

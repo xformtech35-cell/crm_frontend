@@ -3,6 +3,7 @@ import Icon from '../../components/Icon'
 import { useDataScopeConfig } from '../../hooks/useDataScopeConfig'
 import { useRole } from '../../hooks/useRole'
 import { useTeamMember } from '../../hooks/useTeamMember'
+import { useAuthStore } from '../../stores/auth'
 
 const MODULES = [
   { id: 'LEADS', name: 'Leads', icon: 'mdi:account-arrow-right-outline', desc: 'Inbound and sales leads' },
@@ -48,6 +49,7 @@ export default function DataAccessConfigPage() {
   const dataScopeHook = useDataScopeConfig()
   const roleHook = useRole()
   const teamMemberHook = useTeamMember()
+  const selectedCompanyId = useAuthStore((s) => s.selectedCompanyId)
 
   const [activeTab, setActiveTab] = useState('roles') // 'roles' | 'users'
   const [roles, setRoles] = useState([])
@@ -123,7 +125,7 @@ export default function DataAccessConfigPage() {
   useEffect(() => {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [selectedCompanyId])
 
   const hasUnsavedChanges = useMemo(() => {
     return JSON.stringify(matrix) !== JSON.stringify(initialMatrix)

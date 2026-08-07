@@ -39,6 +39,7 @@ const pageTitles = {
   "/super-admin/create-team": "Manage Teams",
   "/super-admin/role": "Roles & Permissions",
   "/super-admin/data-access": "Data Access Config",
+  "/super-admin/trash": "Trash / Recycle Bin",
   "/super-admin/crm-settings": "CRM Settings",
   "/super-admin/profile": "My Profile",
 };
@@ -212,6 +213,11 @@ const navGroups = [
         to: "/super-admin/data-access",
         label: "Data Access Config",
         icon: "mdi:shield-key-outline",
+      },
+      {
+        to: "/super-admin/trash",
+        label: "Trash / Recycle Bin",
+        icon: "mdi:trash-can-outline",
       },
       {
         to: "/super-admin/crm-settings",
