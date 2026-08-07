@@ -28,7 +28,18 @@ jobs:
           VITE_API_BASE: ${{ secrets.VITE_API_BASE || 'https://api-test.richgoldshine.com/xformcrm/api' }}
         run: npm run build
 
-      - name: 🚀 Deploy to Plesk Web Server (FTP/SFTP)
+      - name: 📅 Generate Backup Timestamp
+        id: timestamp
+        run: echo "DATE=$(date +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_ENV
+
+      - name: 💾 Save Dated Rollback Backup Artifact to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-backup-${{ env.DATE }}
+          path: dist/
+          retention-days: 30
+
+      - name: 🚀 Deploy Production Files to Plesk
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
