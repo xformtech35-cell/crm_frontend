@@ -33,7 +33,7 @@ import AnalyticsPage from "../pages/analytics/AnalyticsPage";
 import ReportsPage from "../pages/reports/ReportsPage";
 import AutomationPage from "../pages/automation/AutomationPage";
 import CreateTeamPage from "../pages/create-team/CreateTeamPage";
-import AttendancePage from "../pages/attendance/AttendancePage.jsx.jsx";
+import AttendancePage from "../pages/attendance/AttendancePage.jsx";
 import TrashPage from "../pages/settings/TrashPage";
 
 // Generic Modules previously restricted to Super Admin
@@ -48,7 +48,7 @@ import SuperAdminSettingsPage from "../pages/super-admin/SuperAdminSettingsPage"
 import SuperAdminAnalyticsPage from "../pages/super-admin/SuperAdminAnalyticsPage";
 import LeadSource from "../pages/Masters/LeadSource.jsx";
 import LeadGroup from "../pages/Masters/LeadGroup.jsx";
-import NegotiationPage from "../pages/negotiation/NegotiationPage.jsx";
+import NegotiationPage from "../pages/Negotiation/NegotiationPage.jsx";
 import NegotiationDetailPage from "../pages/Negotiation/NegotiationDetailPage.jsx";
 import QuotationDetailPage from "../pages/Negotiation/QuotationDetailPage.jsx";
 import ProfilePage from "../pages/profile/ProfilePage";
