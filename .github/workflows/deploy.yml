@@ -28,8 +28,7 @@ jobs:
           VITE_API_BASE: ${{ secrets.VITE_API_BASE || 'https://api-test.richgoldshine.com/xformcrm/api' }}
         run: npm run build
 
-      - name: 🚀 Deploy via FTP/SFTP (If FTP secrets configured)
-        if: ${{ secrets.FTP_USERNAME != '' && secrets.FTP_PASSWORD != '' }}
+      - name: 🚀 Deploy to Plesk Web Server (FTP/SFTP)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -39,9 +38,3 @@ jobs:
           local-dir: ./dist/
           server-dir: ${{ secrets.FTP_SERVER_DIR || '/httpdocs/' }}
           state-name: .ftp-deploy-sync-state.json
-
-      - name: 🔔 Trigger Plesk Webhook (If Webhook URL configured)
-        if: ${{ secrets.PLESK_WEBHOOK_URL != '' }}
-        run: |
-          echo "Triggering Plesk Webhook auto-deploy..."
-          curl -X POST "${{ secrets.PLESK_WEBHOOK_URL }}"
