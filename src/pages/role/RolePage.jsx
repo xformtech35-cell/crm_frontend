@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import Icon from "../../components/Icon";
 import { useRole } from "../../hooks/useRole";
 import { useTeamMember } from "../../hooks/useTeamMember";
+import { useUserPermission } from "../../hooks/useUserPermission";
 import { useAuthStore } from "../../stores/auth";
 import { useApi } from "../../hooks/useApi";
 
@@ -208,13 +209,16 @@ const groupedPermissions = [
 export default function RolePage() {
   const roleHook = useRole();
   const teamMemberHook = useTeamMember();
+  const userPermissionHook = useUserPermission();
   const api = useApi();
   const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin());
   const currentUserPermissions = useAuthStore((s) => s.user?.permissions || []);
   const currentUser = useAuthStore((s) => s.user);
-  // Super Admin View Context: which company admin is being viewed
   const selectedCompanyId = useAuthStore((s) => s.selectedCompanyId);
   const [contextCompany, setContextCompany] = useState(null);
+
+  // Tab mode: "roles" (Manage by Roles) or "users" (Manage by User)
+  const [activeTabMode, setActiveTabMode] = useState("roles");
 
   const visibleGroups = useMemo(() => {
     if (isSuperAdmin || currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN') {
@@ -246,7 +250,12 @@ export default function RolePage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  
+  // Selection states
   const [selectedRole, setSelectedRole] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [hasCustomUserPerms, setHasCustomUserPerms] = useState(false);
+
   const [selectedPermissions, setSelectedPermissions] = useState([]);
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [savingPermissions, setSavingPermissions] = useState(false);
@@ -267,24 +276,23 @@ export default function RolePage() {
     setLoading(true);
     try {
       const [rolesData, membersData] = await Promise.all([
-        roleHook.getAll(),
+        roleHook.getAll(selectedCompanyId),
         teamMemberHook.getAll().catch(() => [])
       ]);
       const fetchedRoles = Array.isArray(rolesData) ? rolesData : [];
+      const fetchedMembers = Array.isArray(membersData) ? membersData : [];
       setRoles(fetchedRoles);
-      setTeamMembers(Array.isArray(membersData) ? membersData : []);
+      setTeamMembers(fetchedMembers);
 
       if (fetchedRoles.length > 0) {
-        let roleToSelect = null;
-        if (selectRoleId) {
-          roleToSelect = fetchedRoles.find(r => r.roleId === selectRoleId);
-        }
-        if (!roleToSelect) {
-          roleToSelect = fetchedRoles[0];
-        }
-        setSelectedRole(roleToSelect);
+        let roleToSelect = selectRoleId ? fetchedRoles.find(r => r.roleId === selectRoleId) : fetchedRoles[0];
+        setSelectedRole(roleToSelect || fetchedRoles[0]);
       } else {
         setSelectedRole(null);
+      }
+
+      if (fetchedMembers.length > 0 && !selectedUser) {
+        setSelectedUser(fetchedMembers[0]);
       }
     } catch (error) {
       console.error("Failed to load roles data:", error);
@@ -296,9 +304,8 @@ export default function RolePage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedCompanyId]);
 
-  // Load the company context user whenever selectedCompanyId changes (Super Admin View Context)
   useEffect(() => {
     if (isSuperAdmin && selectedCompanyId) {
       api.get("/superadmin/companies")
@@ -314,7 +321,9 @@ export default function RolePage() {
     }
   }, [isSuperAdmin, selectedCompanyId]);
 
+  // Load Permissions for Selected Role (in "roles" mode)
   useEffect(() => {
+    if (activeTabMode !== "roles") return;
     if (!selectedRole) {
       setSelectedPermissions([]);
       return;
@@ -326,17 +335,12 @@ export default function RolePage() {
         const permsData = await roleHook.getPermissions(selectedRole.roleId);
         let permKeys = Array.isArray(permsData) ? permsData.map(p => p.grpPerm) : [];
 
-        // BIDIRECTIONAL SYNC: If Super Admin is viewing a specific company's context
-        // and this is the ADMIN role, override integrations permissions based on
-        // that company's actual integrationsAccess flag (single source of truth)
         const isGlobalAdminRole = selectedRole.roleName?.toUpperCase() === "ADMIN" && selectedRole.userIdFk == null;
         if (isSuperAdmin && contextCompany && isGlobalAdminRole) {
           const companyHasIntegrations = !!contextCompany.integrationsAccess;
           if (!companyHasIntegrations) {
-            // Company has integrations disabled → remove integrations perms from displayed set
             permKeys = permKeys.filter(k => k !== "integrations.view" && k !== "integrations.edit");
           } else {
-            // Company has integrations enabled → ensure integrations.view is shown as checked
             if (!permKeys.includes("integrations.view")) {
               permKeys = [...permKeys, "integrations.view", "integrations.edit"];
             }
@@ -345,7 +349,7 @@ export default function RolePage() {
 
         setSelectedPermissions(permKeys);
       } catch (error) {
-        console.error("Failed to fetch permissions:", error);
+        console.error("Failed to fetch role permissions:", error);
         showToast("Failed to fetch permissions", "error");
         setSelectedPermissions([]);
       } finally {
@@ -354,7 +358,50 @@ export default function RolePage() {
     };
 
     fetchPermissions();
-  }, [selectedRole, contextCompany]);
+  }, [activeTabMode, selectedRole, contextCompany]);
+
+  // Load Permissions for Selected User (in "users" mode)
+  useEffect(() => {
+    if (activeTabMode !== "users") return;
+    if (!selectedUser) {
+      setSelectedPermissions([]);
+      return;
+    }
+
+    const fetchUserPerms = async () => {
+      setLoadingPermissions(true);
+      try {
+        const userId = selectedUser.teamMemberId || selectedUser.userIdFk || selectedUser.userid;
+        const data = await userPermissionHook.getUserPermissions(userId);
+        setHasCustomUserPerms(!!data.hasCustomPermissions);
+
+        if (data.hasCustomPermissions) {
+          setSelectedPermissions(data.permissions || []);
+        } else {
+          // Inherit permissions from user's assigned role
+          const userRoleNameOrId = String(selectedUser.teamMemberRole || selectedUser.role || "").trim();
+          const matchingRole = roles.find(r => 
+            String(r.roleId) === userRoleNameOrId || 
+            String(r.roleName).trim().toUpperCase() === userRoleNameOrId.toUpperCase()
+          );
+
+          if (matchingRole) {
+            const rolePermsData = await roleHook.getPermissions(matchingRole.roleId);
+            setSelectedPermissions(Array.isArray(rolePermsData) ? rolePermsData.map(p => p.grpPerm) : []);
+          } else {
+            setSelectedPermissions([]);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch user permissions:", err);
+        setSelectedPermissions([]);
+      } finally {
+        setLoadingPermissions(false);
+      }
+    };
+
+    fetchUserPerms();
+  }, [activeTabMode, selectedUser, roles]);
 
   const getRecordCount = (role) => {
     if (!role) return 0;
@@ -368,7 +415,15 @@ export default function RolePage() {
 
   const filteredRoles = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return roles.filter((role) => {
+    const seen = new Set();
+    const uniqueRoles = roles.filter((role) => {
+      const nameKey = (role.roleName || "").trim().toLowerCase();
+      if (!nameKey || seen.has(nameKey)) return false;
+      seen.add(nameKey);
+      return true;
+    });
+
+    return uniqueRoles.filter((role) => {
       const matchesSearch = role.roleName?.toLowerCase().includes(term);
       const count = getRecordCount(role);
       const matchesFilter = filterStatus === "all" ||
@@ -379,48 +434,62 @@ export default function RolePage() {
     });
   }, [roles, searchTerm, filterStatus, teamMembers]);
 
-  // Check if role is admin
+  const resolveRoleLabel = (roleIdOrName) => {
+    if (!roleIdOrName) return "MEMBER";
+    const str = String(roleIdOrName).trim();
+    const found = roles.find(r => String(r.roleId) === str || String(r.roleName).toUpperCase() === str.toUpperCase());
+    return found ? found.roleName : str;
+  };
+
+  const handleTabModeChange = (mode) => {
+    setActiveTabMode(mode);
+    setSearchTerm("");
+    if (mode === "roles") {
+      if (!selectedRole && roles.length > 0) {
+        setSelectedRole(roles[0]);
+      }
+    } else if (mode === "users") {
+      if (!selectedUser && teamMembers.length > 0) {
+        setSelectedUser(teamMembers[0]);
+      }
+    }
+  };
+
+  const filteredUsers = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    const seen = new Set();
+    const uniqueMembers = teamMembers.filter((m) => {
+      const email = (m.teamMemberEmail || m.userEmail || "").trim().toLowerCase();
+      const idKey = m.teamMemberId ? `tm_${m.teamMemberId}` : (m.userIdFk || m.userid ? `usr_${m.userIdFk || m.userid}` : email);
+      if (!idKey || seen.has(idKey)) return false;
+      seen.add(idKey);
+      return true;
+    });
+
+    return uniqueMembers.filter((m) => {
+      const name = String(m.teamMemberName || m.username || "").toLowerCase();
+      const email = String(m.teamMemberEmail || m.userEmail || "").toLowerCase();
+      const roleLabel = resolveRoleLabel(m.teamMemberRole || m.role).toLowerCase();
+      return name.includes(term) || email.includes(term) || roleLabel.includes(term);
+    });
+  }, [teamMembers, searchTerm, roles]);
+
   const isAdminRole = (role) => {
     if (!role) return false;
     const name = role.roleName?.toUpperCase();
     return name === 'ADMIN' || name === 'SUPER_ADMIN' || name === 'SUPER ADMIN';
   };
 
-  // Check if user can modify role permissions
   const canModifyRole = (role) => {
     if (!role) return false;
-    
-    // Super admin can modify any role
     if (isSuperAdmin) return true;
-    
-    // Allow modifying admin roles
-    if (isAdminRole(role)) {
-      return true;
-    }
-    
-    // For other roles, allow modification
     return true;
   };
 
-  // Check if user can delete or rename role
   const canDeleteOrRenameRole = (role) => {
     if (!role) return false;
-    
-    // Super admin can do anything
-    if (isSuperAdmin) return true;
-    
-    // Allow renaming/deleting admin roles
-    if (isAdminRole(role)) {
-      return true;
-    }
-    
-    // Non-super-admins cannot delete system template roles
-    if (role.userIdFk === null || role.userIdFk === undefined) {
-      return false;
-    }
-    
-    // Non-super-admins can only rename/delete roles they created
-    return Number(role.userIdFk) === Number(currentUser?.userid);
+    if (isAdminRole(role)) return false;
+    return true;
   };
 
   const exportToCSV = () => {
@@ -517,6 +586,19 @@ export default function RolePage() {
     });
   };
 
+  const handleSelectGroupAll = (group) => {
+    const groupKeys = group.modules.flatMap(m => [m.viewPermission.key, ...m.actions.map(a => a.key)]);
+    setSelectedPermissions(prev => {
+      const toAdd = groupKeys.filter(k => !prev.includes(k));
+      return [...prev, ...toAdd];
+    });
+  };
+
+  const handleClearGroupAll = (group) => {
+    const groupKeys = group.modules.flatMap(m => [m.viewPermission.key, ...m.actions.map(a => a.key)]);
+    setSelectedPermissions(prev => prev.filter(k => !groupKeys.includes(k)));
+  };
+
   const isModuleAllChecked = (mod) => {
     const keys = [mod.viewPermission.key, ...mod.actions.map(a => a.key)];
     return keys.every(k => selectedPermissions.includes(k));
@@ -528,138 +610,170 @@ export default function RolePage() {
     return count > 0 && count < keys.length;
   };
 
-  // ENHANCED: Handle save permissions with full bidirectional sync per company context
-  const handleSavePermissions = async () => {
+  const handleSaveRolePermissions = async () => {
     if (!selectedRole) return;
     setSavingPermissions(true);
     try {
       const isGlobalAdminRole = selectedRole.roleName?.toUpperCase() === "ADMIN" && selectedRole.userIdFk == null;
       const integrationsNowEnabled = selectedPermissions.includes("integrations.view");
 
-      // Save permissions to backend (backend also syncs integrationsAccess on ALL admin users for global ADMIN role)
       await roleHook.savePermissions(selectedRole.roleId, selectedPermissions);
 
-      // BIDIRECTIONAL SYNC - Direction 2: Role Matrix → Company Registry
-      // If Super Admin is editing the ADMIN role with a specific company context,
-      // also update THAT specific company's integrationsAccess flag directly
       if (isSuperAdmin && isGlobalAdminRole && contextCompany) {
         const currentCompanyIntegrations = !!contextCompany.integrationsAccess;
         if (currentCompanyIntegrations !== integrationsNowEnabled) {
           try {
-            const updatedCompany = {
+            await api.put(`/superadmin/companies/${contextCompany.userid}`, {
               ...contextCompany,
               integrationsAccess: integrationsNowEnabled,
-              // Don't send password in this update
               password: undefined,
-            };
-            await api.put(`/superadmin/companies/${contextCompany.userid}`, updatedCompany);
-            // Refresh local contextCompany state
+            });
             setContextCompany({ ...contextCompany, integrationsAccess: integrationsNowEnabled });
           } catch (syncErr) {
             console.error("Failed to sync integrationsAccess to company:", syncErr);
           }
         }
-        showToast(
-          integrationsNowEnabled
-            ? `Permissions saved — Integrations enabled for ${contextCompany.username} ✓`
-            : `Permissions saved — Integrations disabled for ${contextCompany.username} ✓`,
-          "success"
-        );
-        return;
       }
 
-      // Check if current user has this role
-      const currentUserRoleId = currentUser?.roleId;
-      const isCurrentUserRole = currentUserRoleId === selectedRole.roleId;
-
-      if (isCurrentUserRole) {
-        // Refresh user permissions from backend
-        try {
-          const refreshedUser = await roleHook.refreshUserPermissions?.();
-          if (refreshedUser) {
-            useAuthStore.setState({ user: refreshedUser });
-            showToast("Permissions updated and applied successfully!", "success");
-          } else {
-            showToast("Permissions saved! Refreshing to apply changes...", "info");
-            setTimeout(() => window.location.reload(), 1500);
-          }
-        } catch (refreshError) {
-          console.error("Failed to refresh permissions:", refreshError);
-          showToast("Permissions saved. Please refresh the page to see changes.", "info");
-        }
-      } else if (isGlobalAdminRole) {
-        showToast(
-          integrationsNowEnabled
-            ? "Permissions saved — Integrations access enabled for all companies ✓"
-            : "Permissions saved — Integrations access revoked for all companies ✓",
-          "success"
-        );
-      } else {
-        showToast("Permissions updated successfully", "success");
-      }
+      showToast("Role permissions updated successfully", "success");
     } catch (error) {
-      console.error("Failed to save permissions:", error);
+      console.error("Failed to save role permissions:", error);
       showToast(error.message || "Failed to save permissions", "error");
     } finally {
       setSavingPermissions(false);
     }
   };
 
+  const handleSaveUserPermissions = async () => {
+    if (!selectedUser) return;
+    const userId = selectedUser.userIdFk || selectedUser.userid || selectedUser.teamMemberId;
+    setSavingPermissions(true);
+    try {
+      await userPermissionHook.saveUserPermissions(userId, selectedPermissions);
+      setHasCustomUserPerms(true);
+      showToast(`Custom user permissions saved for ${selectedUser.teamMemberName || selectedUser.username || 'User'}`, "success");
+    } catch (err) {
+      console.error("Failed to save user permissions:", err);
+      showToast(err.message || "Failed to save user permissions", "error");
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
+  const handleResetUserPermissions = async () => {
+    if (!selectedUser) return;
+    const userId = selectedUser.userIdFk || selectedUser.userid || selectedUser.teamMemberId;
+    setSavingPermissions(true);
+    try {
+      await userPermissionHook.resetUserPermissionsToDefault(userId);
+      setHasCustomUserPerms(false);
+      showToast(`Reset permissions to Role Default for ${selectedUser.teamMemberName || selectedUser.username || 'User'}`, "success");
+      
+      // Reload Role Defaults
+      const userRoleNameOrId = String(selectedUser.teamMemberRole || selectedUser.role || "").trim();
+      const matchingRole = roles.find(r => 
+        String(r.roleId) === userRoleNameOrId || 
+        String(r.roleName).trim().toUpperCase() === userRoleNameOrId.toUpperCase()
+      );
+
+      if (matchingRole) {
+        const rolePermsData = await roleHook.getPermissions(matchingRole.roleId);
+        setSelectedPermissions(Array.isArray(rolePermsData) ? rolePermsData.map(p => p.grpPerm) : []);
+      } else {
+        setSelectedPermissions([]);
+      }
+    } catch (err) {
+      console.error("Failed to reset user permissions:", err);
+      showToast(err.message || "Failed to reset user permissions", "error");
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
   return (
-    <section className="min-h-[calc(100vh-2rem)] bg-white px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              Role & Permission Management
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Fine-grained access control — define roles and assign module permissions
-            </p>
+    <section className="min-h-[calc(100vh-2rem)] bg-slate-50/60 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-5">
+        {/* Sleek Hero Header Card */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-5 text-white shadow-xl shadow-indigo-950/15 border border-indigo-500/20">
+          <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl" />
+          <div className="absolute -left-12 -bottom-12 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
+
+          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 rounded-full bg-indigo-500/20 px-3 py-1 text-xs font-semibold border border-indigo-500/30" style={{ color: '#a5b4fc' }}>
+                <Icon name="mdi:shield-crown-outline" className="h-4 w-4 text-indigo-400" />
+                <span style={{ color: '#c7d2fe' }}>Enterprise Access Control Studio</span>
+              </div>
+              <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl" style={{ color: '#ffffff' }}>
+                Roles & Permissions Management
+              </h1>
+              <p className="text-xs" style={{ color: '#cbd5e1' }}>
+                Manage global role access matrices or configure granular custom permission overrides per user.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Premium Segmented Switcher */}
+              <div className="flex rounded-xl bg-slate-800/80 p-1 border border-slate-700/80 shadow-inner backdrop-blur-md">
+                <button
+                  type="button"
+                  onClick={() => handleTabModeChange("roles")}
+                  style={{ color: activeTabMode === "roles" ? "#ffffff" : "#cbd5e1" }}
+                  className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+                    activeTabMode === "roles"
+                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md shadow-blue-500/25"
+                      : "hover:bg-slate-700/50"
+                  }`}
+                >
+                  <Icon name="mdi:shield-account" className="h-4 w-4" />
+                  Manage By Roles
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleTabModeChange("users")}
+                  style={{ color: activeTabMode === "users" ? "#ffffff" : "#cbd5e1" }}
+                  className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+                    activeTabMode === "users"
+                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md shadow-blue-500/25"
+                      : "hover:bg-slate-700/50"
+                  }`}
+                >
+                  <Icon name="mdi:account-key-outline" className="h-4 w-4" />
+                  Manage By User
+                </button>
+              </div>
+
+              {activeTabMode === "roles" && (
+                <button
+                  onClick={openCreateDrawer}
+                  style={{ color: '#ffffff' }}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 px-4 py-2 text-xs font-bold shadow-lg shadow-indigo-500/30 transition-all hover:from-indigo-400 hover:to-blue-500 active:scale-95"
+                >
+                  <Icon name="mdi:plus" className="h-4 w-4" />
+                  Create Role
+                </button>
+              )}
+            </div>
           </div>
-          <button
-            onClick={openCreateDrawer}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
-          >
-            <Icon name="mdi:plus" className="h-4 w-4" />
-            Create Role
-          </button>
         </div>
 
-        {/* Filter & Export Bar */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-1 items-center gap-3">
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            >
-              <option value="all">All Records</option>
-              <option value="high">High Usage (&gt;10 records)</option>
-              <option value="medium">Medium Usage (5-10 records)</option>
-              <option value="low">Low Usage (&lt;5 records)</option>
-            </select>
-          </div>
-
-          <button
-            onClick={exportToCSV}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            <Icon name="mdi:export" className="h-4 w-4" />
-            Export CSV
-          </button>
-        </div>
-
-        {/* Master-Detail Panel Layout */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Left Panel: Role List */}
-          <div className="lg:col-span-4 space-y-4">
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        {/* Master-Detail Layout Panel */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
+          {/* Left Master Panel: Roles or Users */}
+          <div className="lg:col-span-4 lg:sticky lg:top-6 space-y-4">
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-lg shadow-slate-200/50 space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider">Roles</h2>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
-                  {filteredRoles.length} Total
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 font-bold">
+                    <Icon name={activeTabMode === "roles" ? "mdi:shield-outline" : "mdi:account-group-outline"} className="h-4 w-4" />
+                  </div>
+                  <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    {activeTabMode === "roles" ? "Company Roles" : "Company Users"}
+                  </h2>
+                </div>
+                <span className="rounded-full bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 shadow-2xs">
+                  {activeTabMode === "roles" ? `${filteredRoles.length} Roles` : `${filteredUsers.length} Users`}
                 </span>
               </div>
               
@@ -669,235 +783,326 @@ export default function RolePage() {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search roles..."
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-9 pr-3 text-sm text-slate-900 focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  placeholder={activeTabMode === "roles" ? "Search roles..." : "Search users by name/email..."}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2 pl-9 pr-3 text-xs text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-2xs"
                 />
               </div>
 
-              <div className="space-y-1 overflow-y-auto max-h-[500px] pr-1">
+              <div key={`list-container-${activeTabMode}`} className="space-y-1.5 overflow-y-auto max-h-[calc(100vh-280px)] pr-1">
                 {loading ? (
-                  <div className="py-8 text-center text-sm text-slate-500">Loading roles...</div>
-                ) : filteredRoles.length === 0 ? (
-                  <div className="py-8 text-center text-sm text-slate-500">No roles found</div>
-                ) : (
-                  filteredRoles.map((role) => {
-                    const isSelected = selectedRole?.roleId === role.roleId;
-                    const count = getRecordCount(role);
-                    const isSystem = isAdminRole(role) || role.userIdFk === null || role.userIdFk === undefined;
-                    return (
-                      <div
-                        key={role.roleId}
-                        onClick={() => setSelectedRole(role)}
-                        className={`group flex items-center justify-between rounded-lg p-3 text-left transition-all border cursor-pointer ${
-                          isSelected
-                            ? "border-blue-500 bg-blue-50/50 shadow-sm"
-                            : "border-transparent hover:border-slate-200 hover:bg-slate-50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                            isSelected ? "bg-blue-600 text-white" : "bg-indigo-50 text-indigo-600"
-                          }`}>
-                            <Icon name="mdi:shield-account" className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <h3 className={`text-sm font-semibold ${isSelected ? "text-blue-900" : "text-slate-900"}`}>
-                              {role.roleName}
-                            </h3>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              {count} {count === 1 ? "user" : "users"} assigned
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          {isSystem && (
-                            <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 font-semibold shadow-sm">
-                              System
-                            </span>
-                          )}
-                          {canDeleteOrRenameRole(role) && (
-                            <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openEditDrawer(role);
-                                }}
-                                className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-                                title="Rename role"
-                              >
-                                <Icon name="mdi:pencil-outline" className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteTarget(role);
-                                }}
-                                className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                                title="Delete role"
-                              >
-                                <Icon name="mdi:trash-can-outline" className="h-3.5 w-3.5" />
-                              </button>
+                  <div className="py-12 text-center text-xs text-slate-500">Loading master items...</div>
+                ) : activeTabMode === "roles" ? (
+                  filteredRoles.length === 0 ? (
+                    <div className="py-12 text-center text-xs text-slate-500">No matching roles found</div>
+                  ) : (
+                    filteredRoles.map((role, idx) => {
+                      const isSelected = selectedRole?.roleId === role.roleId;
+                      const count = getRecordCount(role);
+                      const isSystem = isAdminRole(role) || role.userIdFk === null || role.userIdFk === undefined;
+                      const itemKey = `role-item-${role.roleId || role.roleName || idx}`;
+                      return (
+                        <div
+                          key={itemKey}
+                          onClick={() => setSelectedRole(role)}
+                          className={`group relative flex items-center justify-between rounded-xl p-3 text-left transition-all border cursor-pointer ${
+                            isSelected
+                              ? "border-indigo-500/80 bg-gradient-to-r from-indigo-50/80 to-blue-50/40 shadow-sm border-l-4 border-l-indigo-600"
+                              : "border-slate-100 hover:border-slate-300 hover:bg-slate-50/80"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all ${
+                              isSelected 
+                                ? "bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-500/25" 
+                                : "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100"
+                            }`}>
+                              <Icon name="mdi:shield-account" className="h-5 w-5" />
                             </div>
-                          )}
+                            <div>
+                              <h3 className={`text-xs font-bold ${isSelected ? "text-indigo-950" : "text-slate-800 group-hover:text-slate-900"}`}>
+                                {role.roleName}
+                              </h3>
+                              <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
+                                {count} {count === 1 ? "user" : "users"} assigned
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {isSystem && (
+                              <span className="rounded-md bg-indigo-100/80 border border-indigo-200/80 px-2 py-0.5 text-[10px] font-extrabold text-indigo-800 shadow-2xs">
+                                SYSTEM
+                              </span>
+                            )}
+                            {canDeleteOrRenameRole(role) && (
+                              <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-0.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditDrawer(role);
+                                  }}
+                                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                                  title="Rename role"
+                                >
+                                  <Icon name="mdi:pencil-outline" className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteTarget(role);
+                                  }}
+                                  className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                  title="Delete role"
+                                >
+                                  <Icon name="mdi:trash-can-outline" className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })
+                  )
+                ) : (
+                  // User Cards List
+                  filteredUsers.length === 0 ? (
+                    <div className="py-12 text-center text-xs text-slate-500">No matching users found</div>
+                  ) : (
+                    filteredUsers.map((user, idx) => {
+                      const uKey = user.teamMemberId ? `tm_${user.teamMemberId}` : (user.userid ? `usr_${user.userid}` : (user.teamMemberEmail || user.userEmail || `idx_${idx}`));
+                      const sKey = selectedUser ? (selectedUser.teamMemberId ? `tm_${selectedUser.teamMemberId}` : (selectedUser.userid ? `usr_${selectedUser.userid}` : (selectedUser.teamMemberEmail || selectedUser.userEmail || ""))) : "";
+                      
+                      const isSelected = !!uKey && !!sKey && uKey === sKey;
+                      const itemKey = `user-item-${uKey}`;
+
+                      return (
+                        <div
+                          key={itemKey}
+                          onClick={() => setSelectedUser(user)}
+                          className={`group relative flex items-center justify-between rounded-xl p-3 text-left transition-all border cursor-pointer ${
+                            isSelected
+                              ? "border-indigo-500/80 bg-gradient-to-r from-indigo-50/80 to-blue-50/40 shadow-sm border-l-4 border-l-indigo-600"
+                              : "border-slate-100 hover:border-slate-300 hover:bg-slate-50/80"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all ${
+                              isSelected 
+                                ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25" 
+                                : "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100"
+                            }`}>
+                              <Icon name="mdi:account-outline" className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h3 className={`text-xs font-bold truncate ${isSelected ? "text-indigo-950" : "text-slate-800 group-hover:text-slate-900"}`}>
+                                {user.teamMemberName || user.username || "Team Member"}
+                              </h3>
+                              <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                {user.teamMemberEmail || user.userEmail}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="ml-2 flex flex-col items-end">
+                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 border border-slate-200">
+                              {resolveRoleLabel(user.teamMemberRole || user.role)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )
                 )}
               </div>
             </div>
           </div>
 
-          {/* Right Panel: Permissions Configurator */}
+          {/* Right Detail Panel: Permissions Configurator Matrix */}
           <div className="lg:col-span-8">
-            {selectedRole ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+            {(activeTabMode === "roles" && selectedRole) || (activeTabMode === "users" && selectedUser) ? (
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-lg shadow-slate-200/50 space-y-3">
                 {/* Detail Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-2.5 gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-bold text-slate-955">{selectedRole.roleName}</h2>
-                      <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-                        Permissions Configurator
-                      </span>
+                      <h2 className="text-base font-extrabold text-slate-900">
+                        {activeTabMode === "roles" 
+                          ? selectedRole.roleName 
+                          : (selectedUser.teamMemberName || selectedUser.username || selectedUser.teamMemberEmail)}
+                      </h2>
+                      
+                      {activeTabMode === "roles" ? (
+                        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-700 border border-blue-200/60">
+                          Role Permission Matrix
+                        </span>
+                      ) : (
+                        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                          hasCustomUserPerms 
+                            ? "bg-purple-100 text-purple-800 border border-purple-200" 
+                            : "bg-slate-100 text-slate-700 border border-slate-200"
+                        }`}>
+                          {hasCustomUserPerms ? "👤 Custom User Overrides Active" : "🛡️ Role Default Permissions Inherited"}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Configure fine-grained module access for team members assigned to this role.
+
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {activeTabMode === "roles" 
+                        ? "Configure fine-grained module access for team members assigned to this role."
+                        : `Configure specific custom permissions directly for ${selectedUser.teamMemberName || selectedUser.username}.`}
                     </p>
                   </div>
 
-                  {canModifyRole(selectedRole) && (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const allKeys = groupedPermissions.flatMap(g => 
-                            g.modules.flatMap(m => [m.viewPermission.key, ...m.actions.map(a => a.key)])
-                          );
-                          setSelectedPermissions(allKeys);
-                        }}
-                        disabled={loadingPermissions}
-                        className="inline-flex items-center rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
-                      >
-                        Select All
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPermissions([])}
-                        disabled={loadingPermissions}
-                        className="inline-flex items-center rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
-                      >
-                        Clear All
-                      </button>
-                    </div>
-                  )}
-                </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allKeys = groupedPermissions.flatMap(g => 
+                          g.modules.flatMap(m => [m.viewPermission.key, ...m.actions.map(a => a.key)])
+                        );
+                        setSelectedPermissions(allKeys);
+                      }}
+                      disabled={loadingPermissions}
+                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+                    >
+                      Select All
+                    </button>
 
-                {/* Info Notice for Admin Roles */}
-                {isAdminRole(selectedRole) && !isSuperAdmin && (
-                  <div className="rounded-lg bg-blue-50 p-3.5 text-xs text-blue-800 border border-blue-200 flex items-start gap-2">
-                    <Icon name="mdi:information" className="h-4 w-4 shrink-0 text-blue-600 mt-0.5" />
-                    <span>
-                      <strong>Admin Role:</strong> You can configure permissions for this role. These permissions will control what admin users can see and do.
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPermissions([])}
+                      disabled={loadingPermissions}
+                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+                    >
+                      Clear All
+                    </button>
+
+                    {activeTabMode === "users" && hasCustomUserPerms && (
+                      <button
+                        type="button"
+                        onClick={handleResetUserPermissions}
+                        disabled={savingPermissions || loadingPermissions}
+                        className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 hover:bg-amber-100 transition shadow-2xs"
+                        title="Clear custom permissions and revert user to Role Default"
+                      >
+                        <Icon name="mdi:refresh" className="h-3.5 w-3.5" />
+                        Reset to Role Default
+                      </button>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* Permissions Matrix */}
                 {loadingPermissions ? (
-                  <div className="py-20 text-center text-sm text-slate-500">Loading permissions...</div>
+                  <div className="py-12 text-center text-xs text-slate-500">Loading permissions matrix...</div>
                 ) : (
-                  <div className="space-y-6">
+                  <div className="space-y-3">
                     {visibleGroups.map((group) => (
-                      <div key={group.group} className="rounded-xl border border-slate-200 bg-slate-50/10 overflow-hidden shadow-sm">
-                        <div className="flex items-center gap-2 bg-slate-100/80 px-4 py-3 border-b border-slate-200">
-                          <Icon name={group.icon} className="h-5 w-5 text-slate-600" />
-                          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
-                            {group.group} Group
-                          </h3>
+                      <div key={group.group} className="rounded-xl border border-slate-200 bg-slate-50/20 overflow-hidden shadow-xs">
+                        <div className="flex items-center justify-between bg-slate-100/90 px-3.5 py-1.5 border-b border-slate-200">
+                          <div className="flex items-center gap-2">
+                            <Icon name={group.icon} className="h-4 w-4 text-indigo-600" />
+                            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
+                              {group.group} Group
+                            </h3>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectGroupAll(group)}
+                              disabled={loadingPermissions}
+                              className="inline-flex items-center rounded-md bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs"
+                            >
+                              Select Group All
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleClearGroupAll(group)}
+                              disabled={loadingPermissions}
+                              className="inline-flex items-center rounded-md bg-slate-100 border border-slate-200/80 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-200 transition shadow-2xs"
+                            >
+                              Clear Group All
+                            </button>
+                          </div>
                         </div>
 
                         <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                            <thead className="bg-slate-50">
+                          <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+                            <thead className="bg-slate-50/80">
                               <tr>
-                                <th scope="col" className="px-4 py-3 font-semibold text-slate-700 w-1/4">Module Name</th>
-                                <th scope="col" className="px-4 py-3 font-semibold text-slate-700 w-1/3">Main Group Permission</th>
-                                <th scope="col" className="px-4 py-3 font-semibold text-slate-700">Sub Group Permissions</th>
+                                <th scope="col" className="px-3.5 py-1.5 font-bold text-slate-700 w-1/4">Module Name</th>
+                                <th scope="col" className="px-3.5 py-1.5 font-bold text-slate-700 w-1/3">Main View Permission</th>
+                                <th scope="col" className="px-3.5 py-1.5 font-bold text-slate-700">Sub Group Actions</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-200 bg-white">
+                            <tbody className="divide-y divide-slate-100 bg-white">
                               {group.modules.map((mod) => {
                                 const allChecked = isModuleAllChecked(mod);
                                 const someChecked = isModuleSomeChecked(mod);
-                                const isReadOnly = !canModifyRole(selectedRole);
                                 const isViewChecked = selectedPermissions.includes(mod.viewPermission.key);
 
                                 return (
-                                  <tr key={mod.name} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-900">
+                                  <tr key={mod.name} className="hover:bg-indigo-50/20 transition-colors">
+                                    <td className="whitespace-nowrap px-3.5 py-1.5 font-bold text-slate-900">
                                       <div className="flex items-center gap-2">
-                                        {!isReadOnly && (
-                                          <input
-                                            type="checkbox"
-                                            checked={allChecked}
-                                            ref={(el) => {
-                                              if (el) el.indeterminate = someChecked;
-                                            }}
-                                            onChange={(e) => handleToggleModule(mod, e.target.checked)}
-                                            className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
-                                          />
-                                        )}
+                                        <input
+                                          type="checkbox"
+                                          checked={allChecked}
+                                          ref={(el) => {
+                                            if (el) el.indeterminate = someChecked;
+                                          }}
+                                          onChange={(e) => handleToggleModule(mod, e.target.checked)}
+                                          className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
+                                        />
                                         <span>{mod.name}</span>
                                       </div>
                                     </td>
 
-                                    <td className="px-4 py-4">
-                                      <div className="flex items-center justify-between gap-4">
+                                    <td className="px-3.5 py-1.5">
+                                      <div className="flex items-center justify-between gap-2">
                                         <label className="flex items-center cursor-pointer select-none">
                                           <input
                                             type="checkbox"
                                             checked={isViewChecked}
-                                            disabled={isReadOnly}
                                             onChange={() => handleTogglePermission(mod.viewPermission.key)}
-                                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
                                           />
-                                          <span className={`ml-2 text-xs font-semibold ${isViewChecked ? "text-slate-800" : "text-slate-500"}`}>
+                                          <span className={`ml-2 text-xs font-semibold ${isViewChecked ? "text-indigo-950" : "text-slate-500"}`}>
                                             {mod.viewPermission.label}
                                           </span>
                                         </label>
-                                        <span className="text-[9px] text-slate-400 font-mono bg-slate-50 px-1 py-0.5 rounded border">
+                                        <span className="text-[9px] text-slate-400 font-mono bg-slate-50 px-1 py-0.2 rounded border border-slate-200">
                                           {mod.viewPermission.key}
                                         </span>
                                       </div>
                                     </td>
 
-                                    <td className="px-4 py-4">
+                                    <td className="px-3.5 py-1.5">
                                       {mod.actions.length === 0 ? (
-                                        <span className="text-xs text-slate-400 italic">No sub-actions</span>
+                                        <span className="text-[11px] text-slate-400 italic">No sub-actions</span>
                                       ) : (
-                                        <div className="flex flex-wrap gap-x-6 gap-y-2">
+                                        <div className="flex flex-wrap gap-x-2 gap-y-1">
                                           {mod.actions.map((act) => {
                                             const isChecked = selectedPermissions.includes(act.key);
                                             return (
-                                              <div key={act.key} className="flex items-center gap-2">
-                                                <label className="flex items-center cursor-pointer select-none">
-                                                  <input
-                                                    type="checkbox"
-                                                    checked={isChecked}
-                                                    disabled={isReadOnly || !isViewChecked}
-                                                    onChange={() => handleTogglePermission(act.key)}
-                                                    className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                                  />
-                                                  <span className={`ml-1.5 text-xs ${isChecked ? "text-slate-800 font-medium" : "text-slate-500"}`}>
-                                                    {act.label}
-                                                  </span>
-                                                </label>
-                                                <span className="text-[8px] text-slate-400 font-mono">
-                                                  ({act.key.split(".")[1]})
-                                                </span>
-                                              </div>
+                                              <button
+                                                type="button"
+                                                key={act.key}
+                                                disabled={!isViewChecked}
+                                                onClick={() => handleTogglePermission(act.key)}
+                                                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition-all border select-none ${
+                                                  isChecked
+                                                    ? "bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs"
+                                                    : "bg-slate-100/80 text-slate-600 border-slate-200 hover:bg-slate-200/60"
+                                                } ${!isViewChecked ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                                              >
+                                                <Icon 
+                                                  name={isChecked ? "mdi:check-circle" : "mdi:circle-outline"} 
+                                                  className={`h-3 w-3 ${isChecked ? "text-emerald-600" : "text-slate-400"}`} 
+                                                />
+                                                <span>{act.label}</span>
+                                              </button>
                                             );
                                           })}
                                         </div>
@@ -914,38 +1119,42 @@ export default function RolePage() {
                   </div>
                 )}
 
-                {/* Action Panel */}
-                <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
-                  <div className="text-xs text-slate-500">
-                    {selectedPermissions.length} active permissions selected
+                {/* Sticky Action Footer */}
+                <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>{selectedPermissions.length} active permissions selected</span>
                   </div>
-                  {canModifyRole(selectedRole) && (
-                    <button
-                      onClick={handleSavePermissions}
-                      disabled={savingPermissions || loadingPermissions}
-                      className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 transition"
-                    >
-                      {savingPermissions ? (
-                        <>
-                          <Icon name="mdi:loading" className="h-4 w-4 animate-spin" />
-                          Saving Changes...
-                        </>
-                      ) : (
-                        <>
-                          <Icon name="mdi:check" className="h-4 w-4" />
-                          Save Permissions
-                        </>
-                      )}
-                    </button>
-                  )}
+                  
+                  <button
+                    onClick={activeTabMode === "roles" ? handleSaveRolePermissions : handleSaveUserPermissions}
+                    disabled={savingPermissions || loadingPermissions}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-blue-500/25 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    {savingPermissions ? (
+                      <>
+                        <Icon name="mdi:loading" className="h-4 w-4 animate-spin" />
+                        Saving Matrix...
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="mdi:check-all" className="h-4 w-4" />
+                        {activeTabMode === "roles" ? "Save Role Permissions" : "Save User Permissions"}
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center text-slate-400">
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center text-slate-400">
                 <Icon name="mdi:shield-account-outline" className="mx-auto h-12 w-12 opacity-30 mb-2" />
-                <h3 className="text-sm font-semibold text-slate-700">No Role Selected</h3>
+                <h3 className="text-sm font-bold text-slate-700">
+                  {activeTabMode === "roles" ? "No Role Selected" : "No User Selected"}
+                </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Select a role from the list to manage its module permissions.
+                  {activeTabMode === "roles" 
+                    ? "Select a company role from the left list to configure permissions."
+                    : "Select a company user from the left list to configure custom permissions."}
                 </p>
               </div>
             )}

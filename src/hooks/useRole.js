@@ -2,7 +2,7 @@ import { useApi } from './useApi'
 
 export function useRole() {
   const api = useApi()
-  const getAll = () => api.get('/roles')
+  const getAll = (companyAdminId) => api.get(companyAdminId ? `/roles?companyAdminId=${companyAdminId}` : '/roles')
   const getById = (id) => api.get(`/roles/${id}`)
   const create = (data) => api.post('/roles', data)
   const update = (id, data) => api.put(`/roles/${id}`, data)

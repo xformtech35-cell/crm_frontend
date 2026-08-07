@@ -318,7 +318,12 @@ export default function SuperAdminLayout() {
 
   const isActive = (item) => {
     if (item.exact) return location.pathname === item.to;
-    return location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+    if (location.pathname === item.to) return true;
+    const isAnotherItemExactMatch = navGroups.some((group) =>
+      group.items.some((i) => i.to === location.pathname)
+    );
+    if (isAnotherItemExactMatch) return false;
+    return location.pathname.startsWith(`${item.to}/`);
   };
 
   useEffect(() => {

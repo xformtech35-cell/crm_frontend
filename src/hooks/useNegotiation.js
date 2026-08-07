@@ -114,7 +114,8 @@ const uploadQuotationDocuments = async (quotationNo, files) => {
    */
   const getDocument = async (id) => {
     try {
-      const baseUrl = api.defaults?.baseURL || 'http://localhost:8080/xformcrm';
+      const defaultOrigin = typeof window !== 'undefined' ? `${window.location.origin}/xformcrm` : 'http://localhost:8080/xformcrm';
+      const baseUrl = api.defaults?.baseURL || defaultOrigin;
       const url = `${baseUrl}/api/negotiations/${id}/document`;
       
       const response = await fetch(url, {
@@ -154,7 +155,8 @@ const uploadQuotationDocuments = async (quotationNo, files) => {
    * Get the full URL for a document
    */
   const getFullDocumentUrl = (id) => {
-    const baseUrl = api.defaults?.baseURL || 'http://localhost:8080/xformcrm';
+    const defaultOrigin = typeof window !== 'undefined' ? `${window.location.origin}/xformcrm` : 'http://localhost:8080/xformcrm';
+    const baseUrl = api.defaults?.baseURL || defaultOrigin;
     return `${baseUrl}/api/negotiations/${id}/document`;
   };
 

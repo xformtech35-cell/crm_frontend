@@ -63,7 +63,7 @@ export function getApiClient(baseURL) {
     // Create fresh instance
     instance = axios.create({ 
       baseURL,
-      timeout: 30000, // 30 seconds timeout
+      timeout: 12000, // 12 seconds timeout
     })
 
     // Request interceptor - runs for every request

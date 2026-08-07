@@ -1,6 +1,19 @@
 import { getApiClient } from '../utils/api'
 
-const BASE_URL = import.meta.env.VITE_API_BASE || 'https://api-test.richgoldshine.com/xformcrm/api'
+const getDefaultBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE) {
+    return import.meta.env.VITE_API_BASE
+  }
+  if (typeof window !== 'undefined' && window.location?.hostname === 'localhost') {
+    return 'http://localhost:8080/api'
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/api`
+  }
+  return 'https://api-test.richgoldshine.com/api'
+}
+
+const BASE_URL = getDefaultBaseUrl()
 
 export function useApi() {
   const client = getApiClient(BASE_URL)

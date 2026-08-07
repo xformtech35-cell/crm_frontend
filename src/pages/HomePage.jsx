@@ -11,6 +11,7 @@ import { useProject } from '../hooks/useProject'
 import { useTask } from '../hooks/useTask'
 import { useCalendar } from '../hooks/useCalendar'
 import { useAdvancedCrmData } from '../hooks/useAdvancedCrmData'
+import { useAuthStore } from '../stores/auth'
 import Icon from '../components/Icon'
 import { formatCurrency } from '../utils/format'
 
@@ -167,12 +168,10 @@ export default function HomePage() {
     setLoading(true)
     setError(null)
     try {
-      const [hl, tasks, calendarData] = await Promise.all([
+      const [hl, tasks, calendarData, leads, opportunities, projects] = await Promise.all([
         getAllScores().catch(() => []),
         getAllTasks().catch(() => []),
         getAllEvents().catch(() => ({ events: [], reminders: [] })),
-      ])
-      const [leads, opportunities, projects] = await Promise.all([
         getAllLeads().catch(() => []),
         getAllOpportunities().catch(() => []),
         getAllProjects().catch(() => []),
@@ -183,12 +182,13 @@ export default function HomePage() {
       setHotLeadsData(hl ?? [])
       setTasksData(tasks ?? [])
       setRemindersData(mapCalendarReminders(calendarData))
-      await loadAdvancedCrm()
     } catch (e) {
       setError(e)
     } finally {
       setLoading(false)
     }
+    // Load advanced CRM data in background without blocking UI loading state
+    loadAdvancedCrm().catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -586,6 +586,34 @@ export default function HomePage() {
       groupName: group,
     }));
   }, [leadsData]);
+  const user = useAuthStore((s) => s.user)
+  const hasAnyPermission = useAuthStore((s) => s.hasAnyPermission)
+  const userRole = user?.role?.toLowerCase()
+  const isSuperAdmin = userRole === "super_admin" || userRole === "super admin"
+
+  const hasAnyModuleAccess = isSuperAdmin || hasAnyPermission([
+    "dashboard.view", "leads.view", "contacts.view", "opportunities.view",
+    "projects.view", "tasks.view", "analytics.view", "reports.view",
+    "settings.view", "roles.view", "data_access.view", "attendance.view", "teams.view"
+  ]);
+
+  if (!hasAnyModuleAccess) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center bg-white rounded-3xl border border-slate-100 shadow-sm my-6">
+        <div className="w-20 h-20 bg-amber-50 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-amber-200/80">
+          <Icon name="mdi:shield-lock-outline" className="w-10 h-10 text-amber-600 animate-pulse" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">No Access Granted</h2>
+        <p className="text-slate-600 max-w-md text-sm leading-relaxed mb-4">
+          Please contact your administrator to give access to modules for this company.
+        </p>
+        <div className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 bg-slate-100 text-slate-600 rounded-full">
+          <Icon name="mdi:information-outline" className="w-4 h-4 text-amber-600" />
+          <span>Access is managed via Roles & Permissions or Data Access Config</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in space-y-5 max-w-[1700px] mx-auto px-2 sm:px-4 overflow-x-hidden">

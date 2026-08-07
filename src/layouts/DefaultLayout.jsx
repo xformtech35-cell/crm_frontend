@@ -36,6 +36,7 @@ const pageTitles = {
   "/team-member": "Team Members",
   "/create-team": "Manage Teams",
   "/role": "Roles & Permissions",
+  "/settings/data-access": "Data Access Config",
   "/settings": "Settings",
   "/trash": "Trash / Recycle Bin",
   "/profile": "My Profile",
@@ -397,9 +398,8 @@ export default function DefaultLayout() {
   const canAccess = (item) => {
     if (isSuperAdmin) return true;
     if (item.to === "/integrations") {
-      return !!user?.integrationsAccess || hasAnyPermission(item.permissions);
+      return user?.integrationsAccess !== false && hasAnyPermission(item.permissions);
     }
-    if (isSuperAdmin || isAdmin) return true;
     if (!item.permissions || item.permissions.length === 0) return true;
     return hasAnyPermission(item.permissions);
   };
@@ -603,7 +603,7 @@ export default function DefaultLayout() {
         items: group.items.filter(canAccess),
       }))
       .filter((group) => group.items.length > 0);
-  }, [isAdmin]);
+  }, [isAdmin, isSuperAdmin, user, hasAnyPermission]);
 
   const filteredNavGroups = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -648,14 +648,21 @@ export default function DefaultLayout() {
   }, [location.pathname]);
 
   const isActive = (path) => {
-     if (path === "/lead" && location.pathname === "/negotiation") {
-    return true; // This would make Leads active when on Negotiations
-  }
-  if (path === "/negotiation" && location.pathname === "/lead") {
-    return true; // This would make Negotiations active when on Leads
-  }
-  return location.pathname === path || location.pathname.startsWith(`${path}/`);
-};
+    if (location.pathname === path) return true;
+    if (path === "/lead" && location.pathname === "/negotiation") return true;
+    if (path === "/negotiation" && location.pathname === "/lead") return true;
+
+    // Check if location.pathname matches another registered sidebar item exactly
+    const isAnotherItemExactMatch = navGroups.some((group) =>
+      group.items.some((item) => item.to === location.pathname)
+    );
+
+    if (isAnotherItemExactMatch) {
+      return false;
+    }
+
+    return location.pathname.startsWith(`${path}/`);
+  };
 
   const navigateTo = (path) => {
     setQuickCreateOpen(false);
@@ -795,27 +802,39 @@ export default function DefaultLayout() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-3">
-          {filteredNavGroups.map((group) => (
-            <div key={group.label} className="mb-4 last:mb-0">
-              <p className="nav-section-label">{group.label}</p>
-              {group.items.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`sidebar-link ${isActive(item.to) ? "active" : ""}`}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <Icon name={item.icon} className="w-5 h-5" />
-                  <span>{item.label}</span>
-                  {item.badge && (
-                    <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              ))}
+          {filteredNavGroups.length > 0 ? (
+            filteredNavGroups.map((group) => (
+              <div key={group.label} className="mb-4 last:mb-0">
+                <p className="nav-section-label">{group.label}</p>
+                {group.items.map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`sidebar-link ${isActive(item.to) ? "active" : ""}`}
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <Icon name={item.icon} className="w-5 h-5" />
+                    <span>{item.label}</span>
+                    {item.badge && (
+                      <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            ))
+          ) : (
+            <div className="px-4 py-8 text-center my-auto">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto mb-3 shadow-inner">
+                <Icon name="mdi:shield-lock-outline" className="w-6 h-6 animate-pulse" />
+              </div>
+              <p className="text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">No Access Granted</p>
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                Please contact your administrator to give access.
+              </p>
             </div>
-          ))}
+          )}
         </nav>
 
         {/* User info */}

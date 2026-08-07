@@ -24,22 +24,20 @@ export default function ProtectedRoute({ children, requiredPermission, adminOnly
     return children
   }
 
-  // Admin bypasses all checks except integrations access block
-  if (isAdmin) {
-    if (requiredPermission === "integrations.view" || (Array.isArray(requiredPermission) && requiredPermission.includes("integrations.view"))) {
-      if (!user?.integrationsAccess) {
-        return <Navigate to="/home" replace />
-      }
+  // Integrations per-company access check
+  const perms = requiredPermission ? (Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission]) : []
+  if (perms.includes("integrations.view")) {
+    if (user?.integrationsAccess === false) {
+      return <Navigate to="/home" replace />
     }
-    return children
   }
 
-  if (adminOnly) {
+  if (adminOnly && !isAdmin) {
     return <Navigate to="/home" replace />
   }
 
+  // Check role permission matrix for all users (including company admin)
   if (requiredPermission) {
-    const perms = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission]
     const hasIntegrationsAccess = perms.includes("integrations.view") && !!user?.integrationsAccess;
     if (!hasAnyPermission(perms) && !hasIntegrationsAccess) {
       return <Navigate to="/home" replace />
@@ -47,4 +45,4 @@ export default function ProtectedRoute({ children, requiredPermission, adminOnly
   }
 
   return children
-}
+}
