@@ -338,9 +338,45 @@ export default function ProfilePage() {
 
       {/* ── TAB CONTENT ── */}
       {activeTab === 'details' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Form */}
-          <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 p-6 shadow-sm">
+        <div className="space-y-6">
+          {/* Company & Team Lead Info Card */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800 rounded-3xl border border-blue-100 dark:border-white/10 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-blue-200/50 dark:border-white/10">
+              <div>
+                <h3 className="text-sm font-extrabold uppercase tracking-wider text-blue-900 dark:text-blue-300 flex items-center gap-2">
+                  <Icon name="mdi:office-building" className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
+                  Company & Team Leadership
+                </h3>
+                <p className="text-xs text-blue-700/80 dark:text-slate-400 mt-0.5">Your organization membership and assigned supervisory lead.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-blue-100/80 dark:border-white/5 shadow-sm">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-400 block mb-1">Company / Workspace</span>
+                <div className="flex items-center gap-2.5 text-gray-900 dark:text-white font-bold text-base">
+                  <span className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 flex items-center justify-center shrink-0">
+                    <Icon name="mdi:domain" className="w-5 h-5" />
+                  </span>
+                  <span className="truncate">{user?.companyName || 'XForm Tech'}</span>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-blue-100/80 dark:border-white/5 shadow-sm">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-400 block mb-1">Assigned Team Lead</span>
+                <div className="flex items-center gap-2.5 text-gray-900 dark:text-white font-bold text-base">
+                  <span className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 flex items-center justify-center shrink-0">
+                    <Icon name="mdi:account-star-outline" className="w-5 h-5" />
+                  </span>
+                  <span className="truncate">{myTeamDetails.find((t) => !t.isLead)?.leadName || user?.teamLeadName || 'Not Assigned'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Form */}
+            <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-white/10">
               <div>
                 <h3 className="text-base font-bold text-gray-900 dark:text-white">Profile Information</h3>
@@ -461,6 +497,7 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* ── SECURITY & CHANGE PASSWORD TAB ── */}
