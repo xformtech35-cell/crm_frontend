@@ -858,9 +858,20 @@ export default function DefaultLayout() {
               <p className="text-xs text-slate-500 truncate capitalize flex items-center justify-between">
                 <span>{user?.role}</span>
                 <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5 opacity-80 group-hover:opacity-100">
-                  <Icon name="mdi:account-circle-outline" className="w-3.5 h-3.5" /> Profile
+                  Profile <Icon name="mdi:chevron-right" className="w-3 h-3" />
                 </span>
               </p>
+            </div>
+          </div>
+          {/* Company & Team Lead Info Badge */}
+          <div className="mt-2 pt-2 border-t border-dashed border-gray-200 dark:border-white/10 px-2 space-y-1 text-[11px]">
+            <div className="flex items-center justify-between text-gray-500 dark:text-slate-400">
+              <span className="flex items-center gap-1 font-medium"><Icon name="mdi:domain" className="w-3.5 h-3.5 text-blue-500" /> Company:</span>
+              <span className="font-bold text-gray-800 dark:text-slate-200 truncate max-w-[110px]">{user?.companyName || "XForm Tech"}</span>
+            </div>
+            <div className="flex items-center justify-between text-gray-500 dark:text-slate-400">
+              <span className="flex items-center gap-1 font-medium"><Icon name="mdi:account-star-outline" className="w-3.5 h-3.5 text-amber-500" /> Team Lead:</span>
+              <span className="font-bold text-gray-800 dark:text-slate-200 truncate max-w-[110px]">{user?.teamLeadName || "Not Assigned"}</span>
             </div>
           </div>
         </div>
