@@ -92,8 +92,10 @@ export default function DefaultLayout() {
   const setSelectedTeamMemberId = useAuthStore((s) => s.setSelectedTeamMemberId);
   const [teamMemberList, setTeamMemberList] = useState([]);
 
+  const canViewTeamContext = isAdmin || hasAnyPermission(["teams.view", "users.view", "team_leads.view"]);
+
   useEffect(() => {
-    if (isAdmin) {
+    if (canViewTeamContext) {
       teamMemberApi.getAll().then((res) => {
         let list = [];
         if (Array.isArray(res)) {
@@ -106,7 +108,7 @@ export default function DefaultLayout() {
         setTeamMemberList(list);
       }).catch((err) => console.error("Error fetching team members for View Context:", err));
     }
-  }, [isAdmin]);
+  }, [canViewTeamContext]);
 
 
 
@@ -252,18 +254,37 @@ export default function DefaultLayout() {
       // 3. Process Reminders
       const remindersList = Array.isArray(calendarData.reminders) ? calendarData.reminders : [];
       remindersList.forEach((r) => {
-        if (r.leadIdFk && leadMap[r.leadIdFk]) {
-          const reminderDate = getDateValue(r.reminderDate);
+        const reminderDate = getDateValue(r.reminderDate || r.date);
+        if (reminderDate) {
+          const lead = r.leadIdFk ? leadMap[r.leadIdFk] : null;
+          const leadName = lead ? lead.name : null;
+          nextItems.push({
+            id: `reminder-${r.leadReminderId || r.id}`,
+            title: leadName ? `Reminder: ${leadName}` : (r.reminderText || r.title || "Reminder"),
+            description: r.reminderText || r.title || "Calendar Reminder",
+            time: formatRelativeTime(reminderDate),
+            dateValue: reminderDate,
+            icon: "mdi:bell-outline",
+            path: r.leadIdFk ? `/lead/${r.leadIdFk}` : "/calendar",
+            type: "reminder",
+          });
+        }
+      });
+
+      const eventsList = Array.isArray(calendarData.events) ? calendarData.events : [];
+      eventsList.forEach((e) => {
+        const p = String(e.priority || e.type || "").toLowerCase();
+        if (p === "reminder" || String(e.type || "").toLowerCase() === "reminder") {
+          const reminderDate = getDateValue(e.date || e.time);
           if (reminderDate) {
-            const lead = leadMap[r.leadIdFk];
             nextItems.push({
-              id: `reminder-${r.leadReminderId}`,
-              title: `Reminder: ${lead.name}`,
-              description: r.reminderText,
+              id: `reminder-event-${e.id}`,
+              title: e.title || "Calendar Reminder",
+              description: e.note || e.title || "Calendar Reminder",
               time: formatRelativeTime(reminderDate),
               dateValue: reminderDate,
               icon: "mdi:bell-outline",
-              path: `/lead/${r.leadIdFk}`,
+              path: "/calendar",
               type: "reminder",
             });
           }
@@ -302,6 +323,10 @@ export default function DefaultLayout() {
 
     loadNotifications();
 
+    const intervalId = setInterval(() => {
+      if (alive) loadNotifications();
+    }, 10000);
+
     const handleRefresh = () => {
       if (alive) loadNotifications();
     };
@@ -309,6 +334,7 @@ export default function DefaultLayout() {
 
     return () => {
       alive = false;
+      clearInterval(intervalId);
       window.removeEventListener("crm-notification-refresh", handleRefresh);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -838,41 +864,35 @@ export default function DefaultLayout() {
         </nav>
 
         {/* User info */}
-        <div className={`px-3 py-4 border-t ${theme === "dark" ? "border-white/5" : "border-slate-100"}`}>
+        <div className={`px-3 py-3 border-t ${theme === "dark" ? "border-white/5" : "border-slate-100"}`}>
           <div
             onClick={() => navigateTo("/profile")}
             className={`flex items-center gap-3 px-2 py-2 rounded-2xl transition-colors cursor-pointer group ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-slate-50"}`}
             title="View My Profile"
           >
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 overflow-hidden" style={{ background: avatarGradient }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0 overflow-hidden" style={{ background: avatarGradient }}>
               {avatarImage ? (
                 <img src={avatarImage} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-white font-bold text-sm">{initials}</span>
+                <span className="text-white font-bold text-xs">{initials}</span>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-semibold truncate ${theme === "dark" ? "text-white" : "text-slate-800"}`}>
+              <p className={`text-sm font-semibold truncate leading-tight ${theme === "dark" ? "text-white" : "text-slate-800"}`}>
                 {user?.username}
               </p>
-              <p className="text-xs text-slate-500 truncate capitalize flex items-center justify-between">
-                <span>{user?.role}</span>
-                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5 opacity-80 group-hover:opacity-100">
-                  Profile <Icon name="mdi:chevron-right" className="w-3 h-3" />
-                </span>
+              <p className={`text-[11px] truncate capitalize leading-tight ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                {user?.role}
+              </p>
+              <p className={`text-[10px] truncate leading-tight mt-0.5 flex items-center gap-2 ${theme === "dark" ? "text-slate-500" : "text-slate-400"}`}>
+                <span className="flex items-center gap-0.5"><Icon name="mdi:domain" className="w-3 h-3 text-blue-400" />{user?.companyName || "XForm Tech"}</span>
+                <span className="text-slate-300 dark:text-slate-600">·</span>
+                <span className="flex items-center gap-0.5"><Icon name="mdi:account-star-outline" className="w-3 h-3 text-amber-400" />{user?.teamLeadName || "Not Assigned"}</span>
               </p>
             </div>
-          </div>
-          {/* Company & Team Lead Info Badge */}
-          <div className="mt-2 pt-2 border-t border-dashed border-gray-200 dark:border-white/10 px-2 space-y-1 text-[11px]">
-            <div className="flex items-center justify-between text-gray-500 dark:text-slate-400">
-              <span className="flex items-center gap-1 font-medium"><Icon name="mdi:domain" className="w-3.5 h-3.5 text-blue-500" /> Company:</span>
-              <span className="font-bold text-gray-800 dark:text-slate-200 truncate max-w-[110px]">{user?.companyName || "XForm Tech"}</span>
-            </div>
-            <div className="flex items-center justify-between text-gray-500 dark:text-slate-400">
-              <span className="flex items-center gap-1 font-medium"><Icon name="mdi:account-star-outline" className="w-3.5 h-3.5 text-amber-500" /> Team Lead:</span>
-              <span className="font-bold text-gray-800 dark:text-slate-200 truncate max-w-[110px]">{user?.teamLeadName || "Not Assigned"}</span>
-            </div>
+            <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-semibold flex items-center opacity-60 group-hover:opacity-100 flex-shrink-0">
+              <Icon name="mdi:chevron-right" className="w-3.5 h-3.5" />
+            </span>
           </div>
         </div>
       </aside>
@@ -923,7 +943,7 @@ export default function DefaultLayout() {
               {/* Right section */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 {/* View Context Selector for Admin */}
-                {isAdmin && (
+                {canViewTeamContext && (
                   <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
                     <span className={`text-xs font-semibold ${theme === "dark" ? "text-purple-400" : "text-purple-700"} hidden lg:inline`}>
                       View Context:

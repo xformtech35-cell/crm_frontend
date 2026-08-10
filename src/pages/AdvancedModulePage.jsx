@@ -14,11 +14,27 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, 
 function parseCalendarDate(value) {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
-  const text = String(value);
+  const text = String(value).trim();
+
+  // YYYY-MM-DD date only
   const dateOnly = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dateOnly) {
     return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
   }
+
+  // YYYY-MM-DDTHH:mm or YYYY-MM-DD HH:mm or YYYY-MM-DDTHH:mm:ss
+  const dateTimeMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (dateTimeMatch) {
+    return new Date(
+      Number(dateTimeMatch[1]),
+      Number(dateTimeMatch[2]) - 1,
+      Number(dateTimeMatch[3]),
+      Number(dateTimeMatch[4]),
+      Number(dateTimeMatch[5]),
+      dateTimeMatch[6] ? Number(dateTimeMatch[6]) : 0
+    );
+  }
+
   const parsed = new Date(text);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -34,18 +50,25 @@ function isSameCalendarDay(value, date) {
 function formatCalendarTime(value) {
   const parsed = parseCalendarDate(value);
   if (!parsed || String(value || "").match(/^\d{4}-\d{2}-\d{2}$/)) return "";
-  return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return parsed.toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
 }
 
 function formatDateTime(value) {
   const parsed = parseCalendarDate(value);
   if (!parsed) return "No date";
   return parsed.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
     day: "numeric",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: true,
   });
 }
 
@@ -608,13 +631,13 @@ function CalendarMonthView() {
     e.preventDefault();
     setSaving(true);
     try {
-      const isoTime = form.time ? new Date(form.time).toISOString() : "";
       const calendarDate = getCalendarDate();
+      const fullTime = form.time || calendarDate;
 
       const taskPayload = {
         taskName: form.title,
-        taskDueDate: calendarDate,
-        taskStartDate: calendarDate,
+        taskDueDate: fullTime,
+        taskStartDate: fullTime,
         taskDescription: form.note,
         taskPriority: getCalendarPriority(),
         taskPercentageCompleted: 0,
@@ -626,11 +649,12 @@ function CalendarMonthView() {
           id: `task-${createdTask?.taskId || Date.now()}`,
           title: form.title,
           type: form.type,
-          time: isoTime,
+          time: fullTime,
           note: form.note,
           owner: createdTask?.taskAssign || createdTask?.taskAssignedTo,
         },
       ]);
+      window.dispatchEvent(new CustomEvent("crm-notification-refresh"));
       setShowModal(false);
     } finally {
       setSaving(false);

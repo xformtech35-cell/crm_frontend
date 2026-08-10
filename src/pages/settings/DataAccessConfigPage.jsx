@@ -167,11 +167,14 @@ export default function DataAccessConfigPage() {
     try {
       const payloadList = []
       Object.entries(matrix).forEach(([key, scopeMode]) => {
-        const parts = key.split('_') // ['role', '12', 'LEADS'] or ['user', '5', 'TASKS']
-        if (parts.length === 3) {
-          const targetType = parts[0]
-          const targetId = Number(parts[1])
-          const moduleName = parts[2]
+        // Key format: 'role_${roleId}_${moduleName}' or 'user_${userId}_${moduleName}'
+        // moduleName may contain underscores like 'TEAM_MEMBERS' or 'DATA_ACCESS'
+        const firstUnderscore = key.indexOf('_')
+        const secondUnderscore = key.indexOf('_', firstUnderscore + 1)
+        if (firstUnderscore !== -1 && secondUnderscore !== -1) {
+          const targetType = key.substring(0, firstUnderscore)
+          const targetId = Number(key.substring(firstUnderscore + 1, secondUnderscore))
+          const moduleName = key.substring(secondUnderscore + 1)
 
           if (targetType === 'role') {
             payloadList.push({ roleIdFk: targetId, moduleName, scopeMode })

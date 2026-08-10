@@ -97,8 +97,8 @@ export default function AppRouter() {
         <Route path="/leadgroup" element={<ProtectedRoute requiredPermission="leads.view"><LeadGroup /></ProtectedRoute>} />
         <Route path="/team/:id" element={<ProtectedRoute requiredPermission="teams.view"><TeamDetailPage /></ProtectedRoute>} />
         <Route path="/team-member" element={<ProtectedRoute requiredPermission="users.view"><TeamMemberPage /></ProtectedRoute>} />
-        <Route path="/create-team" element={<ProtectedRoute requiredPermission="teams.view" adminOnly><CreateTeamPage /></ProtectedRoute>} />
-        <Route path="/role" element={<ProtectedRoute requiredPermission="roles.view" adminOnly><RolePage /></ProtectedRoute>} />
+        <Route path="/create-team" element={<ProtectedRoute requiredPermission="teams.view"><CreateTeamPage /></ProtectedRoute>} />
+        <Route path="/role" element={<ProtectedRoute requiredPermission="roles.view"><RolePage /></ProtectedRoute>} />
         <Route path="/attendance" element={<ProtectedRoute requiredPermission="attendance.view"><AttendancePage /></ProtectedRoute>} />
         
         <Route path="/pipeline" element={<ProtectedRoute requiredPermission="opportunities.view"><PipelinePage /></ProtectedRoute>} />
@@ -111,8 +111,8 @@ export default function AppRouter() {
         <Route path="/analytics" element={<ProtectedRoute requiredPermission="analytics.view"><AnalyticsPage /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute requiredPermission="reports.view"><ReportsPage /></ProtectedRoute>} />
         <Route path="/automation" element={<ProtectedRoute requiredPermission="automation.view"><AutomationPage /></ProtectedRoute>} />
-        <Route path="/settings/data-access" element={<ProtectedRoute requiredPermission="roles.view" adminOnly><DataAccessConfigPage /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute requiredPermission="settings.view" adminOnly><SettingsPage /></ProtectedRoute>} />
+        <Route path="/settings/data-access" element={<ProtectedRoute requiredPermission="roles.view"><DataAccessConfigPage /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute requiredPermission="settings.view"><SettingsPage /></ProtectedRoute>} />
         <Route path="/trash" element={<ProtectedRoute requiredPermission="trash.view"><TrashPage /></ProtectedRoute>} />
 
         {/* Global Configuration Modules (managed by Role Matrix) */}
