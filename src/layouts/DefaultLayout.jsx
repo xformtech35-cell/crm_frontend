@@ -163,6 +163,14 @@ export default function DefaultLayout() {
     }
   }, [theme]);
 
+  useEffect(() => {
+    const handleThemeChange = () => {
+      setTheme(localStorage.getItem("crm-theme") || "light");
+    };
+    window.addEventListener("crm-theme-changed", handleThemeChange);
+    return () => window.removeEventListener("crm-theme-changed", handleThemeChange);
+  }, []);
+
   const toggleTheme = () => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };

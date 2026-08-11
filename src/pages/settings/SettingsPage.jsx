@@ -23,6 +23,7 @@ export default function SettingsPage() {
       document.body.classList.remove('dark-theme');
       document.body.classList.add('light-theme');
     }
+    window.dispatchEvent(new Event("crm-theme-changed"));
   };
 
   const settingSections = [
