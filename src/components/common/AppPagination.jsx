@@ -16,8 +16,8 @@ export default function AppPagination({ page, total, limit, onPageChange }) {
   if (total <= limit) return null
 
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-white">
-      <span className="text-sm text-gray-500">
+    <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 dark:border-white/10 bg-white dark:bg-slate-900">
+      <span className="text-sm text-gray-500 dark:text-slate-400">
         Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
       </span>
       <div className="flex items-center gap-1">
