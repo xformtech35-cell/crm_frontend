@@ -26,6 +26,14 @@ export default defineConfig({
   build: {
     target: 'es2015',
     sourcemap: false,
-    chunkSizeWarningLimit: 2500,
+    chunkSizeWarningLimit: 5000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-core': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-utils': ['axios', 'zustand'],
+        },
+      },
+    },
   },
 })
