@@ -38,7 +38,7 @@ export const useAuthStore = create(
 
       setAuth: (data) => {
         const { token, ...user } = data
-        set({ token, user }) // ✅ no manual localStorage
+        set({ token, user, selectedCompanyId: null, selectedTeamMemberId: null }) // ✅ reset impersonation & view filters on new login
       },
 
       logout: () => {
