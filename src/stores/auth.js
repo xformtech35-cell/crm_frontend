@@ -43,6 +43,15 @@ export const useAuthStore = create(
 
       logout: () => {
         set({ token: null, user: null, selectedCompanyId: null, selectedTeamMemberId: null })
+        try {
+          localStorage.removeItem('auth-storage')
+          localStorage.removeItem('crm_token')
+          localStorage.removeItem('crm_user')
+          localStorage.clear()
+          sessionStorage.clear()
+        } catch (e) {
+          console.error('Error clearing storage on logout:', e)
+        }
       },
 
     }),
