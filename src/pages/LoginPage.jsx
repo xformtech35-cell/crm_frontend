@@ -44,14 +44,9 @@ export default function LoginPage() {
     }
   }
 
-  useEffect(() => {
-    if (window.location.href.includes('token=') && !window.location.pathname.includes('reset-password')) {
-      const match = window.location.href.match(/token=([^&]+)/);
-      if (match) {
-        navigate('/reset-password?token=' + match[1]);
-      }
-    }
-  }, [navigate]);
+  // useEffect(() => {
+  //   loadFromStorage();
+  // }, [loadFromStorage]);
 
   const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin());
 

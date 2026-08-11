@@ -6,15 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams()
-  let token = searchParams.get('token')
-  if (!token && window.location.href.includes('token=')) {
-    try {
-      const match = window.location.href.match(/token=([^&]+)/)
-      if (match) token = decodeURIComponent(match[1])
-    } catch (e) {
-      console.error('Error parsing reset token:', e)
-    }
-  }
+  const token = searchParams.get('token')
   const navigate = useNavigate()
   const { resetPassword } = useAuth()
 
