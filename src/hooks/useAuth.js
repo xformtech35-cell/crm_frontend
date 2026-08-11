@@ -8,10 +8,10 @@ export function useAuth() {
   const { setAuth, logout: storeLogout } = useAuthStore()
 
   async function login(userEmail, password) {
-  const data = await api.post('auth/login', {
-    userEmail,
-    password
-  });
+    const data = await api.post('/auth/login', {
+      userEmail,
+      password
+    });
 
   setAuth(data);
 
