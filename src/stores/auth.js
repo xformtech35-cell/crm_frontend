@@ -44,6 +44,11 @@ export const useAuthStore = create(
       logout: () => {
         set({ token: null, user: null, selectedCompanyId: null, selectedTeamMemberId: null })
         try {
+          document.documentElement.classList.remove("dark")
+          document.body.classList.remove("dark-theme")
+          document.body.classList.remove("superadmin-dark-mode")
+          document.body.classList.add("light-theme")
+          localStorage.removeItem('crm-theme')
           localStorage.removeItem('auth-storage')
           localStorage.removeItem('crm_token')
           localStorage.removeItem('crm_user')

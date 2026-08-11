@@ -548,6 +548,23 @@ body.dark-theme {
   box-shadow: 0 0 10px rgba(99, 102, 241, 0.15) !important;
 }
 
+/* Auth pages (Login, Reset Password) isolation override to preserve 100% crisp light contrast */
+.auth-page-container input,
+.auth-page-container .form-input,
+.auth-page-container .form-select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+.auth-page-container input::placeholder,
+.auth-page-container .form-input::placeholder {
+  color: #94a3b8 !important;
+}
+.auth-page-container label,
+.auth-page-container .form-label {
+  color: #334155 !important;
+}
+
 /* Custom Dropdown select option tags background styling */
 .superadmin-dark-mode select option,
 .dark-theme select option {
