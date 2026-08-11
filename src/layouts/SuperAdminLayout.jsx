@@ -246,7 +246,7 @@ export default function SuperAdminLayout() {
   const [headerBadge, setHeaderBadge] = useState(null);
 
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("crm-theme") || "dark";
+    return localStorage.getItem("crm-theme") || "light";
   });
 
   useEffect(() => {
