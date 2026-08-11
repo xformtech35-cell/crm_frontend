@@ -700,11 +700,11 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
             </table>
           </div>
         </section>
-        <div className="flex items-center justify-between border-t border-gray-100 dark:border-white/10 bg-gray-50/60 dark:bg-slate-900/90 px-4 py-3">
+        <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/60 px-4 py-3">
 
           <div className="flex items-center gap-2">
 
-            <span className="text-xs text-gray-500 dark:text-slate-400">
+            <span className="text-xs text-gray-500">
               Showing{" "}
               {Math.min((currentPage - 1) * pageSize + 1, totalCount)}–
               {Math.min(currentPage * pageSize, totalCount)} of{" "}
@@ -714,7 +714,7 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-800 px-2 py-1 text-xs text-gray-600 dark:text-slate-200"
+              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
@@ -729,7 +729,7 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
             <button
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((p) => p - 1)}
-              className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-800 p-1.5 text-gray-500 dark:text-slate-300 transition hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-40"
+              className="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-500 transition hover:bg-gray-100 disabled:opacity-40"
             >
               <Icon name="mdi:chevron-left" className="h-4 w-4" />
             </button>

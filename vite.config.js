@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
-  base: '/',
   plugins: [react()],
   resolve: {
     alias: {
@@ -27,14 +26,6 @@ export default defineConfig({
   build: {
     target: 'es2015',
     sourcemap: false,
-    chunkSizeWarningLimit: 5000,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-core': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-utils': ['axios', 'zustand'],
-        },
-      },
-    },
+    chunkSizeWarningLimit: 2500,
   },
 })

@@ -565,39 +565,6 @@ body.dark-theme {
   color: #334155 !important;
 }
 
-/* Dark Mode Table Pagination & Card Overrides */
-.superadmin-dark-mode div[class*="border-t"][class*="bg-gray"],
-.dark-theme div[class*="border-t"][class*="bg-gray"],
-.dark div[class*="border-t"][class*="bg-gray"] {
-  background-color: rgba(15, 23, 42, 0.9) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  color: #94a3b8 !important;
-}
-
-.superadmin-dark-mode div[class*="border-t"] select,
-.dark-theme div[class*="border-t"] select,
-.dark div[class*="border-t"] select,
-.superadmin-dark-mode div[class*="border-t"] button,
-.dark-theme div[class*="border-t"] button,
-.dark div[class*="border-t"] button {
-  background-color: #1e293b !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  color: #e2e8f0 !important;
-}
-
-.superadmin-dark-mode .bg-gradient-to-br.from-blue-50,
-.dark-theme .bg-gradient-to-br.from-blue-50,
-.dark .bg-gradient-to-br.from-blue-50 {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-.superadmin-dark-mode .bg-gradient-to-br.from-blue-50 *,
-.dark-theme .bg-gradient-to-br.from-blue-50 *,
-.dark .bg-gradient-to-br.from-blue-50 * {
-  color: #f8fafc !important;
-}
-
 /* Custom Dropdown select option tags background styling */
 .superadmin-dark-mode select option,
 .dark-theme select option {
