@@ -131,7 +131,7 @@ export function getApiClient(baseURL) {
             localStorage.removeItem('auth-storage')
             // Reset instance so new token will be used after login
             instance = null
-            window.location.href = '/#/login'
+            window.location.href = '/login'
           }
           
           // Handle 403 - Forbidden
