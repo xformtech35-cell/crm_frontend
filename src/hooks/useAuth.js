@@ -29,8 +29,12 @@ export function useAuth() {
   }
 
   async function forgotPassword(email) {
-    await api.post('/auth/forgot-password', { email })
+    return await api.post('/auth/forgot-password', { email })
   }
 
-  return { login, logout, changePassword, forgotPassword }
+  async function resetPassword(token, newPassword) {
+    return await api.post('/auth/reset-password', { token, newPassword })
+  }
+
+  return { login, logout, changePassword, forgotPassword, resetPassword }
 }

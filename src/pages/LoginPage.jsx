@@ -7,7 +7,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useAuthStore } from "../stores/auth";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, forgotPassword } = useAuth();
   const token = useAuthStore((s) => s.token);
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage);
 
@@ -16,6 +16,33 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
+
+  // Forgot password modal state
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState("");
+  const [forgotError, setForgotError] = useState("");
+
+  async function handleForgotPassword(e) {
+    e.preventDefault();
+    if (!forgotEmail) {
+      setForgotError("Email is required.");
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError("");
+    setForgotMsg("");
+    try {
+      await forgotPassword(forgotEmail);
+      setForgotMsg("Password reset email sent! Please check your inbox for the reset link.");
+    } catch (err) {
+      const message = err?.response?.data?.message || "Failed to send reset email. Please verify user email.";
+      setForgotError(message);
+    } finally {
+      setForgotLoading(false);
+    }
+  }
 
   // useEffect(() => {
   //   loadFromStorage();
@@ -311,30 +338,25 @@ async function handleLogin(e) {
                   </label>
                   <button
                     type="button"
-                    className="font-semibold text-indigo-600 hover:text-indigo-700"
-                    onClick={() =>
-                      (window.location.href =
-                        "mailto:support@xform.in?subject=CRM%20Login%20Help")
-                    }
+                    className="font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                    onClick={() => {
+                      setForgotEmail(form.userEmail || "");
+                      setForgotMsg("");
+                      setForgotError("");
+                      setForgotOpen(true);
+                    }}
                   >
-                    Need help?
+                    Forgot Password?
                   </button>
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#1d4ed8_0%,#4f46e5_55%,#0ea5e9_100%)] px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition-all duration-200 hover:translate-y-[-1px] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-2xl bg-[linear-gradient(135deg,#1d4ed8_0%,#4f46e5_100%)] py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition-all hover:opacity-95 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {loading && (
-                    <Icon name="mdi:loading" className="h-5 w-5 animate-spin" />
-                  )}
-                  <span>
-                    {loading ? "Authenticating..." : "Access Control Center"}
-                  </span>
-                  {!loading && (
-                    <Icon name="mdi:arrow-top-right" className="h-4 w-4" />
-                  )}
+                  <span>{loading ? "Authenticating..." : "Sign In to Workspace"}</span>
+                  <Icon name="mdi:arrow-right" className="h-4 w-4" />
                 </button>
               </form>
             </div>
@@ -346,6 +368,67 @@ async function handleLogin(e) {
           </div>
         </section>
       </div>
+
+      {/* FORGOT PASSWORD MODAL */}
+      {forgotOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-white/80 bg-white p-7 shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                  <Icon name="mdi:lock-reset" className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Forgot Password</h3>
+                  <p className="text-xs text-slate-500">We'll send a reset link to your email</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setForgotOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <Icon name="mdi:close" className="h-5 w-5" />
+              </button>
+            </div>
+
+            {forgotMsg && <AppAlert type="success" message={forgotMsg} className="mb-4" />}
+            {forgotError && <AppAlert type="error" message={forgotError} className="mb-4" />}
+
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Account Email Address
+                </label>
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="Enter your registered email"
+                  required
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setForgotOpen(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {forgotLoading ? "Sending Link..." : "Send Reset Link"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

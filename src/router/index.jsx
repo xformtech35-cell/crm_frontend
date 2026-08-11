@@ -54,6 +54,8 @@ import QuotationDetailPage from "../pages/Negotiation/QuotationDetailPage.jsx";
 import ProfilePage from "../pages/profile/ProfilePage";
 
 
+import ResetPasswordPage from "../pages/ResetPasswordPage";
+
 export default function AppRouter() {
   return (
     <Routes>
@@ -62,6 +64,7 @@ export default function AppRouter() {
       {/* Public */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Route>
 
       {/* ─── GENERIC MODULES (Role-based access via DefaultLayout) ─── */}
