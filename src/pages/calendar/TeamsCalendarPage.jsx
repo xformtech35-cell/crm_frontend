@@ -151,6 +151,7 @@ export default function TeamsCalendarPage() {
   };
 
   const getEventsForDay = (day) => {
+    if (!Array.isArray(events)) return [];
     return events.filter((e) => isSameDay(e.startDatetime, day));
   };
 

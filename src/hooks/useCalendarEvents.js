@@ -19,12 +19,16 @@ export function useCalendarEvents() {
       if (params.toString()) url += `?${params.toString()}`;
 
       const res = await api.get(url);
-      const data = res.data?.data || res.data || [];
+      let data = res.data?.data;
+      if (!Array.isArray(data)) {
+        data = Array.isArray(res.data) ? res.data : (res.data?.events && Array.isArray(res.data.events) ? res.data.events : []);
+      }
       setEvents(data);
       return data;
     } catch (err) {
       console.error('Failed to fetch calendar events:', err);
       setError('Failed to load calendar events');
+      setEvents([]);
       return [];
     } finally {
       setLoading(false);
@@ -34,16 +38,20 @@ export function useCalendarEvents() {
   const fetchNotifications = useCallback(async () => {
     try {
       const res = await api.get('/calendar/events/notifications');
-      const list = res.data?.data || res.data || [];
+      let list = res.data?.data;
+      if (!Array.isArray(list)) {
+        list = Array.isArray(res.data) ? res.data : [];
+      }
       setNotifications(list);
 
       // Check for pending due notification for toast alert
-      const dueNotif = list.find((n) => n.status === 'SENT' || n.status === 'PENDING');
+      const dueNotif = Array.isArray(list) ? list.find((n) => n.status === 'SENT' || n.status === 'PENDING') : null;
       if (dueNotif && (!activeToast || activeToast.id !== dueNotif.id)) {
         setActiveToast(dueNotif);
       }
     } catch (err) {
       console.error('Failed to fetch calendar notifications:', err);
+      setNotifications([]);
     }
   }, [activeToast]);
 
