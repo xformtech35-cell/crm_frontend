@@ -1,5 +1,6 @@
-import AdvancedModulePage from '../AdvancedModulePage'
+import TeamsCalendarPage from './TeamsCalendarPage'
 
 export default function CalendarPage() {
-  return <AdvancedModulePage type="calendar" />
+  return <TeamsCalendarPage />
 }
+
