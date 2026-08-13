@@ -1161,7 +1161,7 @@ async function uploadFiles(files) {
                   </select>
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="text-[10px] text-gray-500 font-medium">SP for Quotation</label>
                   <input
                     type="text"
@@ -1174,7 +1174,7 @@ async function uploadFiles(files) {
                     placeholder="e.g. RRW"
                     className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white uppercase"
                   />
-                </div>
+                </div> */}
 
                 <div>
                   <label className="text-[10px] text-gray-500 font-medium">FY Year</label>

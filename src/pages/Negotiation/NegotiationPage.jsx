@@ -12,12 +12,23 @@ import { saveAs } from "file-saver";
 export default function NegotiationPage() {
   const negotiationApi = useNegotiation();
   const leadApi = useLead();
-  const { leadStatuses } = useLeadStatus();
+  const statusMaster = useLeadStatus();
 
+  const [leadStatuses, setLeadStatuses] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState("");
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    statusMaster
+      .getAll()
+      .then((data) => setLeadStatuses(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        console.error("Failed to fetch lead statuses in NegotiationPage:", err);
+        setLeadStatuses([]);
+      });
+  }, []);
 
   // Selection states
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -830,7 +841,7 @@ export default function NegotiationPage() {
                         <option value="" className="bg-white text-gray-500">
                           — None —
                         </option>
-                        {leadStatuses.length > 0 ? (
+                        {Array.isArray(leadStatuses) && leadStatuses.length > 0 ? (
                           leadStatuses.map((st) => (
                             <option
                               key={st.id || st.statusName}
