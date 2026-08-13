@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { useNegotiation } from "../../hooks/useNegotiation";
 import { useLead } from "../../hooks/useLead";
+import { useLeadStatus } from "../../hooks/useMaster";
 import Icon from "../../components/Icon";
 import { formatDate, formatCurrency } from "../../utils/format";
 import ExcelJS from "exceljs";
@@ -11,6 +12,7 @@ import { saveAs } from "file-saver";
 export default function NegotiationPage() {
   const negotiationApi = useNegotiation();
   const leadApi = useLead();
+  const { leadStatuses } = useLeadStatus();
 
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState("");
@@ -828,24 +830,38 @@ export default function NegotiationPage() {
                         <option value="" className="bg-white text-gray-500">
                           — None —
                         </option>
-                        <option
-                          value="Negotiation"
-                          className="bg-white text-gray-700"
-                        >
-                          Negotiation
-                        </option>
-                        <option value="Open" className="bg-white text-gray-700">
-                          Open
-                        </option>
-                        <option value="Won" className="bg-white text-gray-700">
-                          Won
-                        </option>
-                        <option
-                          value="Closed"
-                          className="bg-white text-gray-700"
-                        >
-                          Closed
-                        </option>
+                        {leadStatuses.length > 0 ? (
+                          leadStatuses.map((st) => (
+                            <option
+                              key={st.id || st.statusName}
+                              value={st.statusName}
+                              className="bg-white text-gray-700 font-normal"
+                            >
+                              {st.statusName}
+                            </option>
+                          ))
+                        ) : (
+                          <>
+                            <option
+                              value="Negotiation"
+                              className="bg-white text-gray-700"
+                            >
+                              Negotiation
+                            </option>
+                            <option value="Open" className="bg-white text-gray-700">
+                              Open
+                            </option>
+                            <option value="Won" className="bg-white text-gray-700">
+                              Won
+                            </option>
+                            <option
+                              value="Closed"
+                              className="bg-white text-gray-700"
+                            >
+                              Closed
+                            </option>
+                          </>
+                        )}
                       </select>
                     </td>
                     {/* Document Column */}
