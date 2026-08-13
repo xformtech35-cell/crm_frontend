@@ -15,7 +15,7 @@ import LeadForm from "../../components/lead/LeadForm";
 import Icon from "../../components/Icon";
 import StarRating from "../../components/common/StarRating";
 import * as XLSX from "xlsx-js-style";
-import { useLeadSource, useLeadGroup } from "../../hooks/useMaster";
+import { useLeadSource, useLeadGroup, useLeadStatus } from "../../hooks/useMaster";
 import { useDroppable } from "@dnd-kit/core";
 import { Buffer } from "buffer";
 window.Buffer = Buffer;
@@ -470,12 +470,14 @@ export default function LeadListPage() {
 
   const sourceMaster = useLeadSource();
   const groupMaster = useLeadGroup();
+  const statusMaster = useLeadStatus();
 
   const [selectedLead, setSelectedLead] = useState(null);
   const [showNotesModal, setShowNotesModal] = useState(false);
 
   const [leadSources, setLeadSources] = useState([]);
   const [leadGroups, setLeadGroups] = useState([]);
+  const [leadStatuses, setLeadStatuses] = useState([]);
 
   const [activeDragLead, setActiveDragLead] = useState(null);
 
@@ -681,9 +683,11 @@ const [quotationStatusFilter, setQuotationStatusFilter] = useState("");
     try {
       const sources = await sourceMaster.getAll();
       const groups = await groupMaster.getAll();
+      const statuses = await statusMaster.getAll();
 
       setLeadSources(sources);
       setLeadGroups(groups);
+      setLeadStatuses(statuses);
     } catch (err) {
       console.error(err);
     }
@@ -3220,66 +3224,35 @@ if (leadStatusFilter) {
       >
         All
       </div>
-      <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setLeadStatusFilter("Negotiation");
-          setCurrentPage(1);
-          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
-        }}
-      >
-        Negotiation
-      </div>
-      <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setLeadStatusFilter("Open");
-          setCurrentPage(1);
-          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
-        }}
-      >
-        Open
-      </div>
-      <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setLeadStatusFilter("Won");
-          setCurrentPage(1);
-          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
-        }}
-      >
-        Won
-      </div>
-      <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setLeadStatusFilter("Closed");
-          setCurrentPage(1);
-          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
-        }}
-      >
-        Closed
-      </div>
-      <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setLeadStatusFilter("Qualified");
-          setCurrentPage(1);
-          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
-        }}
-      >
-        Qualified
-      </div>
-      <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setLeadStatusFilter("Disqualified");
-          setCurrentPage(1);
-          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
-        }}
-      >
-        Disqualified
-      </div>
+      {leadStatuses.length > 0 ? (
+        leadStatuses.map((st) => (
+          <div
+            key={st.id || st.statusName}
+            className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+            onClick={() => {
+              setLeadStatusFilter(st.statusName);
+              setCurrentPage(1);
+              document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
+            }}
+          >
+            {st.statusName}
+          </div>
+        ))
+      ) : (
+        ["Negotiation", "Open", "Won", "Closed", "Qualified", "Disqualified"].map((name) => (
+          <div
+            key={name}
+            className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+            onClick={() => {
+              setLeadStatusFilter(name);
+              setCurrentPage(1);
+              document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
+            }}
+          >
+            {name}
+          </div>
+        ))
+      )}
     </div>
   </div>
 </th>
@@ -3611,10 +3584,24 @@ if (leadStatusFilter) {
                             `}
                             >
                               <option value="">None</option>
-                              <option value="Negotiation">Negotiation</option>
-                              <option value="Open">Open</option>
-                              <option value="Won">Won</option>
-                              <option value="Closed">Closed</option>
+                              {leadStatuses.length > 0 ? (
+                                leadStatuses.map((st) => (
+                                  <option
+                                    key={st.id || st.statusName}
+                                    value={st.statusName}
+                                    className="bg-white text-gray-700 font-normal"
+                                  >
+                                    {st.statusName}
+                                  </option>
+                                ))
+                              ) : (
+                                <>
+                                  <option value="Negotiation">Negotiation</option>
+                                  <option value="Open">Open</option>
+                                  <option value="Won">Won</option>
+                                  <option value="Closed">Closed</option>
+                                </>
+                              )}
                             </select>
                           </td>
                           <td

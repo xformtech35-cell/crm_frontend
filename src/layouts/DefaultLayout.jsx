@@ -299,6 +299,43 @@ export default function DefaultLayout() {
         }
       });
 
+      // 3b. Process Custom User Reminders with exact notification timing & assignees
+      try {
+        const storedReminders = JSON.parse(localStorage.getItem("crm-custom-reminders") || "[]");
+        const nowMs = Date.now();
+        storedReminders.forEach((r) => {
+          if (!r || (!r.time && !r.customTime)) return;
+          const eventDate = getDateValue(r.time || r.customTime);
+          if (!eventDate) return;
+
+          let triggerMs = eventDate.getTime();
+          if (r.reminderPreset === "custom" && r.customTime) {
+            const cDate = getDateValue(r.customTime);
+            if (cDate) triggerMs = cDate.getTime();
+          } else if (r.reminderPreset && !isNaN(Number(r.reminderPreset))) {
+            triggerMs = eventDate.getTime() - Number(r.reminderPreset) * 60 * 1000;
+          }
+
+          // Trigger notification if scheduled trigger time has arrived or passed
+          if (nowMs >= triggerMs) {
+            const assigneeInfo = r.assignedTo ? ` (Assigned to: ${r.assignedTo})` : "";
+            const triggerDate = new Date(triggerMs);
+            nextItems.push({
+              id: `custom-rem-${r.id || Date.now()}`,
+              title: `Reminder: ${r.title}${assigneeInfo}`,
+              description: r.note || `Scheduled event at ${formatRelativeTime(eventDate)}`,
+              time: formatRelativeTime(triggerDate),
+              dateValue: triggerDate,
+              icon: "mdi:bell-ring-outline",
+              path: "/calendar",
+              type: "reminder",
+            });
+          }
+        });
+      } catch (err) {
+        console.error("Error loading custom reminders in notifications:", err);
+      }
+
       // 4. Process Notes
       const notesList = Array.isArray(notesData) ? notesData : [];
       notesList.forEach((n) => {
@@ -486,7 +523,7 @@ export default function DefaultLayout() {
             permissions: ["leads.view"],
           },
           
-           {
+          {
             to: "/leadsource",
             label: "Lead Sources",
             icon: "mdi:vector-link",
@@ -496,6 +533,12 @@ export default function DefaultLayout() {
             to: "/leadgroup",
             label: "Lead Groups",
             icon: "mdi:folder-multiple-outline",
+            permissions: ["leads.view"],
+          },
+          {
+            to: "/leadstatus",
+            label: "Lead Statuses",
+            icon: "mdi:tag-outline",
             permissions: ["leads.view"],
           },
           {

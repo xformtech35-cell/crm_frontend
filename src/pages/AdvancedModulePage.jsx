@@ -9,6 +9,8 @@ import { ACTIVITY_TYPE_COLORS } from "./activities/ActivitiesPage";
 import Icon from "../components/Icon";
 import AppDrawer from "../components/common/AppDrawer";
 import { useTask } from "../hooks/useTask";
+import { useTeamMember } from "../hooks/useTeamMember";
+import { useAuthStore } from "../stores/auth";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 function parseCalendarDate(value) {
@@ -484,20 +486,32 @@ function CalendarMonthView() {
   const { load } = useAdvancedCrmData();
   const calendarApi = useCalendar();
   const taskApi = useTask();
+  const { getAll: getTeamMembers } = useTeamMember();
+  const currentUser = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
   const [dayDetailOpen, setDayDetailOpen] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
   const [form, setForm] = useState({
     title: "",
-    type: "Meeting",
+    type: "Reminder",
     time: "",
     note: "",
+    reminderPreset: "15",
+    customTime: "",
+    assignedTo: "",
   });
   const [saving, setSaving] = useState(false);
   const [filterType, setFilterType] = useState("All");
+
+  useEffect(() => {
+    getTeamMembers()
+      .then((res) => setTeamMembers(Array.isArray(res) ? res : []))
+      .catch(() => setTeamMembers([]));
+  }, []);
 
   const fetchEvents = async () => {
     try {
@@ -633,27 +647,52 @@ function CalendarMonthView() {
     try {
       const calendarDate = getCalendarDate();
       const fullTime = form.time || calendarDate;
+      const assignedTarget = form.assignedTo || currentUser?.username || currentUser?.userEmail || "Myself";
+
+      const newCustomReminder = {
+        id: `rem-${Date.now()}`,
+        title: form.title,
+        type: form.type,
+        time: fullTime,
+        note: form.note,
+        reminderPreset: form.reminderPreset,
+        customTime: form.reminderPreset === "custom" ? form.customTime : "",
+        assignedTo: assignedTarget,
+        createdAt: new Date().toISOString(),
+      };
+
+      try {
+        const stored = JSON.parse(localStorage.getItem("crm-custom-reminders") || "[]");
+        stored.push(newCustomReminder);
+        localStorage.setItem("crm-custom-reminders", JSON.stringify(stored));
+      } catch (err) {
+        console.error("Failed to save custom reminder locally:", err);
+      }
 
       const taskPayload = {
         taskName: form.title,
         taskDueDate: fullTime,
         taskStartDate: fullTime,
-        taskDescription: form.note,
+        taskDescription: form.note ? `${form.note} (Set to: ${assignedTarget})` : `Set to: ${assignedTarget}`,
         taskPriority: getCalendarPriority(),
         taskPercentageCompleted: 0,
+        taskAssign: assignedTarget,
       };
-      const createdTask = await taskApi.create(taskPayload);
+
+      const createdTask = await taskApi.create(taskPayload).catch(() => null);
+
       setEvents((prev) => [
         ...prev,
         {
-          id: `task-${createdTask?.taskId || Date.now()}`,
+          id: newCustomReminder.id,
           title: form.title,
           type: form.type,
           time: fullTime,
           note: form.note,
-          owner: createdTask?.taskAssign || createdTask?.taskAssignedTo,
+          owner: assignedTarget,
         },
       ]);
+
       window.dispatchEvent(new CustomEvent("crm-notification-refresh"));
       setShowModal(false);
     } finally {
@@ -994,7 +1033,7 @@ function CalendarMonthView() {
           </>
         }
       >
-        <form id="calendar-item-form" onSubmit={handleSave} className="space-y-5">
+        <form id="calendar-item-form" onSubmit={handleSave} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Title <span className="text-red-500">*</span></label>
             <input
@@ -1005,6 +1044,7 @@ function CalendarMonthView() {
               placeholder="Event or reminder title"
             />
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">Type</label>
@@ -1013,8 +1053,8 @@ function CalendarMonthView() {
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
               >
-                <option value="Meeting">Event (Meeting)</option>
                 <option value="Reminder">Reminder</option>
+                <option value="Meeting">Event (Meeting)</option>
                 <option value="Task">Task</option>
               </select>
             </div>
@@ -1029,6 +1069,62 @@ function CalendarMonthView() {
               />
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Set Reminder To</label>
+              <select
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-colors"
+                value={form.assignedTo}
+                onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
+              >
+                <option value="">Myself ({currentUser?.username || currentUser?.userEmail || "Me"})</option>
+                {teamMembers.map((m) => {
+                  const name = m.teamMemberName || m.name || m.teamMemberEmail || m.email;
+                  return (
+                    <option key={m.teamMemberId || m.id || name} value={name}>
+                      {name} ({m.role || "Team Member"})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Reminder Timing</label>
+              <select
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-colors"
+                value={form.reminderPreset}
+                onChange={(e) => setForm({ ...form, reminderPreset: e.target.value })}
+              >
+                <option value="0">At time of event (0 min)</option>
+                <option value="5">5 minutes before</option>
+                <option value="15">15 minutes before (Default)</option>
+                <option value="30">30 minutes before</option>
+                <option value="60">1 hour before</option>
+                <option value="1440">1 day before (24 hours)</option>
+                <option value="custom">Set Custom Notification Time</option>
+              </select>
+            </div>
+          </div>
+
+          {form.reminderPreset === "custom" && (
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-3 space-y-1.5">
+              <label className="block text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                <Icon name="mdi:clock-edit-outline" className="w-4 h-4 text-indigo-600" />
+                Set Custom Notification Date / Time <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                type="datetime-local"
+                className="w-full px-3 py-2 text-sm border border-indigo-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors font-medium text-gray-800"
+                value={form.customTime}
+                onChange={(e) => setForm({ ...form, customTime: e.target.value })}
+              />
+              <p className="text-[11px] text-indigo-700">Notification will automatically trigger at this exact set time.</p>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Note</label>
             <textarea

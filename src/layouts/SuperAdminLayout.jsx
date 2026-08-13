@@ -135,6 +135,11 @@ const navGroups = [
         icon: "mdi:account-group-outline",
       },
       {
+        to: "/super-admin/leadstatus",
+        label: "Lead Statuses",
+        icon: "mdi:tag-outline",
+      },
+      {
         to: "/super-admin/contact",
         label: "Contacts",
         icon: "mdi:contacts-outline",

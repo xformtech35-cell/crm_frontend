@@ -6,7 +6,7 @@ import { useTeamMember } from '../../hooks/useTeamMember'
 import { useTeam } from '../../hooks/useTeam'
 import { useCreateTeam } from '../../hooks/useCreateTeam'
 import { useAuthStore } from '../../stores/auth'
-import { useLeadSource, useLeadGroup } from "/src/hooks/useMaster";
+import { useLeadSource, useLeadGroup, useLeadStatus } from "/src/hooks/useMaster";
 import { getMemberId, getTeamId, getTeamLabel, groupMembersByTeam } from '../../utils/teamRelations'
 import { getCurrencyConfig, convertToBase, convertFromBase } from '../../utils/currency'
 import { Country, State, City } from "country-state-city";
@@ -141,6 +141,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   
   const sourceHook = useLeadSource();
   const groupHook = useLeadGroup();
+  const statusHook = useLeadStatus();
   const { getAll } = useTeamMember();
   const teamHook = useTeam();
   const createTeamHook = useCreateTeam();
@@ -150,6 +151,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
 
   const [leadSources, setLeadSources] = useState([]);
   const [leadGroups, setLeadGroups] = useState([]);
+  const [leadStatuses, setLeadStatuses] = useState([]);
   const [form, setForm] = useState(() => populate(initial));
   const [qPrefix, setQPrefix] = useState('');
   const [qSerial, setQSerial] = useState('');
@@ -264,8 +266,10 @@ const apiiii = import.meta.env.VITE_API_BASE
     try {
       const sourceData = await sourceHook.getAll();
       const groupData = await groupHook.getAll();
+      const statusData = await statusHook.getAll();
       setLeadSources(sourceData);
       setLeadGroups(groupData);
+      setLeadStatuses(statusData);
     } catch (error) {
       console.error("Failed to load masters:", error);
     }
@@ -850,9 +854,20 @@ async function uploadFiles(files) {
               className={selectCls}
               required
             >
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-              <option value="Won">Won</option>
+              {leadStatuses.length > 0 ? (
+                leadStatuses.map((st) => (
+                  <option key={st.id || st.statusName} value={st.statusName}>
+                    {st.statusName}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="Open">Open</option>
+                  <option value="Negotiation">Negotiation</option>
+                  <option value="Won">Won</option>
+                  <option value="Closed">Closed</option>
+                </>
+              )}
             </select>
           </div>
 

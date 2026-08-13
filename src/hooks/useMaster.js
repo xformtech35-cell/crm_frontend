@@ -84,4 +84,48 @@ export const useLeadGroup = () => {
   };
 
   return { getAll, create, update, remove };
-};
+};
+
+// lead status master
+export const useLeadStatus = () => {
+  const api = useApi();
+
+  const getAll = async () => {
+    try {
+      return await api.get("/leads/lead-status") || [];
+    } catch (error) {
+      console.error("Failed to fetch lead statuses:", error);
+      return [];
+    }
+  };
+
+  const create = async (payload) => {
+    try {
+      return await api.post("/leads/lead-status", payload);
+    } catch (error) {
+      console.error("Failed to create lead status:", error);
+      throw error;
+    }
+  };
+
+  const update = async (id, payload) => {
+    try {
+      return await api.put(`/leads/lead-status/${id}`, payload);
+    } catch (error) {
+      console.error(`Failed to update lead status ${id}:`, error);
+      throw error;
+    }
+  };
+
+  const remove = async (id) => {
+    try {
+      await api.del(`/leads/lead-status/${id}`);
+    } catch (error) {
+      console.error(`Failed to delete lead status ${id}:`, error);
+      throw error;
+    }
+  };
+
+  return { getAll, create, update, remove };
+};
+

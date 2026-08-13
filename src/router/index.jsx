@@ -48,6 +48,7 @@ import SuperAdminSettingsPage from "../pages/super-admin/SuperAdminSettingsPage"
 import SuperAdminAnalyticsPage from "../pages/super-admin/SuperAdminAnalyticsPage";
 import LeadSource from "../pages/Masters/LeadSource.jsx";
 import LeadGroup from "../pages/Masters/LeadGroup.jsx";
+import LeadStatus from "../pages/Masters/LeadStatus.jsx";
 import NegotiationPage from "../pages/Negotiation/NegotiationPage.jsx";
 import NegotiationDetailPage from "../pages/Negotiation/NegotiationDetailPage.jsx";
 import QuotationDetailPage from "../pages/Negotiation/QuotationDetailPage.jsx";
@@ -98,6 +99,7 @@ export default function AppRouter() {
         <Route path="/team-lead" element={<ProtectedRoute requiredPermission="team_leads.view"><TeamLeadPage /></ProtectedRoute>} />
         <Route path="/leadsource" element={<ProtectedRoute requiredPermission="leads.view"><LeadSource /></ProtectedRoute>} />
         <Route path="/leadgroup" element={<ProtectedRoute requiredPermission="leads.view"><LeadGroup /></ProtectedRoute>} />
+        <Route path="/leadstatus" element={<ProtectedRoute requiredPermission="leads.view"><LeadStatus /></ProtectedRoute>} />
         <Route path="/team/:id" element={<ProtectedRoute requiredPermission="teams.view"><TeamDetailPage /></ProtectedRoute>} />
         <Route path="/team-member" element={<ProtectedRoute requiredPermission="users.view"><TeamMemberPage /></ProtectedRoute>} />
         <Route path="/create-team" element={<ProtectedRoute requiredPermission="teams.view"><CreateTeamPage /></ProtectedRoute>} />
@@ -164,6 +166,7 @@ export default function AppRouter() {
         <Route path="/super-admin/attendance" element={<AttendancePage />} />
         <Route path="/super-admin/leadsource" element={<LeadSource />} />
         <Route path="/super-admin/leadgroup" element={<LeadGroup />} />
+        <Route path="/super-admin/leadstatus" element={<LeadStatus />} />
         <Route path="/super-admin/pipeline" element={<PipelinePage />} />
         <Route path="/super-admin/deals" element={<DealsPage />} />
         <Route path="/super-admin/activities" element={<ActivitiesPage />} />

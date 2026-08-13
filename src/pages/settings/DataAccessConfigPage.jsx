@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/auth'
 
 const MODULES = [
   { id: 'LEADS', name: 'Leads', icon: 'mdi:account-arrow-right-outline', desc: 'Inbound and sales leads' },
+  { id: 'LEAD_STATUS', name: 'Lead Status Master', icon: 'mdi:tag-outline', desc: 'Lead status master configurations' },
   { id: 'TASKS', name: 'Tasks', icon: 'mdi:checkbox-marked-circle-outline', desc: 'Action items & assignments' },
   { id: 'OPPORTUNITIES', name: 'Opportunities', icon: 'mdi:chart-line', desc: 'Deals & pipeline stages' },
   { id: 'PROJECTS', name: 'Projects', icon: 'mdi:folder-outline', desc: 'Project boards & milestones' },

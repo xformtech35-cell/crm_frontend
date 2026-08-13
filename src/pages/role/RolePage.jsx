@@ -59,6 +59,15 @@ const groupedPermissions = [
         ]
       },
       {
+        name: "Lead Masters (Status, Source, Group)",
+        viewPermission: { key: "leads.view", label: "View Lead Masters" },
+        actions: [
+          { key: "leads.create", label: "Create Masters" },
+          { key: "leads.edit", label: "Edit Masters" },
+          { key: "leads.delete", label: "Delete Masters" }
+        ]
+      },
+      {
         name: "Contacts",
         viewPermission: { key: "contacts.view", label: "View Contacts" },
         actions: [
