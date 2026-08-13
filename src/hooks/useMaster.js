@@ -6,7 +6,11 @@ export const useLeadSource = () => {
 
   const getAll = async () => {
     try {
-      return await api.get("/leads/lead-source") || [];
+      const res = await api.get("/leads/lead-source");
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.data)) return res.data;
+      if (Array.isArray(res?.data?.data)) return res.data.data;
+      return [];
     } catch (error) {
       console.error("Failed to fetch lead sources:", error);
       return [];
@@ -49,7 +53,11 @@ export const useLeadGroup = () => {
 
   const getAll = async () => {
     try {
-      return await api.get("/leads/lead-group") || [];
+      const res = await api.get("/leads/lead-group");
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.data)) return res.data;
+      if (Array.isArray(res?.data?.data)) return res.data.data;
+      return [];
     } catch (error) {
       console.error("Failed to fetch lead groups:", error);
       return [];
@@ -92,7 +100,11 @@ export const useLeadStatus = () => {
 
   const getAll = async () => {
     try {
-      return await api.get("/leads/lead-status") || [];
+      const res = await api.get("/leads/lead-status");
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.data)) return res.data;
+      if (Array.isArray(res?.data?.data)) return res.data.data;
+      return [];
     } catch (error) {
       console.error("Failed to fetch lead statuses:", error);
       return [];

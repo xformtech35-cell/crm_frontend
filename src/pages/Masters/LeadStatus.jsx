@@ -24,7 +24,8 @@ export default function LeadStatus() {
 
     try {
       const data = await leadStatusHook.getAll();
-      setStatuses(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+      setStatuses(list);
     } catch (error) {
       console.error('Failed to load lead statuses:', error);
       setStatuses([]);

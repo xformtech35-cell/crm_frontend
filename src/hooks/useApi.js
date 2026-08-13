@@ -5,12 +5,12 @@ const getDefaultBaseUrl = () => {
     return import.meta.env.VITE_API_BASE
   }
   if (typeof window !== 'undefined' && window.location?.hostname === 'localhost') {
-    return 'http://localhost:8080/api'
+    return 'http://localhost:8080/xformcrm/api'
   }
   if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}/api`
+    return `${window.location.origin}/xformcrm/api`
   }
-  return 'https://api-test.richgoldshine.com/api'
+  return 'https://api-test.richgoldshine.com/xformcrm/api'
 }
 
 const BASE_URL = getDefaultBaseUrl()

@@ -22,7 +22,8 @@ export default function LeadSource() {
     setLoading(true);
     try {
       const data = await leadSourceHook.getAll();
-      setSources(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+      setSources(list);
     } catch (error) {
       console.error('Failed to load lead sources:', error);
       setSources([]);

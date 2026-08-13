@@ -26,7 +26,8 @@ export default function LeadGroup() {
  
     try {
       const data = await leadGroupHook.getAll();
-      setGroups(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+      setGroups(list);
     } catch (error) {
       console.error('Failed to load lead groups:', error);
       setGroups([]);

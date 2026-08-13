@@ -685,9 +685,9 @@ const [quotationStatusFilter, setQuotationStatusFilter] = useState("");
       const groups = await groupMaster.getAll();
       const statuses = await statusMaster.getAll();
 
-      setLeadSources(sources);
-      setLeadGroups(groups);
-      setLeadStatuses(statuses);
+      setLeadSources(Array.isArray(sources) ? sources : (Array.isArray(sources?.data) ? sources.data : []));
+      setLeadGroups(Array.isArray(groups) ? groups : (Array.isArray(groups?.data) ? groups.data : []));
+      setLeadStatuses(Array.isArray(statuses) ? statuses : (Array.isArray(statuses?.data) ? statuses.data : []));
     } catch (err) {
       console.error(err);
     }
