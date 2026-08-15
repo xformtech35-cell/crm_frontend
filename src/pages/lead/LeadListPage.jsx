@@ -559,8 +559,23 @@ export default function LeadListPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
-const [leadStatusFilter, setLeadStatusFilter] = useState("");
-const [quotationStatusFilter, setQuotationStatusFilter] = useState("");
+  const [leadStatusFilter, setLeadStatusFilter] = useState("");
+  const [quotationStatusFilter, setQuotationStatusFilter] = useState("");
+
+  const [activeHeaderDropdown, setActiveHeaderDropdown] = useState(null);
+  const [groupSearch, setGroupSearch] = useState("");
+  const [leadStatusSearch, setLeadStatusSearch] = useState("");
+  const [quotationSearch, setQuotationSearch] = useState("");
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (!e.target.closest('.header-filter-popover') && !e.target.closest('.header-filter-btn')) {
+        setActiveHeaderDropdown(null);
+      }
+    }
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
   const [sortKey, setSortKey] = useState("leadCreatedDate");
   const [sortDir, setSortDir] = useState("desc");
   const [currentView, setCurrentView] = useState("table");
@@ -3195,211 +3210,267 @@ const [quotationStatusFilter, setQuotationStatusFilter] = useState("");
                         </button>
                       </th> */}
 
-{/* GROUP Column with Dropdown Filter */}
-  <th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-
-  <div className="flex flex-col items-start gap-1.5">
-    <div className="flex items-center gap-2 cursor-pointer group relative">
-      <span className="text-xs font-semibold text-black uppercase tracking-wide">GROUP</span>
-      <span 
-        className="text-[10px] text-gray-400 hover:text-blue-600 transition-colors"
+{/* GROUP Column with Searchable Dropdown Filter */}
+<th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
+  <div className="flex flex-col items-start gap-1">
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        className={`header-filter-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all ${
+          groupFilter 
+            ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm' 
+            : 'bg-white text-gray-800 border-gray-200 hover:border-gray-300'
+        }`}
         onClick={(e) => {
           e.stopPropagation();
-          // Close all other dropdowns first
-          document.querySelectorAll('.dropdown-menu').forEach(el => {
-            if (el.id !== 'group-dropdown') {
-              el.classList.add('hidden');
-            }
-          });
-          // Toggle this dropdown
-          const dropdown = document.getElementById('group-dropdown');
-          if (dropdown) {
-            dropdown.classList.toggle('hidden');
-          }
+          setActiveHeaderDropdown(activeHeaderDropdown === 'group' ? null : 'group');
         }}
       >
-        ▼
-      </span>
-    </div>
-    {/* Show selected value */}
-    {/* <span className="text-[10px] text-gray-600 font-medium">
-      {groupFilter || "All"}
-    </span> */}
-    {/* Dropdown Menu with Custom Scroll Bar */}
-    <div id="group-dropdown" className="dropdown-menu hidden absolute left-3 top-full mt-6 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[140px] max-h-[200px] overflow-y-auto custom-scrollbar">
-      <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setGroupFilter("");
-          setCurrentPage(1);
-          document.getElementById('group-dropdown')?.classList.add('hidden');
-        }}
-      >
-        All
-      </div>
-      {leadGroups.map((group) => (
-        <div 
-          key={group.id}
-          className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-          onClick={() => {
-            setGroupFilter(group.groupName);
-            setCurrentPage(1);
-            document.getElementById('group-dropdown')?.classList.add('hidden');
-          }}
-        >
-          {group.groupName}
-        </div>
-      ))}
-    </div>
-  </div>
-</th>
+        <span>GROUP</span>
+        <Icon name="mdi:chevron-down" className={`w-3.5 h-3.5 transition-transform ${activeHeaderDropdown === 'group' ? 'rotate-180 text-blue-600' : 'text-gray-400'}`} />
+      </button>
 
-{/* LEAD STATUS Column with Dropdown Filter */}
-                      <th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-  <div className="flex flex-col items-start gap-1.5">
-    <div className="flex items-center gap-2 cursor-pointer group relative">
-      <span className="text-xs font-semibold text-black uppercase tracking-wide">LEAD STATUS</span>
-      <span 
-        className="text-[10px] text-gray-400 hover:text-blue-600 transition-colors"
-        onClick={(e) => {
-          e.stopPropagation();
-          // Close all other dropdowns first
-          document.querySelectorAll('.dropdown-menu').forEach(el => {
-            if (el.id !== 'leadstatus-dropdown') {
-              el.classList.add('hidden');
-            }
-          });
-          // Toggle this dropdown
-          const dropdown = document.getElementById('leadstatus-dropdown');
-          if (dropdown) {
-            dropdown.classList.toggle('hidden');
-          }
-        }}
-      >
-        ▼
-      </span>
-    </div>
-    {/* Show selected value */}
-    {/* <span className="text-[10px] text-gray-600 font-medium">
-      {leadStatusFilter || "All"}
-    </span> */}
-    {/* Dropdown Menu with Custom Scroll Bar */}
-    <div id="leadstatus-dropdown" className="dropdown-menu hidden absolute left-3 top-full mt-6 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[140px] max-h-[200px] overflow-y-auto custom-scrollbar">
-      <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setLeadStatusFilter("");
-          setCurrentPage(1);
-          document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
-        }}
-      >
-        All
-      </div>
-      {leadStatuses.length > 0 ? (
-        leadStatuses.map((st) => (
-          <div
-            key={st.id || st.statusName}
-            className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-            onClick={() => {
-              setLeadStatusFilter(st.statusName);
-              setCurrentPage(1);
-              document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
-            }}
+      {groupFilter && (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold">
+          {groupFilter}
+          <button
+            onClick={(e) => { e.stopPropagation(); setGroupFilter(""); setCurrentPage(1); }}
+            className="hover:text-blue-900"
           >
-            {st.statusName}
-          </div>
-        ))
-      ) : (
-        ["Negotiation", "Open", "Won", "Closed", "Qualified", "Disqualified"].map((name) => (
-          <div
-            key={name}
-            className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-            onClick={() => {
-              setLeadStatusFilter(name);
-              setCurrentPage(1);
-              document.getElementById('leadstatus-dropdown')?.classList.add('hidden');
-            }}
-          >
-            {name}
-          </div>
-        ))
+            <Icon name="mdi:close" className="w-3 h-3" />
+          </button>
+        </span>
       )}
     </div>
+
+    {activeHeaderDropdown === 'group' && (
+      <div 
+        className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-gray-700 animate-in fade-in zoom-in-95 duration-100"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative mb-2">
+          <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search groups..."
+            value={groupSearch}
+            onChange={(e) => setGroupSearch(e.target.value)}
+            className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+            autoFocus
+          />
+        </div>
+
+        <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+          <button
+            type="button"
+            className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+              !groupFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
+            }`}
+            onClick={() => { setGroupFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setGroupSearch(""); }}
+          >
+            <span>All Groups</span>
+            {!groupFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+          </button>
+
+          {leadGroups
+            .filter(g => (g.groupName || "").toLowerCase().includes(groupSearch.toLowerCase()))
+            .map((group) => (
+              <button
+                key={group.id || group.groupName}
+                type="button"
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                  groupFilter === group.groupName ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
+                }`}
+                onClick={() => {
+                  setGroupFilter(group.groupName);
+                  setCurrentPage(1);
+                  setActiveHeaderDropdown(null);
+                  setGroupSearch("");
+                }}
+              >
+                <span className="truncate">{group.groupName}</span>
+                {groupFilter === group.groupName && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+              </button>
+            ))}
+        </div>
+      </div>
+    )}
   </div>
 </th>
 
-{/* QUOTATION STATUS Column with Dropdown Filter */}
-                      <th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-  <div className="flex flex-col items-start gap-1.5">
-    <div className="flex items-center gap-2 cursor-pointer group relative">
-      <span className="text-xs font-semibold text-black uppercase tracking-wide">QUOTATION STATUS</span>
-      <span 
-        className="text-[10px] text-gray-400 hover:text-blue-600 transition-colors"
+{/* LEAD STATUS Column with Searchable Dropdown Filter */}
+<th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
+  <div className="flex flex-col items-start gap-1">
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        className={`header-filter-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all ${
+          leadStatusFilter 
+            ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm' 
+            : 'bg-white text-gray-800 border-gray-200 hover:border-gray-300'
+        }`}
         onClick={(e) => {
           e.stopPropagation();
-          // Close all other dropdowns first
-          document.querySelectorAll('.dropdown-menu').forEach(el => {
-            if (el.id !== 'quotation-dropdown') {
-              el.classList.add('hidden');
-            }
-          });
-          // Toggle this dropdown
-          const dropdown = document.getElementById('quotation-dropdown');
-          if (dropdown) {
-            dropdown.classList.toggle('hidden');
-          }
+          setActiveHeaderDropdown(activeHeaderDropdown === 'leadStatus' ? null : 'leadStatus');
         }}
       >
-        ▼
-      </span>
+        <span>LEAD STATUS</span>
+        <Icon name="mdi:chevron-down" className={`w-3.5 h-3.5 transition-transform ${activeHeaderDropdown === 'leadStatus' ? 'rotate-180 text-blue-600' : 'text-gray-400'}`} />
+      </button>
+
+      {leadStatusFilter && (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold">
+          {leadStatusFilter}
+          <button
+            onClick={(e) => { e.stopPropagation(); setLeadStatusFilter(""); setCurrentPage(1); }}
+            className="hover:text-blue-900"
+          >
+            <Icon name="mdi:close" className="w-3 h-3" />
+          </button>
+        </span>
+      )}
     </div>
-    {/* Show selected value */}
-    {/* <span className="text-[10px] text-gray-600 font-medium">
-      {quotationStatusFilter || "All"}
-    </span> */}
-    {/* Dropdown Menu with Custom Scroll Bar */}
-    <div id="quotation-dropdown" className="dropdown-menu hidden absolute left-3 top-full mt-6 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[140px] max-h-[200px] overflow-y-auto custom-scrollbar">
+
+    {activeHeaderDropdown === 'leadStatus' && (
       <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setQuotationStatusFilter("");
-          setCurrentPage(1);
-          document.getElementById('quotation-dropdown')?.classList.add('hidden');
+        className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-gray-700 animate-in fade-in zoom-in-95 duration-100"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative mb-2">
+          <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search lead status..."
+            value={leadStatusSearch}
+            onChange={(e) => setLeadStatusSearch(e.target.value)}
+            className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+            autoFocus
+          />
+        </div>
+
+        <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+          <button
+            type="button"
+            className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+              !leadStatusFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
+            }`}
+            onClick={() => { setLeadStatusFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadStatusSearch(""); }}
+          >
+            <span>All Statuses</span>
+            {!leadStatusFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+          </button>
+
+          {(leadStatuses.length > 0 ? leadStatuses.map(s => s.statusName || s.name || s) : ["Negotiation", "Open", "Won", "Closed", "Qualified", "Disqualified", "New Lead", "Working", "QuotationSent"])
+            .filter(name => String(name).toLowerCase().includes(leadStatusSearch.toLowerCase()))
+            .map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                  leadStatusFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
+                }`}
+                onClick={() => {
+                  setLeadStatusFilter(name);
+                  setCurrentPage(1);
+                  setActiveHeaderDropdown(null);
+                  setLeadStatusSearch("");
+                }}
+              >
+                <span className="truncate">{name}</span>
+                {leadStatusFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+              </button>
+            ))}
+        </div>
+      </div>
+    )}
+  </div>
+</th>
+
+{/* QUOTATION STATUS Column with Searchable Dropdown Filter */}
+<th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
+  <div className="flex flex-col items-start gap-1">
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        className={`header-filter-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all ${
+          quotationStatusFilter 
+            ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm' 
+            : 'bg-white text-gray-800 border-gray-200 hover:border-gray-300'
+        }`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setActiveHeaderDropdown(activeHeaderDropdown === 'quotation' ? null : 'quotation');
         }}
       >
-        All
-      </div>
-      <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setQuotationStatusFilter("Pending");
-          setCurrentPage(1);
-          document.getElementById('quotation-dropdown')?.classList.add('hidden');
-        }}
-      >
-        Pending
-      </div>
-      <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setQuotationStatusFilter("Sent");
-          setCurrentPage(1);
-          document.getElementById('quotation-dropdown')?.classList.add('hidden');
-        }}
-      >
-        Sent
-      </div>
-      <div 
-        className="px-3 py-2 text-xs text-black hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-        onClick={() => {
-          setQuotationStatusFilter("Working");
-          setCurrentPage(1);
-          document.getElementById('quotation-dropdown')?.classList.add('hidden');
-        }}
-      >
-        Working
-      </div>
+        <span>QUOTATION STATUS</span>
+        <Icon name="mdi:chevron-down" className={`w-3.5 h-3.5 transition-transform ${activeHeaderDropdown === 'quotation' ? 'rotate-180 text-blue-600' : 'text-gray-400'}`} />
+      </button>
+
+      {quotationStatusFilter && (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold">
+          {quotationStatusFilter}
+          <button
+            onClick={(e) => { e.stopPropagation(); setQuotationStatusFilter(""); setCurrentPage(1); }}
+            className="hover:text-blue-900"
+          >
+            <Icon name="mdi:close" className="w-3 h-3" />
+          </button>
+        </span>
+      )}
     </div>
+
+    {activeHeaderDropdown === 'quotation' && (
+      <div 
+        className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-gray-700 animate-in fade-in zoom-in-95 duration-100"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative mb-2">
+          <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search quotation status..."
+            value={quotationSearch}
+            onChange={(e) => setQuotationSearch(e.target.value)}
+            className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+            autoFocus
+          />
+        </div>
+
+        <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+          <button
+            type="button"
+            className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+              !quotationStatusFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
+            }`}
+            onClick={() => { setQuotationStatusFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setQuotationSearch(""); }}
+          >
+            <span>All Quotation Statuses</span>
+            {!quotationStatusFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+          </button>
+
+          {["Pending", "Sent", "Working", "Unassigned"]
+            .filter(name => name.toLowerCase().includes(quotationSearch.toLowerCase()))
+            .map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                  quotationStatusFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
+                }`}
+                onClick={() => {
+                  setQuotationStatusFilter(name);
+                  setCurrentPage(1);
+                  setActiveHeaderDropdown(null);
+                  setQuotationSearch("");
+                }}
+              >
+                <span className="truncate">{name}</span>
+                {quotationStatusFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+              </button>
+            ))}
+        </div>
+      </div>
+    )}
   </div>
 </th>
 
