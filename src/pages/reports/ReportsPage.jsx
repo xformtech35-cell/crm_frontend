@@ -224,6 +224,7 @@ export default function ReportsPage() {
     const negotiationAmount = negotiationLeads.reduce((sum, lead) => sum + Number(lead.quotationAmount || lead.amount || 0), 0);
     const openLeadsAmount = openLeads.reduce((sum, lead) => sum + Number(lead.quotationAmount || lead.amount || 0), 0);
     const wonLeadsAmount = wonLeads.reduce((sum, lead) => sum + Number(lead.quotationAmount || lead.amount || 0), 0);
+    const closedLeadsAmount = closedLeads.reduce((sum, lead) => sum + Number(lead.quotationAmount || lead.amount || 0), 0);
 
     const conversionRate = totalLeads > 0 ? (wonLeads.length / totalLeads) * 100 : 0;
     const qualifiedRate = totalLeads > 0 ? (qualifiedLeads.length / totalLeads) * 100 : 0;
