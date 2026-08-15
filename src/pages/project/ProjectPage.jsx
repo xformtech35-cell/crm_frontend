@@ -221,7 +221,7 @@ function ProjectFormDrawer({ open, onClose, editingProject, saving, onSave }) {
           <label className={lbl}>Project Name <span className="text-red-500">*</span></label>
           <input value={form.projectName} onChange={e => setF('projectName', e.target.value)} placeholder="e.g. Website Redesign" className={inp} autoFocus required />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div>
             <label className={lbl}>Status</label>
             <select value={form.projectStatus} onChange={e => setF('projectStatus', e.target.value)} className={sel}>
@@ -233,6 +233,10 @@ function ProjectFormDrawer({ open, onClose, editingProject, saving, onSave }) {
             <select value={form.projectPriority} onChange={e => setF('projectPriority', e.target.value)} className={sel}>
               {PROJECT_PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
+          </div>
+          <div>
+            <label className={lbl}>Budget (₹)</label>
+            <input type="number" value={form.projectBudget} onChange={e => setF('projectBudget', e.target.value)} placeholder="0" className={inp} />
           </div>
           <div>
             <label className={lbl}>Start Date</label>
@@ -253,10 +257,6 @@ function ProjectFormDrawer({ open, onClose, editingProject, saving, onSave }) {
           <div>
             <label className={lbl}>Team</label>
             <input value={form.projectTeam} onChange={e => setF('projectTeam', e.target.value)} placeholder="Assigned team" className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Budget (₹)</label>
-            <input type="number" value={form.projectBudget} onChange={e => setF('projectBudget', e.target.value)} placeholder="0" className={inp} />
           </div>
         </div>
         <div>

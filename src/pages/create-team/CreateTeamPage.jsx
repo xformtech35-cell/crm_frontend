@@ -556,8 +556,8 @@ export default function CreateTeamPage() {
           </>
         }
       >
-        <form id="team-assign-form" onSubmit={saveAssignment} className="space-y-5">
-          <div className="space-y-4">
+        <form id="team-assign-form" onSubmit={saveAssignment} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <label className="block">
               <span className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-slate-300">Select Team *</span>
               <select
