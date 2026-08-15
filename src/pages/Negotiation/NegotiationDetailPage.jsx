@@ -445,16 +445,18 @@ const DocumentSection = ({
   handleViewDocument, 
   handleDownloadDocument, 
   handleDeleteDocument 
-}) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-    <div className="px-6 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-      <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
-        <Icon icon="mdi:file-document-outline" className="text-blue-500" />
-        Document
-      </h3>
-    </div>
-    <div className="p-6">
-      {documentExists ? (
+}) => {
+  if (!documentExists) return null;
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="px-6 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+        <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
+          <Icon icon="mdi:file-document-outline" className="text-blue-500" />
+          Attached Quotation Document
+        </h3>
+      </div>
+      <div className="p-6">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 text-green-600">
             <Icon icon="mdi:check-circle" className="text-xl" />
@@ -472,16 +474,10 @@ const DocumentSection = ({
             </button>
           </div>
         </div>
-      ) : (
-        <div className="text-center py-6 text-gray-400">
-          <Icon icon="mdi:file-document-outline" className="text-5xl mx-auto mb-2 opacity-50" />
-          <p className="text-sm font-medium">No document uploaded</p>
-          <p className="text-xs mt-1">Click Edit to upload a document</p>
-        </div>
-      )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ============= REVISION HISTORY SECTION =============
 
