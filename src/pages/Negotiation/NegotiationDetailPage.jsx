@@ -350,6 +350,8 @@ const handleFileChange = (e) => {
           <div className="fixed top-0 right-0 h-screen w-full lg:w-[45%] bg-white shadow-2xl overflow-y-auto z-50 animate-slide-in">
             <EditForm
               lead={editedLead}
+              revisions={revisions}
+              negotiationApi={negotiationApi}
               onCancel={handleCancelEdit}
               onSave={handleSaveEdit}
               onChange={handleInputChange}
@@ -689,6 +691,8 @@ export const getRevStatusClass = (status) => {
 
 const EditForm = ({ 
   lead, 
+  revisions = [],
+  negotiationApi,
   onCancel, 
   onSave, 
   onChange, 
@@ -702,6 +706,31 @@ const EditForm = ({
   uploadProgress,
   documentFile
 }) => {
+  const [replaceMode, setReplaceMode] = useState(false);
+
+  // Dynamic document lookup for selected revision level
+  const selectedRevCode = (lead.quotationRevision || "R0").toUpperCase();
+  const matchingRevision = (revisions || []).find(r => (r.revisionNo || "R0").toUpperCase() === selectedRevCode);
+  
+  let currentRevDocs = [];
+  if (matchingRevision && matchingRevision.documents && matchingRevision.documents.length > 0) {
+    currentRevDocs = matchingRevision.documents;
+  } else if (selectedRevCode === "R0") {
+    const leadDocs = [
+      lead.uploadDocument,
+      lead.uploadDocument1,
+      lead.uploadDocument2,
+      lead.uploadDocument3
+    ].filter(Boolean).map((url, i) => {
+      let name = url.substring(url.lastIndexOf('/') + 1);
+      if (name.includes('_')) name = name.substring(name.indexOf('_') + 1);
+      return { id: `doc-r0-${i}`, fileName: name, fileUrl: url };
+    });
+    currentRevDocs = leadDocs;
+  }
+
+  const hasExistingDocs = currentRevDocs.length > 0 && !replaceMode;
+
   return (
     <div className="h-full flex flex-col">
       {/* Form Header */}
@@ -744,8 +773,16 @@ const EditForm = ({
               <FormField label="Quotation Amount (₹)" name="quotationAmount" value={lead.quotationAmount || ""} onChange={onChange} type="number" placeholder="e.g. 150000" required />
               <FormField label="Quotation Number" name="quotationNumber" value={lead.quotationNumber || ""} onChange={onChange} placeholder="UWS/26-27/224/R1" />
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Revision Level</label>
-                <select name="quotationRevision" value={lead.quotationRevision || "R0"} onChange={onChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm bg-white font-semibold">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Revision Level</label>
+                <select 
+                  name="quotationRevision" 
+                  value={lead.quotationRevision || "R0"} 
+                  onChange={(e) => {
+                    setReplaceMode(false);
+                    onChange(e);
+                  }} 
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm bg-white font-semibold"
+                >
                   {Array.from({ length: 11 }, (_, i) => <option key={i} value={`R${i}`}>Revision R{i}</option>)}
                 </select>
               </div>
@@ -764,30 +801,76 @@ const EditForm = ({
           </div>
         </div>
 
-        {/* 2. Document Upload (Revised Quotation PDF) */}
+        {/* 2. Dynamic Document Upload & Viewer per Selected Revision */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
-            <Icon icon="mdi:file-upload-outline" className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-gray-700">Attach Revised Quotation PDF / File</h3>
+          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Icon icon="mdi:file-document-outline" className="text-blue-500 text-lg" />
+              Quotation File for {selectedRevCode}
+            </h3>
+            {hasExistingDocs && (
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-semibold flex items-center gap-1">
+                <Icon icon="mdi:check-circle" /> Document Attached
+              </span>
+            )}
           </div>
           <div className="p-6">
-            {documentExists ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 text-green-600">
-                  <Icon icon="mdi:check-circle" className="text-xl" />
-                  <span className="text-sm font-medium">Document attached to quotation</span>
-                </div>
-                <div className="flex flex-wrap gap-2 ml-auto">
-                  <button type="button" onClick={onDocumentDelete} className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-1.5 transition">
-                    <Icon icon="mdi:delete" className="text-lg" /> Replace Document
-                  </button>
-                </div>
+            {hasExistingDocs ? (
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500 font-medium">Existing attached documents for {selectedRevCode}:</p>
+                {currentRevDocs.map((doc) => (
+                  <div key={doc.id || doc.fileName} className="flex flex-wrap items-center justify-between gap-3 bg-blue-50/50 p-3 rounded-lg border border-blue-100">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Icon icon="mdi:file-pdf-box" className="text-red-500 text-2xl flex-shrink-0" />
+                      <span className="text-xs font-semibold text-gray-800 truncate max-w-[220px]">{doc.fileName}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {negotiationApi?.handleViewDocument && (
+                        <button 
+                          type="button" 
+                          onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName)} 
+                          className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
+                        >
+                          <Icon icon="mdi:eye" /> View
+                        </button>
+                      )}
+                      {negotiationApi?.handleDownloadRevisionDocument && (
+                        <button 
+                          type="button" 
+                          onClick={() => negotiationApi.handleDownloadRevisionDocument(doc.fileUrl || doc.fileName, doc.fileName)} 
+                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
+                        >
+                          <Icon icon="mdi:download" /> Download
+                        </button>
+                      )}
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          if (window.confirm(`Remove or replace document for ${selectedRevCode}?`)) {
+                            setReplaceMode(true);
+                            if (onDocumentDelete) onDocumentDelete();
+                          }
+                        }} 
+                        className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
+                      >
+                        <Icon icon="mdi:delete" /> Delete / Replace
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div>
+                {replaceMode && (
+                  <div className="mb-3 flex items-center justify-between bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-xs text-amber-800">
+                    <span>Replacing file for <strong>{selectedRevCode}</strong>. Upload a new PDF below:</span>
+                    <button type="button" onClick={() => setReplaceMode(false)} className="text-blue-600 underline font-semibold">Cancel Replace</button>
+                  </div>
+                )}
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
                   <Icon icon="mdi:cloud-upload-outline" className="text-4xl text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600 mb-2">Drop revised quotation PDF here or click to browse</p>
+                  <p className="text-sm font-semibold text-gray-700 mb-1">Attach Revised Quotation PDF for {selectedRevCode}</p>
+                  <p className="text-xs text-gray-500 mb-3">Drop revised PDF here or click to browse</p>
                   <input
                     id="document-upload"
                     type="file"
@@ -796,14 +879,14 @@ const EditForm = ({
                     className="hidden"
                     accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
                   />
-                  <label htmlFor="document-upload" className="inline-block px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium cursor-pointer transition">
-                    Choose File
+                  <label htmlFor="document-upload" className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm">
+                    Choose PDF / File
                   </label>
                   {documentFile.length > 0 && (
                     <div className="mt-3 space-y-1">
                       {documentFile.map((file, index) => (
-                        <div key={index} className="text-sm text-blue-700 font-medium">
-                          📄 {file.name}
+                        <div key={index} className="text-xs text-blue-700 font-bold bg-blue-50 p-2 rounded border border-blue-100 flex items-center justify-center gap-2">
+                          <Icon icon="mdi:file-document-check" className="text-base" /> {file.name}
                         </div>
                       ))}
                     </div>
@@ -831,8 +914,8 @@ const EditForm = ({
           </div>
           <div className="p-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Follow Up & Revision Remarks</label>
-              <textarea name="followUpRemark" value={lead.followUpRemark || ""} onChange={onChange} rows="3" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm" placeholder="e.g. Client requested 5% discount on bulk order. Sent revised quote R1." />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Follow Up & Revision Remarks ({selectedRevCode})</label>
+              <textarea name="followUpRemark" value={lead.followUpRemark || ""} onChange={onChange} rows="3" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm" placeholder={`Remarks for ${selectedRevCode}... e.g. Revised quote with 5% discount.`} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Enquiry Scope Description</label>
@@ -868,7 +951,7 @@ const EditForm = ({
             {updating ? (
               <><Icon icon="mdi:loading" className="w-4 h-4 animate-spin" /> Saving Revision...</>
             ) : (
-              <><Icon icon="mdi:content-save-outline" className="w-4 h-4" /> Save Negotiation Revision</>
+              <><Icon icon="mdi:content-save-outline" className="w-4 h-4" /> Save Negotiation Revision ({selectedRevCode})</>
             )}
           </button>
         </div>
