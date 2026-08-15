@@ -795,10 +795,10 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
               className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
               onClick={() => setPanelMode(null)}
             />
-            <div className="relative w-full h-full max-w-[640px] bg-white shadow-2xl border-l border-gray-100 flex flex-col">
+            <div className="relative w-full lg:w-[60%] xl:w-[55%] max-w-5xl h-full bg-white shadow-2xl border-l border-gray-200 flex flex-col">
               {/* Header */}
-              <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 shrink-0">
-                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center shrink-0 border border-blue-200">
                   <Icon
                     name={
                       panelMode === "edit"
@@ -807,18 +807,18 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
                           : "mdi:plus-circle-outline"
                         : config.icon || "mdi:eye-outline"
                     }
-                    className="w-5 h-5 text-white"
+                    className="w-5 h-5 text-blue-700"
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-base font-bold text-white leading-tight">
+                  <h2 className="text-base font-bold text-gray-900 leading-tight">
                     {panelMode === "edit"
                       ? selected
                         ? `Edit ${config.singular}`
                         : `New ${config.singular}`
                       : `${config.singular} Quick View`}
                   </h2>
-                  <p className="text-xs text-blue-100 mt-0.5 truncate">
+                  <p className="text-xs text-gray-500 mt-0.5 truncate">
                     {panelMode === "edit"
                       ? selected
                         ? `Updating details for this ${config.singular.toLowerCase()}`
@@ -828,7 +828,7 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
                 </div>
                 <button
                   onClick={() => setPanelMode(null)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white/70 hover:bg-white/20 hover:text-white transition-colors"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
                 >
                   <Icon name="mdi:close" className="w-5 h-5" />
                 </button>
@@ -879,99 +879,6 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
                   </div>
                 </div>
               ) : (
-                // <form className="flex flex-1 flex-col overflow-hidden" onSubmit={save}>
-                //   <div className="flex-1 overflow-y-auto px-6 py-6">
-                //     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                //       {(config.formFields || []).map((field) => (
-                //         <label
-                //           key={field.name}
-                //           className={field.span === 2 ? "md:col-span-2" : ""}
-                //         >
-                //           <span className="mb-1.5 block text-xs font-semibold text-gray-600">
-                //             {field.label} {field.required && <span className="text-red-500">*</span>}
-                //           </span>
-                //           {field.type === "textarea" ? (
-                //             <textarea
-                //               rows={field.rows || 3}
-                //               className="input-field"
-                //               value={form[field.name] || ""}
-                //               onChange={(e) =>
-                //                 setForm((current) => ({
-                //                   ...current,
-                //                   [field.name]: e.target.value,
-                //                 }))
-                //               }
-                //               required={field.required}
-                //             />
-                //           ) : field.type === "select" ? (
-                //             <select
-                //               className="input-field appearance-none bg-no-repeat bg-[right_0.5rem_center] bg-[length:1.25rem_1.25rem] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M7%209l3%203%203-3%27%20stroke%3D%27%239ca3af%27%20stroke-width%3D%271.5%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E')]"
-                //               value={form[field.name] || ""}
-                //               onChange={(e) =>
-                //                 setForm((current) => ({
-                //                   ...current,
-                //                   [field.name]: e.target.value,
-                //                 }))
-                //               }
-                //               required={field.required}
-                //             >
-                //               <option value="">Select</option>
-                //               {(field.options || []).map((option) => (
-                //                 <option key={option} value={option}>
-                //                   {option}
-                //                 </option>
-                //               ))}
-                //             </select>
-                //           ) : (
-                //             <input
-                //               type={field.type || "text"}
-                //               className="input-field"
-                //               value={form[field.name] || ""}
-                //               onChange={(e) =>
-                //                 setForm((current) => ({
-                //                   ...current,
-                //                   [field.name]: e.target.value,
-                //                 }))
-                //               }
-                //               required={field.required}
-                //             />
-                //           )}
-                //         </label>
-                //       ))}
-                //     </div>
-                //   </div>
-                //   <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/70 shrink-0">
-                //     <div className="text-xs text-gray-400">
-                //       <span className="text-red-500">*</span> Required fields
-                //     </div>
-                //     <div className="flex items-center gap-2">
-                //       <button
-                //         type="button"
-                //         className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors bg-white"
-                //         onClick={() => setPanelMode(null)}
-                //       >
-                //         Cancel
-                //       </button>
-                //       <button
-                //         type="submit"
-                //         disabled={saving}
-                //         className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors shadow-sm"
-                //       >
-                //         {saving ? (
-                //           <Icon name="mdi:loading" className="w-4 h-4 animate-spin" />
-                //         ) : (
-                //           <Icon
-                //             name={
-                //               selected
-                //                 ? "mdi:check-circle-outline"
-                //                 : "mdi:plus-circle-outline"
-                //             }
-                //             className="w-4 h-4"
-                //           />
-                //         )}
-                //         {saving
-                //           ? "Saving…"
-                //           : selected
                 <form className="flex flex-1 flex-col overflow-hidden" onSubmit={save}>
                   <div className="flex-1 overflow-y-auto p-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
