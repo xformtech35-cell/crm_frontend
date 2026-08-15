@@ -270,6 +270,30 @@ const handleFileChange = (e) => {
     );
   }
 
+  const handleAddNewRevision = () => {
+    setIsEditing(true);
+    const currentRevStr = lead?.quotationRevision || "R0";
+    const currentNum = parseInt(currentRevStr.replace(/\D/g, ""), 10) || 0;
+    const nextRevStr = `R${currentNum + 1}`;
+    
+    let currentQuotNo = lead?.quotationNumber || "";
+    if (currentQuotNo) {
+      if (/\/R\d+$/i.test(currentQuotNo)) {
+        currentQuotNo = currentQuotNo.replace(/\/R\d+$/i, `/${nextRevStr}`);
+      } else {
+        currentQuotNo = `${currentQuotNo}/${nextRevStr}`;
+      }
+    }
+
+    setEditedLead({
+      ...lead,
+      quotationRevision: nextRevStr,
+      quotationNumber: currentQuotNo,
+      followUpRemark: ""
+    });
+    setError("");
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Header */}
@@ -281,17 +305,24 @@ const handleFileChange = (e) => {
             </button>
             <div>
               <h1 className="text-xl font-semibold text-gray-800">
-                {isEditing ? "Edit Lead" : "Lead Details"}
+                {isEditing ? "Edit Negotiation Details" : "Negotiation Details"}
               </h1>
-              {isEditing && (
-                <p className="text-sm text-gray-500">Updating: {lead.leadOrganisationName}</p>
+              {isEditing ? (
+                <p className="text-sm text-gray-500">Updating Commercials: {lead?.leadOrganisationName}</p>
+              ) : (
+                <p className="text-xs text-gray-500">{lead?.leadOrganisationName} · Qtn: {lead?.quotationNumber || "—"}</p>
               )}
             </div>
           </div>
           {!isEditing && (
-            <button onClick={handleEdit} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition shadow-sm">
-              <Icon icon="mdi:pencil" className="text-lg" /> Edit
-            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={handleAddNewRevision} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium flex items-center gap-2 transition shadow-sm text-sm">
+                <Icon icon="mdi:plus-circle" className="text-lg" /> Add New Revision
+              </button>
+              <button onClick={handleEdit} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition shadow-sm text-sm">
+                <Icon icon="mdi:pencil" className="text-lg" /> Edit Commercials
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -316,7 +347,7 @@ const handleFileChange = (e) => {
       {isEditing && (
         <>
           <div className="fixed inset-0 bg-black/30 z-40" onClick={handleCancelEdit} />
-          <div className="fixed top-0 right-0 h-screen w-full lg:w-[42%] bg-white shadow-2xl overflow-y-auto z-50 animate-slide-in">
+          <div className="fixed top-0 right-0 h-screen w-full lg:w-[45%] bg-white shadow-2xl overflow-y-auto z-50 animate-slide-in">
             <EditForm
               lead={editedLead}
               onCancel={handleCancelEdit}
@@ -674,11 +705,16 @@ const EditForm = ({
   return (
     <div className="h-full flex flex-col">
       {/* Form Header */}
-      <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-cyan-50 flex-shrink-0">
+      <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800">Edit Lead</h2>
-            <p className="text-sm text-gray-500">Update the details to modify the lead</p>
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <Icon icon="mdi:calculator-variant" className="text-blue-600" />
+              Edit Negotiation & Commercials
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Update quotation amount, revision level (R1, R2...), outcome status, and upload revised documents.
+            </p>
           </div>
           <button onClick={onCancel} className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
             <Icon icon="mdi:close" className="text-xl text-gray-600" />
@@ -686,86 +722,64 @@ const EditForm = ({
         </div>
       </div>
 
-      <form onSubmit={onSave} className="flex-1 overflow-y-auto p-6">
+      <form onSubmit={onSave} className="flex-1 overflow-y-auto p-6 space-y-6">
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg text-red-700 text-sm flex items-center">
+          <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-lg text-red-700 text-sm flex items-center">
             <Icon icon="mdi:alert-circle" className="mr-2 text-red-500" />
             {error}
           </div>
         )}
 
-        {/* Basic Information */}
-        <div className="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
-            <Icon icon="mdi:information-outline" className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-gray-700">Basic Information</h3>
+        {/* 1. Quotation & Commercial Details (PRIMARY FOR NEGOTIATIONS) */}
+        <div className="bg-white rounded-xl border border-blue-200 shadow-sm overflow-hidden ring-1 ring-blue-50">
+          <div className="px-6 py-3 bg-blue-50/60 border-b border-blue-100 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">
+              <Icon icon="mdi:currency-inr" className="text-blue-600" />
+              Quotation Commercials & Revision
+            </h3>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">High Priority</span>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField label="Company Name" name="leadOrganisationName" value={lead.leadOrganisationName || ""} onChange={onChange} required />
-              <FormField label="Company Contact Person Name" name="companyContactPersonName" value={lead.companyContactPersonName || ""} onChange={onChange} />
-              <FormField label="Contact Phone" name="leadMobileNo" value={lead.leadMobileNo || ""} onChange={onChange} type="tel" placeholder="Phone/Mobile Number" />
-              <FormField label="Contact Email" name="leadEmail" value={lead.leadEmail || ""} onChange={onChange} type="email" placeholder="email@example.com" />
-              <FormField label="Enquiry Date" name="inquiryDate" value={lead.inquiryDate ? String(lead.inquiryDate).split("T")[0] : ""} onChange={onChange} type="date" />
-              <FormField label="Team Members" name="teamMembers" value={lead.teamMembers || ""} onChange={onChange} placeholder="Select Team Member" />
-            </div>
-          </div>
-        </div>
-
-        {/* Lead Details */}
-        <div className="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
-            <Icon icon="mdi:tag-outline" className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-gray-700">Lead Details</h3>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField label="Lead Source" name="leadSource" value={lead.leadSource || ""} onChange={onChange} placeholder="Select Source" />
-              <FormField label="Lead Group" name="leadGroup" value={lead.leadGroup || ""} onChange={onChange} placeholder="Select Group" />
-              <FormField label="Lead Status" name="leadStatus" value={lead.leadStatus || ""} onChange={onChange} placeholder="Open" />
-              <FormField label="Outcome Status" name="leadOutcomeStatus" value={lead.leadOutcomeStatus || ""} onChange={onChange} />
-            </div>
-          </div>
-        </div>
-
-        {/* Quotation Details */}
-        <div className="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
-            <Icon icon="mdi:file-document-outline" className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-gray-700">Quotation Details</h3>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField label="Quotation Amount" name="quotationAmount" value={lead.quotationAmount || ""} onChange={onChange} type="number" placeholder="0.00" />
-              <FormField label="Quotation Number" name="quotationNumber" value={lead.quotationNumber || ""} onChange={onChange} placeholder="QTN-001" />
+              <FormField label="Quotation Amount (₹)" name="quotationAmount" value={lead.quotationAmount || ""} onChange={onChange} type="number" placeholder="e.g. 150000" required />
+              <FormField label="Quotation Number" name="quotationNumber" value={lead.quotationNumber || ""} onChange={onChange} placeholder="UWS/26-27/224/R1" />
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Quotation Revision</label>
-                <select name="quotationRevision" value={lead.quotationRevision || "R0"} onChange={onChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm bg-white">
-                  {Array.from({ length: 11 }, (_, i) => <option key={i} value={`R${i}`}>R{i}</option>)}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Revision Level</label>
+                <select name="quotationRevision" value={lead.quotationRevision || "R0"} onChange={onChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm bg-white font-semibold">
+                  {Array.from({ length: 11 }, (_, i) => <option key={i} value={`R${i}`}>Revision R{i}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Deal Outcome Status</label>
+                <select name="leadOutcomeStatus" value={lead.leadOutcomeStatus || "Negotiation"} onChange={onChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm bg-white font-semibold">
+                  <option value="Negotiation">Negotiation (In Progress)</option>
+                  <option value="Quotation Sent">Quotation Sent</option>
+                  <option value="Won">Deal Won (Closed-Won)</option>
+                  <option value="Lost">Deal Lost (Closed-Lost)</option>
                 </select>
               </div>
               <FormField label="Quotation Working Date" name="quotationDate" value={lead.quotationDate ? String(lead.quotationDate).split("T")[0] : ""} onChange={onChange} type="date" />
-              <FormField label="Final Quotation Sent" name="quotationSentDate" value={lead.quotationSentDate ? String(lead.quotationSentDate).split("T")[0] : ""} onChange={onChange} type="date" />
+              <FormField label="Final Sent Date" name="quotationSentDate" value={lead.quotationSentDate ? String(lead.quotationSentDate).split("T")[0] : ""} onChange={onChange} type="date" />
             </div>
           </div>
         </div>
 
-        {/* Document Upload Section */}
-        <div className="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        {/* 2. Document Upload (Revised Quotation PDF) */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
             <Icon icon="mdi:file-upload-outline" className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-gray-700">Document Upload</h3>
+            <h3 className="text-sm font-semibold text-gray-700">Attach Revised Quotation PDF / File</h3>
           </div>
           <div className="p-6">
             {documentExists ? (
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 text-green-600">
                   <Icon icon="mdi:check-circle" className="text-xl" />
-                  <span className="text-sm font-medium">Document uploaded</span>
+                  <span className="text-sm font-medium">Document attached to quotation</span>
                 </div>
                 <div className="flex flex-wrap gap-2 ml-auto">
                   <button type="button" onClick={onDocumentDelete} className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-1.5 transition">
-                    <Icon icon="mdi:delete" className="text-lg" /> Delete
+                    <Icon icon="mdi:delete" className="text-lg" /> Replace Document
                   </button>
                 </div>
               </div>
@@ -773,27 +787,27 @@ const EditForm = ({
               <div>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
                   <Icon icon="mdi:cloud-upload-outline" className="text-4xl text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600 mb-2">Drop your document here or click to browse</p>
-<input
-  id="document-upload"
-  type="file"
-  multiple
-  onChange={onFileChange}
-  className="hidden"
-  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
-/>
+                  <p className="text-sm text-gray-600 mb-2">Drop revised quotation PDF here or click to browse</p>
+                  <input
+                    id="document-upload"
+                    type="file"
+                    multiple
+                    onChange={onFileChange}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
+                  />
                   <label htmlFor="document-upload" className="inline-block px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium cursor-pointer transition">
                     Choose File
                   </label>
                   {documentFile.length > 0 && (
-  <div className="mt-3 space-y-1">
-    {documentFile.map((file, index) => (
-      <div key={index} className="text-sm text-gray-600">
-        {file.name}
-      </div>
-    ))}
-  </div>
-)}
+                    <div className="mt-3 space-y-1">
+                      {documentFile.map((file, index) => (
+                        <div key={index} className="text-sm text-blue-700 font-medium">
+                          📄 {file.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {uploading && (
                     <div className="mt-4">
@@ -804,46 +818,57 @@ const EditForm = ({
                     </div>
                   )}
                 </div>
-                {/* {documentFile && !uploading && (
-                  <button type="button" onClick={onDocumentUpload} className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition">
-                    <Icon icon="mdi:upload" className="text-lg" /> Upload Document
-                  </button>
-                )} */}
               </div>
             )}
           </div>
         </div>
 
-        {/* Description & Remarks */}
-        <div className="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        {/* 3. Revision Remarks & Description */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
             <Icon icon="mdi:note-text-outline" className="text-blue-500" />
-            <h3 className="text-sm font-semibold text-gray-700">Description & Remarks</h3>
+            <h3 className="text-sm font-semibold text-gray-700">Negotiation Remarks & Notes</h3>
           </div>
-          <div className="p-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Enquiry Description</label>
-                <textarea name="enquiryDescription" value={lead.enquiryDescription || ""} onChange={onChange} rows="3" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm" placeholder="Enter enquiry description..." />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Follow Up Remarks</label>
-                <textarea name="followUpRemark" value={lead.followUpRemark || ""} onChange={onChange} rows="2" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm" placeholder="Enter follow up remarks..." />
-              </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Follow Up & Revision Remarks</label>
+              <textarea name="followUpRemark" value={lead.followUpRemark || ""} onChange={onChange} rows="3" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm" placeholder="e.g. Client requested 5% discount on bulk order. Sent revised quote R1." />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Enquiry Scope Description</label>
+              <textarea name="enquiryDescription" value={lead.enquiryDescription || ""} onChange={onChange} rows="2" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm" placeholder="Scope description..." />
             </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 sticky bottom-0 bg-white pb-2">
-          <button type="button" onClick={onCancel} disabled={updating} className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition disabled:opacity-50">
+        {/* 4. Basic Client Information */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+            <Icon icon="mdi:information-outline" className="text-blue-500" />
+            <h3 className="text-sm font-semibold text-gray-700">Basic Client Information</h3>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField label="Company Name" name="leadOrganisationName" value={lead.leadOrganisationName || ""} onChange={onChange} required />
+              <FormField label="Contact Person Name" name="companyContactPersonName" value={lead.companyContactPersonName || ""} onChange={onChange} />
+              <FormField label="Contact Phone" name="leadMobileNo" value={lead.leadMobileNo || ""} onChange={onChange} type="tel" placeholder="Phone/Mobile Number" />
+              <FormField label="Contact Email" name="leadEmail" value={lead.leadEmail || ""} onChange={onChange} type="email" placeholder="email@example.com" />
+              <FormField label="Enquiry Date" name="inquiryDate" value={lead.inquiryDate ? String(lead.inquiryDate).split("T")[0] : ""} onChange={onChange} type="date" />
+              <FormField label="Lead Source" name="leadSource" value={lead.leadSource || ""} onChange={onChange} placeholder="Select Source" />
+            </div>
+          </div>
+        </div>
+
+        {/* Form Footer Actions */}
+        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 sticky bottom-0 bg-white pb-2 z-10">
+          <button type="button" onClick={onCancel} disabled={updating} className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition disabled:opacity-50 text-sm">
             Cancel
           </button>
-          <button type="submit" disabled={updating} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+          <button type="submit" disabled={updating} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm">
             {updating ? (
-              <><Icon icon="mdi:loading" className="w-4 h-4 animate-spin" /> Updating...</>
+              <><Icon icon="mdi:loading" className="w-4 h-4 animate-spin" /> Saving Revision...</>
             ) : (
-              <><Icon icon="mdi:content-save-outline" className="w-4 h-4" /> Update Lead</>
+              <><Icon icon="mdi:content-save-outline" className="w-4 h-4" /> Save Negotiation Revision</>
             )}
           </button>
         </div>
