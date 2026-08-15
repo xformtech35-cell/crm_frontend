@@ -1098,23 +1098,46 @@ const EditForm = ({
               <FormField label="Contact Phone" name="leadMobileNo" value={lead.leadMobileNo || ""} onChange={onChange} type="tel" placeholder="Phone/Mobile Number" />
               <FormField label="Contact Email" name="leadEmail" value={lead.leadEmail || ""} onChange={onChange} type="email" placeholder="email@example.com" />
               <FormField label="Enquiry Date" name="inquiryDate" value={lead.inquiryDate ? String(lead.inquiryDate).split("T")[0] : ""} onChange={onChange} type="date" />
-              <FormField label="Lead Source" name="leadSource" value={lead.leadSource || ""} onChange={onChange} placeholder="Select Source" />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Lead Source</label>
+                <select 
+                  name="leadSource" 
+                  value={lead.leadSource || "Direct"} 
+                  onChange={onChange} 
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm bg-white font-medium"
+                >
+                  <option value="Direct">Direct</option>
+                  <option value="Website">Website</option>
+                  <option value="Ref/Exhibition">Ref / Exhibition</option>
+                  <option value="Cold Call">Cold Call</option>
+                  <option value="LinkedIn">LinkedIn</option>
+                  <option value="Email Campaign">Email Campaign</option>
+                  <option value="Partner">Partner</option>
+                </select>
+              </div>
+              <FormField label="City" name="leadCity" value={lead.leadCity || ""} onChange={onChange} placeholder="e.g. Mumbai" />
+              <FormField label="State / Country" name="leadState" value={lead.leadState || lead.leadCountry || ""} onChange={onChange} placeholder="e.g. Maharashtra, India" />
             </div>
           </div>
         </div>
 
         {/* Form Footer Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 sticky bottom-0 bg-white pb-2 z-10">
-          <button type="button" onClick={onCancel} disabled={updating} className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition disabled:opacity-50 text-sm">
-            Cancel
-          </button>
-          <button type="submit" disabled={updating} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm">
-            {updating ? (
-              <><Icon icon="mdi:loading" className="w-4 h-4 animate-spin" /> Saving Revision...</>
-            ) : (
-              <><Icon icon="mdi:content-save-outline" className="w-4 h-4" /> Save Negotiation Revision ({selectedRevCode})</>
-            )}
-          </button>
+        <div className="flex items-center justify-between gap-3 p-4 border-t border-gray-200 sticky bottom-0 bg-white shadow-lg z-20">
+          <div className="text-xs text-gray-500 font-medium hidden sm:block">
+            Updating Revision: <span className="font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-100">{selectedRevCode}</span>
+          </div>
+          <div className="flex items-center gap-3 ml-auto">
+            <button type="button" onClick={onCancel} disabled={updating} className="px-5 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition disabled:opacity-50 text-sm">
+              Cancel
+            </button>
+            <button type="submit" disabled={updating} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm">
+              {updating ? (
+                <><Icon icon="mdi:loading" className="w-4 h-4 animate-spin" /> Saving Revision...</>
+              ) : (
+                <><Icon icon="mdi:content-save-outline" className="w-4 h-4" /> Save Negotiation Revision ({selectedRevCode})</>
+              )}
+            </button>
+          </div>
         </div>
       </form>
     </div>
