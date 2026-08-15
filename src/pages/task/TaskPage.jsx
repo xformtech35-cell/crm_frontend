@@ -456,13 +456,13 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
       <form id="task-form" onSubmit={handleSubmit} className="space-y-4">
         {/* ─── TAB: Details ─── */}
         {activeTab === 'details' && (
-          <>
+          <div className="space-y-4">
             <div>
               <label className={lbl}>Task Title <span className="text-red-500">*</span></label>
               <input value={form.taskName} onChange={e => setF('taskName', e.target.value)} placeholder="What needs to be done?" className={inp} autoFocus required />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div>
                 <label className={lbl}>Status</label>
                 <select value={form.taskAssign} onChange={e => setF('taskAssign', e.target.value)} className={sel}>
@@ -507,11 +507,10 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
                 <label className={lbl}>Expected Completion</label>
                 <input type="date" value={form.taskExpectedCompletion} onChange={e => setF('taskExpectedCompletion', e.target.value)} className={inp} />
               </div>
-            </div>
-
-            <div>
-              <label className={lbl}>Related To</label>
-              <input value={form.taskRelatedTo} onChange={e => setF('taskRelatedTo', e.target.value)} placeholder="Lead, Project, Deal..." className={inp} />
+              <div>
+                <label className={lbl}>Related To</label>
+                <input value={form.taskRelatedTo} onChange={e => setF('taskRelatedTo', e.target.value)} placeholder="Lead, Project, Deal..." className={inp} />
+              </div>
             </div>
 
             <div>
@@ -540,12 +539,12 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
                 />
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {/* ─── TAB: Assignment ─── */}
         {activeTab === 'assign' && (
-          <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {isAdmin && (
               <div>
                 <label className={lbl}>Assign to Team</label>
@@ -587,17 +586,15 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={lbl}>Contact Phone</label>
-                <input type="tel" value={form.taskPhone} onChange={e => setF('taskPhone', e.target.value)} className={inp} />
-              </div>
-              <div>
-                <label className={lbl}>Contact Email</label>
-                <input type="email" value={form.taskEmail} onChange={e => setF('taskEmail', e.target.value)} className={inp} />
-              </div>
+            <div>
+              <label className={lbl}>Contact Phone</label>
+              <input type="tel" value={form.taskPhone} onChange={e => setF('taskPhone', e.target.value)} className={inp} />
             </div>
-          </>
+            <div>
+              <label className={lbl}>Contact Email</label>
+              <input type="email" value={form.taskEmail} onChange={e => setF('taskEmail', e.target.value)} className={inp} />
+            </div>
+          </div>
         )}
 
         {/* ─── TAB: Time Tracking ─── */}
