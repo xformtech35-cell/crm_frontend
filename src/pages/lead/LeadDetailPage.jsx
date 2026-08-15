@@ -1272,18 +1272,32 @@ export default function LeadDetailPage() {
 
             {/* ─── DOCUMENTS TAB ─── */}
             {activeTab === "documents" && (
-              <section className="space-y-4">
-                <h3 className="text-base font-semibold text-gray-900">Documents</h3>
-                
+              <section className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-gray-900">Quotation Documents & Revision History</h3>
+                </div>
+
+                {/* ─── Revision History & Stepper Tabs ─── */}
+                <div>
+                  <RevisionHistorySection
+                    revisions={revisionHistory}
+                    loading={revisionLoading}
+                    showRevisions={showRevisions}
+                    setShowRevisions={setShowRevisions}
+                    lead={lead}
+                    negotiationApi={negotiationApi}
+                  />
+                </div>
+
                 {/* Upload Zone */}
                 <div
-                  className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center bg-gray-50/50 hover:border-blue-300 hover:bg-blue-50/20 transition-all cursor-pointer"
+                  className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center bg-gray-50/50 hover:border-blue-300 hover:bg-blue-50/20 transition-all cursor-pointer"
                   onDrop={(e) => { e.preventDefault(); uploadFiles(e.dataTransfer?.files); }}
                   onDragOver={(e) => e.preventDefault()}
                   onClick={() => uploadInput.current?.click()}
                 >
-                  <Icon name={uploading ? "mdi:loading" : "mdi:cloud-upload-outline"} className={`h-10 w-10 text-gray-400 mx-auto mb-3 ${uploading ? "animate-spin" : ""}`} />
-                  <p className="text-sm font-medium text-gray-700">{uploading ? "Uploading..." : "Drag & drop files here"}</p>
+                  <Icon name={uploading ? "mdi:loading" : "mdi:cloud-upload-outline"} className={`h-10 w-10 text-gray-400 mx-auto mb-2 ${uploading ? "animate-spin" : ""}`} />
+                  <p className="text-sm font-medium text-gray-700">{uploading ? "Uploading..." : "Drag & drop additional files here"}</p>
                   <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, Images, Documents (up to 4 files)</p>
                   <button type="button" className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 shadow-sm">
                     <Icon name="mdi:plus" className="h-4 w-4" /> Choose Files
@@ -1300,7 +1314,7 @@ export default function LeadDetailPage() {
                 </div>
 
                 {/* Document List */}
-                {filesFromLead.length > 0 ? (
+                {filesFromLead.length > 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {filesFromLead.map((doc, index) => {
                       let path = doc.path || "";
@@ -1334,18 +1348,6 @@ export default function LeadDetailPage() {
                                 <Icon name="mdi:eye-outline" className="h-3.5 w-3.5 inline mr-1" />View
                               </button>
                             )}
-                             {/* <button
-                              type="button"
-                              onClick={() =>
-                               negotiationApi.handleViewDocument(
-                                  doc.fileUrl
-                                )
-                              }
-                              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[10px] text-white hover:bg-blue-700"
-                            >
-                              <Icon name="mdi:eye-outline" className="w-3.5 h-3.5" />
-                              View
-                            </button> */}
                             <button
                               type="button"
                               onClick={() =>
@@ -1362,26 +1364,7 @@ export default function LeadDetailPage() {
                       );
                     })}
                   </div>
-                ) : (
-                  <div className="text-center py-12 text-gray-400">
-                    <Icon name="mdi:file-multiple-outline" className="h-12 w-12 mx-auto mb-3 opacity-40" />
-                    <p className="text-sm font-medium">No documents uploaded</p>
-                    <p className="text-xs mt-1">Upload files using the upload zone above</p>
-                  </div>
                 )}
-
-                {/* ─── Revision History ─── */}
-                <div className="mt-6">
-                  <RevisionHistorySection
-                    revisions={revisionHistory}
-                    loading={revisionLoading}
-                    showRevisions={showRevisions}
-                    setShowRevisions={setShowRevisions}
-                    lead={lead}
-                    negotiationApi={negotiationApi}
-                  />
-                </div>
-
               </section>
             )}
 
