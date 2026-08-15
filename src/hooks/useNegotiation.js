@@ -49,21 +49,46 @@ export function useNegotiation() {
 
 const handleViewDocument = async (fileName) => {
   try {
-    const response = await viewQuotationDocument(fileName);
-console.log("1",response);
-console.log("2",response?.data);
-console.log("3",response?.headers);
+    let cleanPath = fileName;
+    if (cleanPath.startsWith("/")) cleanPath = cleanPath.substring(1);
+    if (cleanPath.startsWith("api/view/")) cleanPath = cleanPath.substring(9);
+    if (cleanPath.startsWith("view/")) cleanPath = cleanPath.substring(5);
+
+    const response = await viewQuotationDocument(cleanPath);
     const blob = new Blob([response?.data], {
-      type: response.headers["content-type"],
+      type: response.headers["content-type"] || "application/pdf",
     });
 
     const fileURL = URL.createObjectURL(blob);
-
     window.open(fileURL, "_blank");
-
-    setTimeout(() => URL.revokeObjectURL(fileURL), 1000);
+    setTimeout(() => URL.revokeObjectURL(fileURL), 10000);
   } catch (err) {
-    console.error(err);
+    console.error("View Document Error:", err);
+  }
+};
+
+const handleDownloadRevisionDocument = async (fileUrlOrName, fileName) => {
+  try {
+    let cleanPath = fileUrlOrName || fileName;
+    if (cleanPath.startsWith("/")) cleanPath = cleanPath.substring(1);
+    if (cleanPath.startsWith("api/view/")) cleanPath = cleanPath.substring(9);
+    if (cleanPath.startsWith("view/")) cleanPath = cleanPath.substring(5);
+
+    const response = await viewQuotationDocument(cleanPath);
+    const blob = new Blob([response?.data], {
+      type: response.headers["content-type"] || "application/octet-stream",
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName || "quotation-document";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Download Document Error:", err);
   }
 };
 
@@ -262,6 +287,7 @@ const uploadQuotationDocuments = async (quotationNo, files) => {
     viewDocument,
     downloadDocument,
     uploadQuotationDocuments,
-    handleViewDocument
+    handleViewDocument,
+    handleDownloadRevisionDocument
   };
 }

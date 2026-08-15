@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useNegotiation } from "../../hooks/useNegotiation";
 import { useLead } from "../../hooks/useLead";
@@ -8,15 +8,20 @@ export default function NegotiationDetailPage() {
   const leadApi = useLead();
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const negotiationApi = useNegotiation();
+
+  const queryParams = new URLSearchParams(location.search);
+  const shouldEdit = queryParams.get("edit") === "true" || location.state?.edit === true;
+
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(shouldEdit);
   const [editedLead, setEditedLead] = useState({});
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
   const [revisions, setRevisions] = useState([]);
-  const [showRevisions, setShowRevisions] = useState(false);
+  const [showRevisions, setShowRevisions] = useState(true);
   const [revisionLoading, setRevisionLoading] = useState(false);
   
   // Document states
@@ -31,7 +36,10 @@ export default function NegotiationDetailPage() {
     loadLead();
     loadRevisions();
     checkDocumentExists();
-  }, [id]);
+    if (shouldEdit) {
+      setIsEditing(true);
+    }
+  }, [id, location.search]);
 
   const loadLead = async () => {
     try {
@@ -300,6 +308,7 @@ const handleFileChange = (e) => {
           handleViewDocument={handleViewDocument}
           handleDownloadDocument={handleDownloadDocument}
           handleDeleteDocument={handleDeleteDocument}
+          negotiationApi={negotiationApi}
         />
       </div>
 
@@ -341,33 +350,36 @@ const ViewMode = ({
   documentExists,
   handleViewDocument,
   handleDownloadDocument,
-  handleDeleteDocument
+  handleDeleteDocument,
+  negotiationApi
 }) => (
   <div className="grid lg:grid-cols-3 gap-6">
     <div className="lg:col-span-2 space-y-6">
       <InfoSection title="General Information" fields={getGeneralFields(lead)} />
       <InfoSection title="Quotation & Commercials" fields={getCommercialFields(lead)} />
       
-      {/* <DocumentSection 
+      <DocumentSection 
         documentExists={documentExists}
         handleViewDocument={handleViewDocument}
         handleDownloadDocument={handleDownloadDocument}
         handleDeleteDocument={handleDeleteDocument}
-      /> */}
+      />
       
-      {/* <RevisionHistorySection 
+      <RevisionHistorySection 
         revisions={revisions}
         loading={revisionLoading}
         showRevisions={showRevisions}
         setShowRevisions={setShowRevisions}
         lead={lead}
-      /> */}
+        negotiationApi={negotiationApi}
+      />
     </div>
 
     <div className="space-y-5">
       <StatCard title="Quotation Value" value={formatCurrency(lead.quotationAmount)} icon="mdi:currency-inr" />
       <StatCard title="Revision" value={lead.quotationRevision || "R0"} icon="mdi:file-document-edit" />
-      <StatCard title="Lead Status" value={lead.leadOutcomeStatus || "—"} icon="mdi:chart-timeline-variant" />
+      <StatCard title="Lead Status" value={lead.leadStatus || "—"} icon="mdi:chart-timeline-variant" />
+      <StatCard title="Outcome Status" value={lead.leadOutcomeStatus || "—"} icon="mdi:flag-outline" />
       <StatCard title="Lead Source" value={lead.leadSource || "—"} icon="mdi:source-branch" />
     </div>
   </div>
@@ -420,7 +432,7 @@ const DocumentSection = ({
 
 // ============= REVISION HISTORY SECTION =============
 
-const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevisions, lead }) => {
+export const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevisions, lead, negotiationApi }) => {
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -452,9 +464,66 @@ const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevi
     );
   }
 
-  const latestRevision = revisions.reduce((latest, current) => {
-    return new Date(current.updatedDate) > new Date(latest.updatedDate) ? current : latest;
-  }, revisions[0]);
+  const displayRevisions = React.useMemo(() => {
+    const map = new Map();
+    revisions.forEach((rev) => {
+      const key = rev.revisionNo || "R0";
+      if (!map.has(key) || new Date(rev.updatedDate || 0) > new Date(map.get(key).updatedDate || 0)) {
+        map.set(key, rev);
+      }
+    });
+
+    if (!map.has("R0")) {
+      const baseQtnNo = (lead?.quotationNumber || lead?.quotationNo || "").replace(/\/R\d+$/, "") || "QTN-001";
+      const r0Date = lead?.inquiryDate || lead?.quotationDate || lead?.leadCreatedDate || lead?.createdDate || new Date().toISOString();
+
+      map.set("R0", {
+        id: "r0-fallback",
+        revisionNo: "R0",
+        quotationNo: baseQtnNo,
+        quotationAmount: lead?.quotationAmount || 0,
+        negotiationStatus: "Negotiation",
+        remarks: lead?.followUpRemark || "Initial Baseline Proposal",
+        enquiryDescription: lead?.enquiryDescription,
+        updatedDate: r0Date,
+        documents: []
+      });
+    }
+
+    const r0 = map.get("R0");
+    if (r0) {
+      if (!r0.updatedDate || String(r0.updatedDate).startsWith("2020")) {
+        r0.updatedDate = lead?.inquiryDate || lead?.quotationDate || lead?.leadCreatedDate || lead?.createdDate || r0.updatedDate;
+      }
+      if ((!r0.documents || r0.documents.length === 0) && lead) {
+        const leadDocs = [
+          lead.uploadDocument,
+          lead.uploadDocument1,
+          lead.uploadDocument2,
+          lead.uploadDocument3
+        ].filter(Boolean).map((url, i) => {
+          let name = url.substring(url.lastIndexOf('/') + 1);
+          if (name.includes('_')) {
+            name = name.substring(name.indexOf('_') + 1);
+          }
+          return {
+            id: `doc-r0-${i}`,
+            fileName: name,
+            fileUrl: url,
+            fileType: url.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'
+          };
+        });
+        if (leadDocs.length > 0) {
+          r0.documents = leadDocs;
+          r0.documentCount = leadDocs.length;
+        }
+      }
+    }
+
+    return [...map.values()].sort((a, b) => new Date(b.updatedDate || 0) - new Date(a.updatedDate || 0));
+  }, [revisions, lead]);
+
+  const latestRevision = displayRevisions.length > 0 ? displayRevisions[0] : revisions[0];
 
   const currentQuotationNo = lead?.quotationNumber || lead?.quotationNo || "N/A";
   const currentRevisionNo = lead?.quotationRevision || latestRevision?.revisionNo || "R0";
@@ -469,7 +538,7 @@ const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevi
       >
         <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
           <Icon icon="mdi:history" className="text-blue-500" />
-          Revision History
+          Revision History ({displayRevisions.length})
         </h3>
         <Icon icon={showRevisions ? "mdi:chevron-up" : "mdi:chevron-down"} className="text-gray-400 text-xl" />
       </div>
@@ -488,7 +557,7 @@ const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevi
           <div className="w-px h-6 bg-gray-200 mx-1 sm:mx-2" />
           <div className="flex flex-col gap-0.5">
             <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">Current Amount</span>
-            <span className="font-bold text-gray-900 text-[10px] sm:text-xs">{formatCurrency(currentAmount)}</span>
+            <span className="font-bold text-gray-900 text-xs sm:text-xs">{formatCurrency(currentAmount)}</span>
           </div>
           <div className="w-px h-6 bg-gray-200 mx-1 sm:mx-2" />
           <div className="flex flex-col gap-0.5">
@@ -500,7 +569,7 @@ const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevi
       
       {showRevisions && (
         <div className="p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto bg-gray-50/30 space-y-4 sm:space-y-6">
-          {revisions.map((rev, idx) => {
+          {displayRevisions.map((rev, idx) => {
             const isLatest = idx === 0;
             return (
               <div key={rev.id} className="relative flex gap-4 sm:gap-6 pl-4 pb-2 last:pb-0">
@@ -539,10 +608,32 @@ const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevi
                       </span>
                     </div>
                   </div>
-                  <div className="text-[10px] sm:text-xs text-gray-600 leading-relaxed bg-slate-50/20 p-2 rounded-lg border border-dashed border-gray-100">
+                  <div className="text-[10px] sm:text-xs text-gray-600 leading-relaxed bg-slate-50/20 p-2 rounded-lg border border-dashed border-gray-100 mb-3">
                     <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-0.5">Remarks</span>
                     {rev.remarks || <em className="text-gray-400">No remarks added.</em>}
                   </div>
+
+                  {/* Attached Documents */}
+                  {rev.documents && rev.documents.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-100">
+                      <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-1.5">Files ({rev.documents.length})</span>
+                      <div className="space-y-1.5">
+                        {rev.documents.map((doc) => (
+                          <div key={doc.id || doc.fileName} className="flex items-center justify-between rounded-lg border bg-gray-50 px-2.5 py-1.5 text-xs">
+                            <span className="truncate font-medium text-gray-700 max-w-[180px]">{doc.fileName}</span>
+                            <div className="flex items-center gap-1">
+                              {negotiationApi?.handleViewDocument && (
+                                <button type="button" onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName)} className="px-2 py-0.5 bg-blue-600 text-white rounded text-[10px] font-medium hover:bg-blue-700">View</button>
+                              )}
+                              {negotiationApi?.handleDownloadRevisionDocument && (
+                                <button type="button" onClick={() => negotiationApi.handleDownloadRevisionDocument(doc.fileUrl || doc.fileName, doc.fileName)} className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-medium hover:bg-emerald-700">Download</button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -553,7 +644,7 @@ const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevi
   );
 };
 
-const getRevStatusClass = (status) => {
+export const getRevStatusClass = (status) => {
   if (status === "Superseded") return "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-50 text-gray-400 border border-gray-200/60";
   if (status === "Negotiation") return "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-yellow-50 text-yellow-700 border border-yellow-100";
   if (status === "Won") return "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100";

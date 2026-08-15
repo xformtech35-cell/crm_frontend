@@ -48,9 +48,15 @@ export default function LoginPage() {
   //   loadFromStorage();
   // }, [loadFromStorage]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window.location.search.includes("logout=true") || window.location.search.includes("clear=true"))) {
+      useAuthStore.getState().logout();
+    }
+  }, []);
+
   const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin());
 
-  if (token) {
+  if (token && typeof window !== "undefined" && !window.location.search.includes("logout=true")) {
     return <Navigate to={isSuperAdmin ? "/super-admin" : "/home"} replace />;
   }
 

@@ -234,6 +234,22 @@ function csvCell(value) {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
+function cleanEnquiryDescription(rawText) {
+  if (!rawText) return "-";
+  let text = String(rawText);
+  if (text === "-") return "-";
+  try {
+    text = decodeURIComponent(text);
+  } catch (e) {
+    // ignore
+  }
+  text = text.replace(/<br\s*\/?>/gi, "\n");
+  text = text.replace(/&nbsp;/gi, " ");
+  text = text.replace(/<[^>]*>/g, "");
+  text = text.replace(/\n\s*\n/g, "\n");
+  return text.trim() || "-";
+}
+
 function KanbanCard({ lead }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({
@@ -480,6 +496,7 @@ export default function LeadListPage() {
   const [leadStatuses, setLeadStatuses] = useState([]);
 
   const [activeDragLead, setActiveDragLead] = useState(null);
+  const [expandedDesc, setExpandedDesc] = useState({});
 
   // Add this inside your LeadListPage component, after the useState declarations
   const [searchParams] = useSearchParams();
@@ -538,7 +555,7 @@ export default function LeadListPage() {
   const [activeStatus, setActiveStatus] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
-  const [gradeFilter, setGradeFilter] = useState("");
+  const [gradeFilter, setGradeFilter] = useState([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
@@ -714,6 +731,38 @@ const [quotationStatusFilter, setQuotationStatusFilter] = useState("");
     return counts;
   }, [allLeads]);
 
+  const availableSourcesOptions = useMemo(() => {
+    const rawSet = new Set();
+    (leadSources || []).forEach((s) => {
+      if (s?.sourceName && s.sourceName.trim()) rawSet.add(s.sourceName.trim());
+    });
+    (allLeads || []).forEach((l) => {
+      if (l?.leadSource && l.leadSource.trim()) rawSet.add(l.leadSource.trim());
+    });
+
+    const normalizedMap = new Map();
+
+    Array.from(rawSet).forEach((src) => {
+      let normKey = src.toLowerCase().replace(/\s+integration$/i, "").trim();
+
+      if (normKey.includes("indiamart")) normKey = "indiamart";
+      if (normKey.includes("tradeindia")) normKey = "tradeindia";
+
+      if (!normalizedMap.has(normKey)) {
+        let displayName = src;
+        if (normKey === "indiamart") displayName = "IndiaMART";
+        else if (normKey === "tradeindia") displayName = "TradeIndia";
+        else {
+          // Capitalize first letter neatly if lowercase
+          displayName = src.charAt(0).toUpperCase() + src.slice(1);
+        }
+        normalizedMap.set(normKey, displayName);
+      }
+    });
+
+    return Array.from(normalizedMap.values()).sort((a, b) => a.localeCompare(b));
+  }, [leadSources, allLeads]);
+
   //multiple grade filter toggle with max 2 selections
   const toggleGradeFilter = (grade) => {
     setGradeFilter((prev) => {
@@ -781,101 +830,124 @@ const [quotationStatusFilter, setQuotationStatusFilter] = useState("");
   }
 
   const filtersActive = useMemo(
-  () =>
-    searchQuery !== "" ||
-    sourceFilter !== "" ||
-    gradeFilter !== "" ||
-    dateFrom !== "" ||
-    dateTo !== "" ||
-    activeStatus !== "All" ||
-    groupFilter !== "" ||
-    leadStatusFilter !== "" ||
-    quotationStatusFilter !== "",
-  [searchQuery, sourceFilter, gradeFilter, dateFrom, dateTo, activeStatus, groupFilter, leadStatusFilter, quotationStatusFilter],
-);
+    () =>
+      searchQuery !== "" ||
+      sourceFilter !== "" ||
+      (Array.isArray(gradeFilter) ? gradeFilter.length > 0 : gradeFilter !== "") ||
+      dateFrom !== "" ||
+      dateTo !== "" ||
+      activeStatus !== "All" ||
+      groupFilter !== "" ||
+      leadStatusFilter !== "" ||
+      quotationStatusFilter !== "",
+    [searchQuery, sourceFilter, gradeFilter, dateFrom, dateTo, activeStatus, groupFilter, leadStatusFilter, quotationStatusFilter]
+  );
+
   const filteredLeads = useMemo(() => {
     let list = allLeads;
 
-    // console.log("Filtered Leads:", list);
-    if (activeStatus !== "All")
+    // 1. Main Status Tab Filter
+    if (activeStatus !== "All") {
       list = list.filter(
-        (l) =>
-          l.leadStatus === activeStatus || l.leadOutcomeStatus === activeStatus,
+        (l) => l.leadStatus === activeStatus || l.leadOutcomeStatus === activeStatus
       );
+    }
+
+    // 2. Search Query Filter (Searches contact person, company, email, mobile, ref, quotation no, description)
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (l) =>
-          `${l.leadFirstName} ${l.leadLastName ?? ""}`
-            .toLowerCase()
-            .includes(q) ||
-          (l.leadMobileNo ?? "").includes(q) ||
-          (l.leadEmail ?? "").toLowerCase().includes(q) ||
-          (l.leadOrganisationName ?? "").toLowerCase().includes(q),
-      );
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter((l) => {
+        const name = `${l.leadFirstName || ""} ${l.leadLastName || ""}`.toLowerCase();
+        const contact = (l.companyContactPersonName || "").toLowerCase();
+        const org = (l.leadOrganisationName || "").toLowerCase();
+        const email = (l.leadEmail || "").toLowerCase();
+        const mobile = (l.leadMobileNo || "").toLowerCase();
+        const ref = (l.leadRef || "").toLowerCase();
+        const qNo = (l.quotationNumber || "").toLowerCase();
+        const desc = (l.enquiryDescription || "").toLowerCase();
+
+        return (
+          name.includes(q) ||
+          contact.includes(q) ||
+          org.includes(q) ||
+          email.includes(q) ||
+          mobile.includes(q) ||
+          ref.includes(q) ||
+          qNo.includes(q) ||
+          desc.includes(q)
+        );
+      });
     }
-    if (sourceFilter) list = list.filter((l) => l.leadSource === sourceFilter);
-    // Grade filter based on leadRating (stars)
 
-    if (gradeFilter.length > 0) {
-      list = list.filter((lead) =>
-        gradeFilter.includes(String(lead.leadRating)),
-      );
+    // 3. Source Filter (Fuzzy & Case-Insensitive)
+    if (sourceFilter) {
+      const sf = sourceFilter.trim().toLowerCase().replace(/\s+integration$/i, "");
+      list = list.filter((l) => {
+        if (!l.leadSource) return false;
+        const ls = l.leadSource.trim().toLowerCase();
+        return (
+          ls === sf ||
+          ls.includes(sf) ||
+          sf.includes(ls) ||
+          (sf.includes("indiamart") && ls.includes("indiamart")) ||
+          (sf.includes("tradeindia") && ls.includes("tradeindia"))
+        );
+      });
     }
-    //     if (dateFrom) {
-    //   list = list.filter((l) => {
-    //     if (!l.inquiryDate) return false;
 
-    //     const enquiryDate = l.inquiryDate.split("T")[0];
-    //     return enquiryDate >= dateFrom;
-    //   });
-    // }
+    // 4. Grade / Star Filter
+    if (Array.isArray(gradeFilter) && gradeFilter.length > 0) {
+      list = list.filter((l) => gradeFilter.includes(String(l.leadRating || 0)));
+    } else if (typeof gradeFilter === "string" && gradeFilter !== "") {
+      list = list.filter((l) => String(l.leadRating || 0) === gradeFilter);
+    }
 
-    // if (dateTo) {
-    //   list = list.filter((l) => {
-    //     if (!l.inquiryDate) return false;
+    // 5. Group Filter (Fuzzy & Case-Insensitive)
+    if (groupFilter) {
+      const gf = groupFilter.trim().toLowerCase();
+      list = list.filter((l) => {
+        if (!l.leadGroup) return false;
+        const lg = l.leadGroup.trim().toLowerCase();
+        return lg === gf || lg.includes(gf) || gf.includes(lg);
+      });
+    }
 
-    //     const enquiryDate = l.inquiryDate.split("T")[0];
-    //     return enquiryDate <= dateTo;
-    //   });
-    // }
+    // 6. Lead Status Column Filter (Fuzzy & Case-Insensitive)
+    if (leadStatusFilter) {
+      const lsf = leadStatusFilter.trim().toLowerCase();
+      list = list.filter((l) => {
+        const s1 = (l.leadStatus || "").trim().toLowerCase();
+        const s2 = (l.leadOutcomeStatus || "").trim().toLowerCase();
+        return s1 === lsf || s2 === lsf || s1.includes(lsf) || s2.includes(lsf);
+      });
+    }
 
- // Group Filter
-  if (groupFilter) {
-    list = list.filter((l) => l.leadGroup === groupFilter);
-  }
+    // 7. Quotation Status Column Filter (Fuzzy & Case-Insensitive)
+    if (quotationStatusFilter) {
+      const qsf = quotationStatusFilter.trim().toLowerCase();
+      list = list.filter((l) => {
+        if (!l.enquiryStatus) return false;
+        const es = l.enquiryStatus.trim().toLowerCase();
+        return es === qsf || es.includes(qsf) || qsf.includes(es);
+      });
+    }
 
-  // Lead Status Filter - Filters by leadStatus field
-  // if (leadStatusFilter) {
-  //   list = list.filter((l) => l.leadStatus === leadStatusFilter);
-  // }
-
-  // Add Lead Status Filter - Filters by leadOutcomeStatus
-if (leadStatusFilter) {
-  list = list.filter((l) => l.leadOutcomeStatus === leadStatusFilter);
-}
-
-  // Quotation Status Filter - Filters by enquiryStatus field
-  if (quotationStatusFilter) {
-    list = list.filter((l) => l.enquiryStatus === quotationStatusFilter);
-  }
-
-
+    // 8. Date Range Filter (Checks Enquiry Date / Lead Date / Created Date)
     if (dateFrom) {
       list = list.filter((l) => {
-        if (!l.quotationDate) return false;
-
-        const quotationDate = l.quotationDate.split("T")[0];
-        return quotationDate >= dateFrom;
+        const rawDate = l.inquiryDate || l.leadCreatedDate || l.quotationDate;
+        if (!rawDate) return false;
+        const d = String(rawDate).split("T")[0];
+        return d >= dateFrom;
       });
     }
 
     if (dateTo) {
       list = list.filter((l) => {
-        if (!l.quotationDate) return false;
-
-        const quotationDate = l.quotationDate.split("T")[0];
-        return quotationDate <= dateTo;
+        const rawDate = l.inquiryDate || l.leadCreatedDate || l.quotationDate;
+        if (!rawDate) return false;
+        const d = String(rawDate).split("T")[0];
+        return d <= dateTo;
       });
     }
 
@@ -883,17 +955,17 @@ if (leadStatusFilter) {
       let va = "",
         vb = "";
       if (sortKey === "leadFirstName") {
-        va = `${a.leadFirstName} ${a.leadLastName ?? ""}`.toLowerCase();
-        vb = `${b.leadFirstName} ${b.leadLastName ?? ""}`.toLowerCase();
+        va = `${a.leadFirstName || ""} ${a.leadLastName || ""}`.toLowerCase();
+        vb = `${b.leadFirstName || ""} ${b.leadLastName || ""}`.toLowerCase();
       } else if (sortKey === "leadOutcomeStatus") {
-        va = a.leadOutcomeStatus;
-        vb = b.leadOutcomeStatus;
+        va = a.leadOutcomeStatus || "";
+        vb = b.leadOutcomeStatus || "";
       } else if (sortKey === "leadGroup") {
-        va = a.leadGroup ?? "";
-        vb = b.leadGroup ?? "";
+        va = a.leadGroup || "";
+        vb = b.leadGroup || "";
       } else {
-        va = a.leadCreatedDate ?? "";
-        vb = b.leadCreatedDate ?? "";
+        va = a.inquiryDate || a.leadCreatedDate || "";
+        vb = b.inquiryDate || b.leadCreatedDate || "";
       }
       return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
     });
@@ -907,10 +979,9 @@ if (leadStatusFilter) {
     dateTo,
     sortKey,
     sortDir,
-    scoresMap,
-     groupFilter,        // ← ADD THIS
-  leadStatusFilter,   // ← ADD THIS
-  quotationStatusFilter, // ← ADD THIS
+    groupFilter,
+    leadStatusFilter,
+    quotationStatusFilter,
   ]);
 
   const totalCount = filteredLeads.length;
@@ -1081,7 +1152,7 @@ if (leadStatusFilter) {
   function clearFilters() {
     setSearchQuery("");
     setSourceFilter("");
-    setGradeFilter("");
+    setGradeFilter([]);
     setDateFrom("");
     setDateTo("");
     setActiveStatus("All");
@@ -2818,9 +2889,9 @@ if (leadStatusFilter) {
             className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
           >
             <option value="">All sources</option>
-            {leadSources.map((src) => (
-              <option key={src.id} value={src.sourceName}>
-                {src.sourceName}
+            {availableSourcesOptions.map((srcName) => (
+              <option key={srcName} value={srcName}>
+                {srcName}
               </option>
             ))}
           </select>
@@ -2846,10 +2917,10 @@ if (leadStatusFilter) {
           {/* Grade picker */}
           <div className="flex items-center gap-0.5 bg-white border border-gray-200 rounded-md p-0.5 flex-wrap">
             <button
-              onClick={() => setGradeFilter("")}
+              onClick={() => setGradeFilter([])}
               className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                gradeFilter === ""
-                  ? "bg-gray-800 text-white"
+                gradeFilter.length === 0
+                  ? "bg-gray-800 text-white font-bold"
                   : "text-gray-500 hover:bg-gray-100"
               }`}
             >
@@ -2860,14 +2931,14 @@ if (leadStatusFilter) {
               <button
                 key={g}
                 onClick={() => toggleGradeFilter(g)}
-                className={`h-6 px-1.5 rounded text-[9px] font-medium flex items-center gap-1 ${
+                className={`h-6 px-1.5 rounded text-[9px] font-medium flex items-center gap-1 transition-all ${
                   gradeFilter.includes(g)
-                    ? "bg-yellow-500 text-white"
-                    : "border border-gray-200 text-gray-600 hover:bg-yellow-50"
+                    ? "bg-amber-500 text-white font-bold shadow-2xs"
+                    : "border border-gray-200 text-gray-600 hover:bg-amber-50"
                 }`}
               >
                 ⭐{g}
-                <span className="text-[8px]">{gradeCounts[g] || 0}</span>
+                <span className="text-[8px] font-semibold">{gradeCounts[g] || 0}</span>
               </button>
             ))}
           </div>
@@ -3406,19 +3477,27 @@ if (leadStatusFilter) {
                           <td className="px-3 py-2 max-w-[200px]">
                             <div className="flex items-center gap-2.5">
                               <div className="min-w-0 flex-1">
-                                {lead.leadOrganisationName && (
-                                  <p
-                                    className="font-medium text-gray-900 truncate leading-snug"
-                                    title={lead.leadOrganisationName}
-                                  >
-                                    {lead.leadOrganisationName}
-                                  </p>
-                                )}
                                 <p
-                                  className="text-xs text-gray-600 truncate leading-snug"
-                                  title={lead.companyContactPersonName || "-"}
+                                  className="font-medium text-gray-900 truncate leading-snug"
+                                  title={lead.leadOrganisationName || `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() || "Lead"}
                                 >
-                                  {lead.companyContactPersonName || "-"}
+                                  {lead.leadOrganisationName || `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() || "Lead"}
+                                </p>
+                                <p
+                                  className="text-xs text-gray-500 truncate leading-snug"
+                                  title={
+                                    lead.companyContactPersonName && lead.companyContactPersonName !== lead.leadOrganisationName
+                                      ? lead.companyContactPersonName
+                                      : `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() && `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() !== lead.leadOrganisationName
+                                      ? `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim()
+                                      : "—"
+                                  }
+                                >
+                                  {lead.companyContactPersonName && lead.companyContactPersonName !== lead.leadOrganisationName
+                                    ? lead.companyContactPersonName
+                                    : `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() && `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() !== lead.leadOrganisationName
+                                    ? `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim()
+                                    : "—"}
                                 </p>
                               </div>
                             </div>
@@ -3652,10 +3731,44 @@ if (leadStatusFilter) {
                             </select>
                           </td>
                           <td
-                            className="py-2 px-3 text-sm text-gray-700 max-w-[250px] truncate"
-                            title={lead.enquiryDescription}
+                            className="py-2 px-3 text-sm text-gray-700 max-w-[280px]"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            {lead.enquiryDescription || "-"}
+                            {(() => {
+                              const desc = cleanEnquiryDescription(lead.enquiryDescription);
+                              if (!desc || desc === "-" || desc.length <= 30) {
+                                return <span className="text-gray-700">{desc}</span>;
+                              }
+                              const isExpanded = !!expandedDesc[lead.leadId];
+                              return (
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className={isExpanded ? "whitespace-pre-wrap break-words text-gray-900 font-normal bg-gray-50 p-2 rounded-lg border border-gray-200 text-xs shadow-sm max-w-[320px]" : "truncate max-w-[210px] block"}>
+                                    {isExpanded ? desc : `${desc.substring(0, 30)}...`}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedDesc((prev) => ({
+                                        ...prev,
+                                        [lead.leadId]: !prev[lead.leadId],
+                                      }));
+                                    }}
+                                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5 cursor-pointer mt-0.5"
+                                  >
+                                    {isExpanded ? (
+                                      <>
+                                        <Icon name="mdi:chevron-up" className="w-3.5 h-3.5" /> Show Less
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Icon name="mdi:eye-outline" className="w-3.5 h-3.5" /> View
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           <td
@@ -3666,8 +3779,8 @@ if (leadStatusFilter) {
                           >
                             {lead.quotationNumber &&
                             lead.quotationNumber !== "000" &&
-                            // lead.quotationNumber !== "26-27/000" &&
-                            lead.quotationNumber !== "0" ? (
+                            lead.quotationNumber !== "0" &&
+                            lead.quotationNumber !== "—" ? (
                               <span className="font-mono text-xs">
                                 {lead.quotationNumber}
                               </span>
@@ -3679,6 +3792,8 @@ if (leadStatusFilter) {
                           <td className="px-3 py-2 text-xs text-gray-600">
                             {lead.inquiryDate ? (
                               formatDate(lead.inquiryDate)
+                            ) : lead.leadCreatedDate ? (
+                              formatDate(lead.leadCreatedDate)
                             ) : (
                               <span className="text-gray-300">—</span>
                             )}

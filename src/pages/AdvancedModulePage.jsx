@@ -9,6 +9,7 @@ import { ACTIVITY_TYPE_COLORS } from "./activities/ActivitiesPage";
 import Icon from "../components/Icon";
 import AppDrawer from "../components/common/AppDrawer";
 import { useTask } from "../hooks/useTask";
+import { useLead } from "../hooks/useLead";
 import { useTeamMember } from "../hooks/useTeamMember";
 import { useAuthStore } from "../stores/auth";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -486,12 +487,14 @@ function CalendarMonthView() {
   const { load } = useAdvancedCrmData();
   const calendarApi = useCalendar();
   const taskApi = useTask();
+  const leadApi = useLead();
   const { getAll: getTeamMembers } = useTeamMember();
   const currentUser = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
   const [dayDetailOpen, setDayDetailOpen] = useState(false);
   const [teamMembers, setTeamMembers] = useState([]);
@@ -641,6 +644,74 @@ function CalendarMonthView() {
     return "Medium";
   };
 
+  const applyCalendarPreset = (minutesOrPreset) => {
+    const now = new Date();
+    let target = new Date();
+
+    if (typeof minutesOrPreset === "number") {
+      target = new Date(now.getTime() + minutesOrPreset * 60 * 1000);
+    } else if (minutesOrPreset === "tomorrow") {
+      target.setDate(now.getDate() + 1);
+      target.setHours(10, 0, 0, 0);
+    } else if (minutesOrPreset === "nextWeek") {
+      target.setDate(now.getDate() + 7);
+      target.setHours(10, 0, 0, 0);
+    }
+
+    const year = target.getFullYear();
+    const month = String(target.getMonth() + 1).padStart(2, "0");
+    const day = String(target.getDate()).padStart(2, "0");
+    const hours = String(target.getHours()).padStart(2, "0");
+    const mins = String(target.getMinutes()).padStart(2, "0");
+
+    setForm((prev) => ({ ...prev, time: `${year}-${month}-${day}T${hours}:${mins}` }));
+  };
+
+  const handleOpenEdit = (eventToEdit) => {
+    setEditingEvent(eventToEdit);
+    let formattedDate = "";
+    if (eventToEdit.time) {
+      const d = parseCalendarDate(eventToEdit.time);
+      if (d) {
+        formattedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      }
+    }
+    setForm({
+      title: eventToEdit.title || "",
+      type: eventToEdit.type || "Reminder",
+      time: formattedDate,
+      note: eventToEdit.note || "",
+      assignedTo: eventToEdit.owner || "",
+    });
+    setShowModal(true);
+  };
+
+  const handleDeleteEvent = async (eventToDelete) => {
+    if (!window.confirm(`Delete this ${eventToDelete.type.toLowerCase()} "${eventToDelete.title}"?`)) {
+      return;
+    }
+    try {
+      const rawId = String(eventToDelete.id);
+      if (rawId.startsWith("reminder-")) {
+        const reminderId = rawId.replace("reminder-", "");
+        await leadApi.removeReminder(reminderId).catch(() => {});
+      } else if (rawId.startsWith("task-")) {
+        const taskId = rawId.replace("task-", "");
+        await taskApi.remove(taskId).catch(() => {});
+      } else if (rawId.startsWith("rem-")) {
+        try {
+          const stored = JSON.parse(localStorage.getItem("crm-custom-reminders") || "[]");
+          const updated = stored.filter((r) => r.id !== rawId);
+          localStorage.setItem("crm-custom-reminders", JSON.stringify(updated));
+        } catch (err) {}
+      }
+      setEvents((prev) => prev.filter((e) => e.id !== eventToDelete.id));
+      window.dispatchEvent(new CustomEvent("crm-notification-refresh"));
+    } catch (err) {
+      console.error("Failed to delete calendar event:", err);
+    }
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -649,49 +720,81 @@ function CalendarMonthView() {
       const fullTime = form.time || calendarDate;
       const assignedTarget = form.assignedTo || currentUser?.username || currentUser?.userEmail || "Myself";
 
-      const newCustomReminder = {
-        id: `rem-${Date.now()}`,
-        title: form.title,
-        type: form.type,
-        time: fullTime,
-        note: form.note,
-        reminderPreset: form.reminderPreset,
-        customTime: form.reminderPreset === "custom" ? form.customTime : "",
-        assignedTo: assignedTarget,
-        createdAt: new Date().toISOString(),
-      };
+      if (editingEvent) {
+        const rawId = String(editingEvent.id);
+        if (rawId.startsWith("task-")) {
+          const taskId = rawId.replace("task-", "");
+          const taskPayload = {
+            taskName: form.title,
+            taskDueDate: fullTime,
+            taskStartDate: fullTime,
+            taskDescription: form.note ? `${form.note} (Set to: ${assignedTarget})` : `Set to: ${assignedTarget}`,
+            taskPriority: getCalendarPriority(),
+            taskAssign: assignedTarget,
+          };
+          await taskApi.update(taskId, taskPayload).catch(() => null);
+        }
 
-      try {
-        const stored = JSON.parse(localStorage.getItem("crm-custom-reminders") || "[]");
-        stored.push(newCustomReminder);
-        localStorage.setItem("crm-custom-reminders", JSON.stringify(stored));
-      } catch (err) {
-        console.error("Failed to save custom reminder locally:", err);
-      }
-
-      const taskPayload = {
-        taskName: form.title,
-        taskDueDate: fullTime,
-        taskStartDate: fullTime,
-        taskDescription: form.note ? `${form.note} (Set to: ${assignedTarget})` : `Set to: ${assignedTarget}`,
-        taskPriority: getCalendarPriority(),
-        taskPercentageCompleted: 0,
-        taskAssign: assignedTarget,
-      };
-
-      const createdTask = await taskApi.create(taskPayload).catch(() => null);
-
-      setEvents((prev) => [
-        ...prev,
-        {
-          id: newCustomReminder.id,
+        setEvents((prev) =>
+          prev.map((item) =>
+            item.id === editingEvent.id
+              ? {
+                  ...item,
+                  title: form.title,
+                  type: form.type,
+                  time: fullTime,
+                  note: form.note,
+                  owner: assignedTarget,
+                }
+              : item
+          )
+        );
+        setEditingEvent(null);
+      } else {
+        const newCustomReminder = {
+          id: `rem-${Date.now()}`,
           title: form.title,
           type: form.type,
           time: fullTime,
           note: form.note,
-          owner: assignedTarget,
-        },
-      ]);
+          reminderPreset: form.reminderPreset,
+          customTime: form.reminderPreset === "custom" ? form.customTime : "",
+          assignedTo: assignedTarget,
+          createdAt: new Date().toISOString(),
+        };
+
+        try {
+          const stored = JSON.parse(localStorage.getItem("crm-custom-reminders") || "[]");
+          stored.push(newCustomReminder);
+          localStorage.setItem("crm-custom-reminders", JSON.stringify(stored));
+        } catch (err) {
+          console.error("Failed to save custom reminder locally:", err);
+        }
+
+        const taskPayload = {
+          taskName: form.title,
+          taskDueDate: fullTime,
+          taskStartDate: fullTime,
+          taskDescription: form.note ? `${form.note} (Set to: ${assignedTarget})` : `Set to: ${assignedTarget}`,
+          taskPriority: getCalendarPriority(),
+          taskPercentageCompleted: 0,
+          taskAssign: assignedTarget,
+        };
+
+        await taskApi.create(taskPayload).catch(() => null);
+
+        setEvents((prev) => [
+          ...prev,
+          {
+            id: newCustomReminder.id,
+            title: form.title,
+            type: form.type,
+            time: fullTime,
+            note: form.note,
+            owner: assignedTarget,
+          },
+        ]);
+      }
 
       window.dispatchEvent(new CustomEvent("crm-notification-refresh"));
       setShowModal(false);
@@ -730,6 +833,7 @@ function CalendarMonthView() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
+                setEditingEvent(null);
                 const now = new Date();
                 const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T10:00`;
                 setForm({
@@ -750,6 +854,7 @@ function CalendarMonthView() {
             </button>
             <button
               onClick={() => {
+                setEditingEvent(null);
                 const now = new Date();
                 const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T10:00`;
                 setForm({
@@ -767,6 +872,7 @@ function CalendarMonthView() {
             </button>
             <button
               onClick={() => {
+                setEditingEvent(null);
                 const now = new Date();
                 const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T10:00`;
                 setForm({
@@ -929,6 +1035,7 @@ function CalendarMonthView() {
           <button
             type="button"
             onClick={() => {
+              setEditingEvent(null);
               const date = selectedDay || new Date();
               const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}T10:00`;
               setForm({ title: "", type: "Task", time: formattedDate, note: "" });
@@ -976,11 +1083,31 @@ function CalendarMonthView() {
                       />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-gray-900">{event.title}</p>
-                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${badgeColor(event.type)}`}>
-                          {event.type}
-                        </span>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-gray-900">{event.title}</p>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${badgeColor(event.type)}`}>
+                            {event.type}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(event)}
+                            className="p-1 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Edit Item"
+                          >
+                            <Icon name="mdi:pencil-outline" className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEvent(event)}
+                            className="p-1 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Delete Item"
+                          >
+                            <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                       <p className="mt-1 text-xs font-medium text-gray-500">
                         {formatDateTime(event.time)}
@@ -1008,10 +1135,10 @@ function CalendarMonthView() {
 
       <AppDrawer
         open={showModal}
-        onClose={() => setShowModal(false)}
-        title={`Add ${form.type}`}
-        subtitle="Fill in the details to add this item to your calendar"
-        icon="mdi:calendar-plus-outline"
+        onClose={() => { setShowModal(false); setEditingEvent(null); }}
+        title={editingEvent ? `Edit ${form.type}` : `Add ${form.type}`}
+        subtitle={editingEvent ? "Update the details for this calendar item" : "Fill in the details to add this item to your calendar"}
+        icon={editingEvent ? "mdi:pencil-outline" : "mdi:calendar-plus-outline"}
         footer={
           <>
             <button
@@ -1063,10 +1190,29 @@ function CalendarMonthView() {
               <input
                 required
                 type="datetime-local"
+                min={new Date().toISOString().slice(0, 16)}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-colors"
                 value={form.time}
                 onChange={(e) => setForm({ ...form, time: e.target.value })}
               />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Quick Presets</label>
+            <div className="flex flex-wrap gap-1.5">
+              <button type="button" onClick={() => applyCalendarPreset(15)} className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors">
+                +15 Mins
+              </button>
+              <button type="button" onClick={() => applyCalendarPreset(60)} className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors">
+                +1 Hour
+              </button>
+              <button type="button" onClick={() => applyCalendarPreset("tomorrow")} className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors">
+                Tomorrow 10 AM
+              </button>
+              <button type="button" onClick={() => applyCalendarPreset("nextWeek")} className="px-2 py-1 rounded-md bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors">
+                Next Week
+              </button>
             </div>
           </div>
 

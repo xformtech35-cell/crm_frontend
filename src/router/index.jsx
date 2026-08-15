@@ -83,8 +83,8 @@ export default function AppRouter() {
         <Route path="/lead/import" element={<ProtectedRoute requiredPermission="leads.view"><LeadImportPage /></ProtectedRoute>} />
         <Route path="/lead/pipeline" element={<ProtectedRoute requiredPermission="leads.view"><LeadPipelinePage /></ProtectedRoute>} />
         <Route path="/lead/:id" element={<ProtectedRoute requiredPermission="leads.view"><LeadDetailPage /></ProtectedRoute>} />
-        <Route path="/negotiation" element={<ProtectedRoute requiredPermission="leads.view"><NegotiationPage /></ProtectedRoute>} />
-        <Route path="/negotiation/:id" element={<ProtectedRoute requiredPermission="leads.view"><NegotiationDetailPage /></ProtectedRoute>} />
+        <Route path="/negotiation" element={<ProtectedRoute requiredPermission={["negotiations.view", "leads.view"]}><NegotiationPage /></ProtectedRoute>} />
+        <Route path="/negotiation/:id" element={<ProtectedRoute requiredPermission={["negotiations.view", "leads.view"]}><NegotiationDetailPage /></ProtectedRoute>} />
         <Route path="/quotation/:id" element={<ProtectedRoute requiredPermission="leads.view"><QuotationDetailPage /></ProtectedRoute>} />
         <Route path="/contact" element={<ProtectedRoute requiredPermission="contacts.view"><ContactPage /></ProtectedRoute>} />
         <Route path="/contact/:id" element={<ProtectedRoute requiredPermission="contacts.view"><ContactDetailPage /></ProtectedRoute>} />

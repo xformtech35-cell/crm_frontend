@@ -186,6 +186,8 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
 
   const [countryCode, setCountryCode] = useState("");
   const [stateCode, setStateCode] = useState("");
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const [previewModalDoc, setPreviewModalDoc] = useState(null);
 
   const uploadInput = useRef(null);
 
@@ -494,38 +496,48 @@ const apiiii = import.meta.env.VITE_API_BASE
   }
 
   // Handle file upload
-async function uploadFiles(files) {
-  console.log("ooooo",initial)
+  async function uploadFiles(files) {
     if (!files?.length) return;
     const fileList = Array.from(files);
-    // setSelectedFiles(fileList);
+
+    const previews = fileList.map((file) => {
+      const isImg = file.type.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name);
+      return {
+        file,
+        name: file.name,
+        size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
+        type: file.type,
+        isImage: isImg,
+        previewUrl: isImg ? URL.createObjectURL(file) : null,
+      };
+    });
+    setPendingFiles(previews);
+
+    if (!initial?.leadId) return;
+
     const slots = ["uploadDocument", "uploadDocument1", "uploadDocument2", "uploadDocument3"];
     const fileMap = {};
-    Array.from(files).slice(0, 4).forEach((file, index) => { fileMap[slots[index]] = file; });
+    fileList.slice(0, 4).forEach((file, index) => { fileMap[slots[index]] = file; });
+
     try {
       setUploading(true);
       setUploadProgress(0);
-      
-      // Simulate progress
+
       const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
-      }, 200);
+        setUploadProgress((prev) => Math.min(prev + 15, 90));
+      }, 150);
 
       await update(initial.leadId, { ...initial }, fileMap);
-      
+
       clearInterval(progressInterval);
       setUploadProgress(100);
-      
-      // await loadAll();
-      console.log("ggggggggFiles uploaded successfully");
-      
+
       setTimeout(() => {
         setUploading(false);
         setUploadProgress(0);
       }, 500);
-    } catch (error) { 
-      console.error(error); 
-      // showToastMsg("error", "Upload failed");
+    } catch (error) {
+      console.error("Upload error:", error);
       setUploading(false);
       setUploadProgress(0);
     }
@@ -1314,6 +1326,124 @@ async function uploadFiles(files) {
                   </div>
                 )}
               </div>
+
+              {/* Selected / Pending Files Ready To Upload */}
+              {pendingFiles.length > 0 && (
+                <div className="space-y-2 mt-3 p-3 bg-blue-50/60 rounded-xl border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Icon name="mdi:file-clock-outline" className="w-4 h-4 text-blue-600" />
+                      Selected Files Ready To Upload ({pendingFiles.length}):
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setPendingFiles([])}
+                      className="text-[11px] text-red-600 hover:text-red-700 font-semibold"
+                    >
+                      Clear Selected
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {pendingFiles.map((pf, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-blue-100 shadow-2xs">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {pf.isImage && pf.previewUrl ? (
+                            <img
+                              src={pf.previewUrl}
+                              alt={pf.name}
+                              className="w-10 h-10 rounded-md object-cover border border-gray-200 shrink-0 shadow-2xs cursor-pointer hover:opacity-90"
+                              onClick={() => setPreviewModalDoc({ title: pf.name, url: pf.previewUrl, isImage: true })}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-md bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
+                              {pf.name.split('.').pop()?.toUpperCase() || 'DOC'}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-gray-800 truncate" title={pf.name}>{pf.name}</p>
+                            <p className="text-[10px] text-gray-400 font-medium">{pf.size}</p>
+                          </div>
+                        </div>
+                        {pf.isImage && pf.previewUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewModalDoc({ title: pf.name, url: pf.previewUrl, isImage: true })}
+                            className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded text-xs font-semibold shrink-0"
+                          >
+                            Preview
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* List of Existing / Uploaded Documents with Image Thumbnails */}
+              {filesFromLead.length > 0 && (
+                <div className="space-y-2 mt-4 pt-3 border-t border-gray-100">
+                  <p className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Icon name="mdi:paperclip" className="w-4 h-4 text-blue-600" />
+                    Uploaded Documents ({filesFromLead.length}):
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {filesFromLead.map((file, idx) => {
+                      const cleanPath = file.path.startsWith('/') ? file.path.substring(1) : file.path;
+                      const fileUrl = file.path.startsWith('http') ? file.path : `/api/view/${cleanPath}`;
+                      const ext = file.name.split('.').pop()?.toLowerCase();
+                      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
+                      const isPdf = ext === 'pdf';
+
+                      return (
+                        <div key={file.id || idx} className="flex flex-col justify-between p-3 bg-white rounded-xl border border-gray-200 shadow-2xs hover:border-blue-300 transition-all gap-2.5">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {isImage ? (
+                              <div
+                                className="w-12 h-12 rounded-lg border border-gray-200 overflow-hidden shrink-0 shadow-2xs cursor-pointer hover:opacity-90 bg-gray-50 flex items-center justify-center"
+                                onClick={() => setPreviewModalDoc({ title: file.name, url: fileUrl, isImage: true })}
+                                title="Click to view image preview"
+                              >
+                                <img src={fileUrl} alt={file.name} className="w-full h-full object-cover" />
+                              </div>
+                            ) : (
+                              <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 border ${isPdf ? "bg-red-50 border-red-100 text-red-600" : "bg-blue-50 border-blue-100 text-blue-600"}`}>
+                                <Icon name={isPdf ? "mdi:file-pdf-box" : "mdi:file-document-outline"} className="w-6 h-6" />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-gray-800 truncate" title={file.name}>
+                                {file.name}
+                              </p>
+                              <p className="text-[10px] text-gray-400 font-medium">Uploaded {formatDate(file.uploadedAt)}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0 pt-2 border-t border-gray-50">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewModalDoc({ title: file.name, url: fileUrl, isImage, isPdf })}
+                              className="flex-1 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
+                              title="Preview Document"
+                            >
+                              <Icon name="mdi:eye-outline" className="w-3.5 h-3.5" /> Preview
+                            </button>
+                            <a
+                              href={fileUrl}
+                              download={file.name}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
+                              title="Download Document"
+                            >
+                              <Icon name="mdi:download-outline" className="w-3.5 h-3.5" /> Download
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="sm:col-span-2">
@@ -1325,6 +1455,51 @@ async function uploadFiles(files) {
                 placeholder="Add follow-up notes/remarks..."
                 className={`${inputCls} resize-none`}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Lightbox Preview Modal */}
+      {previewModalDoc && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fade-in" onClick={() => setPreviewModalDoc(null)}>
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between bg-slate-900 text-white">
+              <div className="flex items-center gap-2 min-w-0">
+                <Icon name={previewModalDoc.isImage ? "mdi:image" : "mdi:file-document"} className="w-5 h-5 text-blue-400 shrink-0" />
+                <h3 className="font-bold text-sm truncate">{previewModalDoc.title}</h3>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={previewModalDoc.url}
+                  download={previewModalDoc.title}
+                  className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <Icon name="mdi:download" className="w-4 h-4" /> Download
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewModalDoc(null)}
+                  className="p-1 rounded-lg hover:bg-white/20 text-white/80 hover:text-white transition-colors"
+                >
+                  <Icon name="mdi:close" className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 flex-1 overflow-auto bg-slate-950/90 flex items-center justify-center min-h-[400px]">
+              {previewModalDoc.isImage ? (
+                <img
+                  src={previewModalDoc.url}
+                  alt={previewModalDoc.title}
+                  className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-2xl"
+                />
+              ) : (
+                <iframe
+                  src={previewModalDoc.url}
+                  title={previewModalDoc.title}
+                  className="w-full h-[75vh] rounded-lg border-0 bg-white"
+                />
+              )}
             </div>
           </div>
         </div>

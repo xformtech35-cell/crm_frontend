@@ -70,7 +70,19 @@ export default function LeadStatus() {
   async function saveStatus(e) {
     e.preventDefault();
 
-    if (!form.statusName.trim()) return;
+    const targetName = form.statusName.trim();
+    if (!targetName) return;
+
+    const isDuplicate = statuses.some(
+      (item) =>
+        item.statusName?.trim().toLowerCase() === targetName.toLowerCase() &&
+        (!editingStatus || String(item.id) !== String(editingStatus.id))
+    );
+
+    if (isDuplicate) {
+      alert(`Lead Status "${targetName}" already exists! Duplicate status names are not allowed.`);
+      return;
+    }
 
     setSaving(true);
 
@@ -78,19 +90,19 @@ export default function LeadStatus() {
       if (editingStatus) {
         const updatedStatus = {
           ...editingStatus,
-          statusName: form.statusName,
+          statusName: targetName,
           description: form.description,
         };
         await leadStatusHook.update(editingStatus.id, updatedStatus);
       } else {
-        await leadStatusHook.create(form);
+        await leadStatusHook.create({ statusName: targetName, description: form.description });
       }
 
       setModalOpen(false);
       await loadData();
     } catch (error) {
       console.error('Save failed:', error);
-      alert('Unable to save lead status.');
+      alert(error?.response?.data?.message || 'Unable to save lead status.');
     } finally {
       setSaving(false);
     }

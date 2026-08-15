@@ -201,6 +201,10 @@ export const PERMISSIONS = {
     "leads.delete",
     "leads.import",
   ],
+  Negotiations: [
+    "negotiations.view",
+    "negotiations.edit",
+  ],
   Opportunities: [
     "opportunities.view",
     "opportunities.create",

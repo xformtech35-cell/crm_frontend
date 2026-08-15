@@ -21,7 +21,7 @@ export function useAuth() {
   async function logout() {
     try { await api.post('/auth/logout', {}) } catch {}
     storeLogout()
-    navigate('/login')
+    window.location.href = '/login'
   }
 
   async function changePassword(oldPassword, newPassword, confirmPassword) {

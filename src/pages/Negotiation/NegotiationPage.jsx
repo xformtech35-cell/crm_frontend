@@ -49,6 +49,12 @@ export default function NegotiationPage() {
   const [editMode, setEditMode] = useState(false);
   const [editedLead, setEditedLead] = useState({});
   const [leadError, setLeadError] = useState("");
+  const safeGetTime = (dateStr) => {
+    if (!dateStr) return 0;
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+
   const uniqueRevisions = React.useMemo(() => {
     const map = new Map();
 
@@ -57,16 +63,65 @@ export default function NegotiationPage() {
 
       if (
         !map.has(key) ||
-        new Date(rev.updatedDate) > new Date(map.get(key).updatedDate)
+        safeGetTime(rev.updatedDate) > safeGetTime(map.get(key).updatedDate)
       ) {
         map.set(key, rev);
       }
     });
 
+    if (!map.has("R0")) {
+      const lead = selectedDeal;
+      const baseQtnNo = (lead?.quotationNo || lead?.quotationNumber || "").replace(/\/R\d+$/, "") || "QTN-001";
+      const r0Date = lead?.inquiryDate || lead?.quotationDate || lead?.leadCreatedDate || lead?.createdDate || new Date().toISOString();
+
+      map.set("R0", {
+        id: "r0-fallback",
+        revisionNo: "R0",
+        quotationNo: baseQtnNo,
+        quotationAmount: lead?.quotationAmount || lead?.amount || 0,
+        negotiationStatus: "Negotiation",
+        remarks: lead?.followUpRemark || lead?.remarks || "Initial Baseline Proposal",
+        enquiryDescription: lead?.enquiryDescription || lead?.description,
+        updatedDate: r0Date,
+        documents: []
+      });
+    }
+
+    const r0 = map.get("R0");
+    if (r0) {
+      if (!r0.updatedDate || String(r0.updatedDate).startsWith("2020")) {
+        const lead = selectedDeal;
+        r0.updatedDate = lead?.inquiryDate || lead?.quotationDate || lead?.leadCreatedDate || lead?.createdDate || r0.updatedDate;
+      }
+      if ((!r0.documents || r0.documents.length === 0) && selectedDeal) {
+        const leadDocs = [
+          selectedDeal.uploadDocument,
+          selectedDeal.uploadDocument1,
+          selectedDeal.uploadDocument2,
+          selectedDeal.uploadDocument3
+        ].filter(Boolean).map((url, i) => {
+          let name = url.substring(url.lastIndexOf('/') + 1);
+          if (name.includes('_')) {
+            name = name.substring(name.indexOf('_') + 1);
+          }
+          return {
+            id: `doc-r0-${i}`,
+            fileName: name,
+            fileUrl: url,
+            fileType: url.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'
+          };
+        });
+        if (leadDocs.length > 0) {
+          r0.documents = leadDocs;
+          r0.documentCount = leadDocs.length;
+        }
+      }
+    }
+
     return [...map.values()].sort(
-      (a, b) => new Date(b.updatedDate) - new Date(a.updatedDate),
+      (a, b) => safeGetTime(b.updatedDate) - safeGetTime(a.updatedDate),
     );
-  }, [revisions]);
+  }, [revisions, selectedDeal]);
 
   // Structured Field Sections
   const GeneralFields = [
@@ -449,10 +504,22 @@ export default function NegotiationPage() {
   // ─── Revision History ──────────────────────────────────────
   const openRevisionHistory = async (deal) => {
     try {
-      setSelectedDeal(deal);
+      let fullDeal = { ...deal };
+      const leadId = deal.leadIdFk || deal.leadId;
+      if (leadId) {
+        try {
+          const leadRes = await leadApi.getById(leadId);
+          if (leadRes) {
+            const leadData = leadRes.data || leadRes;
+            fullDeal = { ...deal, ...leadData };
+          }
+        } catch (e) {
+          console.warn("Could not fetch lead details for modal:", e);
+        }
+      }
+      setSelectedDeal(fullDeal);
       const data = await negotiationApi.getRevisions(deal.id);
       
-      console.log("Revisionsqwqq Data:", data);
       setRevisions(data || []);
       setShowRevisionModal(true);
     } catch (error) {
@@ -805,7 +872,7 @@ export default function NegotiationPage() {
                     </td>
                     <td className="px-2 sm:px-3 py-1.5 sm:py-2.5">
                       <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100 whitespace-nowrap">
-                        {deal.quotationRevision || "—"}
+                        {deal.quotationRevision || "R0"}
                       </span>
                     </td>
                     <td
@@ -904,7 +971,7 @@ export default function NegotiationPage() {
                           />
                         </Link>
                         <Link
-                          to={`/negotiation/${deal.id}`}
+                          to={`/negotiation/${deal.id}?edit=true`}
                           className="p-1 sm:p-1.5 rounded-lg text-gray-400 hover:bg-amber-50 hover:text-amber-600 transition-colors shrink-0"
                           title="Edit Negotiation"
                         >
@@ -1110,8 +1177,8 @@ export default function NegotiationPage() {
                             )}
                           </div>
 
-                          <span className={getRevStatusClass(status)}>
-                            {status}
+                          <span className={getRevStatusClass(rev.negotiationStatus || "Negotiation")}>
+                            {rev.negotiationStatus || "Negotiation"}
                           </span>
                         </div>
 
@@ -1152,32 +1219,29 @@ export default function NegotiationPage() {
                             </div>
                           </div>
 
-                          {/* Hide the entire Date & Time section for current revision */}
-                          {!isLatest && (
-                            <div>
-                              <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
-                                Date & Time
-                              </span>
-                              <span className="font-semibold text-gray-700 text-[10px] sm:text-xs">
-                                {rev.updatedDate
-                                  ? new Date(
-                                      rev.updatedDate,
-                                    ).toLocaleDateString("en-IN", {
-                                      day: "numeric",
-                                      month: "short",
-                                      year: "numeric",
-                                    }) +
-                                    " · " +
-                                    new Date(
-                                      rev.updatedDate,
-                                    ).toLocaleTimeString([], {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })
-                                  : "Date not available"}
-                              </span>
-                            </div>
-                          )}
+                          <div>
+                            <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
+                              Date & Time
+                            </span>
+                            <span className="font-semibold text-gray-700 text-[10px] sm:text-xs">
+                              {rev.updatedDate
+                                ? new Date(
+                                    rev.updatedDate,
+                                  ).toLocaleDateString("en-IN", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  }) +
+                                  " · " +
+                                  new Date(
+                                    rev.updatedDate,
+                                  ).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "—"}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="text-[10px] sm:text-xs text-gray-600 leading-relaxed bg-slate-50/20 p-2 rounded-lg border border-dashed border-gray-100">
@@ -1191,14 +1255,14 @@ export default function NegotiationPage() {
                         {/* Files */}
                         <div className="mt-3">
                           <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-2">
-                            Files ({rev.documentCount || 0})
+                            Files ({rev.documentCount || (rev.documents ? rev.documents.length : 0)})
                           </span>
 
                           {rev.documents && rev.documents.length > 0 ? (
                             <div className="space-y-2">
                               {rev.documents.map((doc) => (
                                 <div
-                                  key={doc.id}
+                                  key={doc.id || doc.fileName}
                                   className="flex items-center justify-between rounded-lg border bg-gray-50 px-3 py-2"
                                 >
                                   <div className="flex items-center gap-2 overflow-hidden">
@@ -1221,27 +1285,47 @@ export default function NegotiationPage() {
                                       <p className="truncate text-xs font-medium">
                                         {doc.fileName}
                                       </p>
-                                      <p className="text-[10px] text-gray-400">
-                                        {(doc.fileSize / 1024).toFixed(1)} KB
-                                      </p>
+                                      {doc.fileSize && (
+                                        <p className="text-[10px] text-gray-400">
+                                          {(doc.fileSize / 1024).toFixed(1)} KB
+                                        </p>
+                                      )}
                                     </div>
                                   </div>
 
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      negotiationApi.handleViewDocument(
-                                        doc.fileUrl,
-                                      )
-                                    }
-                                    className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[10px] text-white hover:bg-blue-700"
-                                  >
-                                    <Icon
-                                      name="mdi:eye-outline"
-                                      className="w-3.5 h-3.5"
-                                    />
-                                    View
-                                  </button>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        negotiationApi.handleViewDocument(
+                                          doc.fileUrl || doc.fileName,
+                                        )
+                                      }
+                                      className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[10px] text-white hover:bg-blue-700 transition"
+                                    >
+                                      <Icon
+                                        name="mdi:eye-outline"
+                                        className="w-3.5 h-3.5"
+                                      />
+                                      View
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        negotiationApi.handleDownloadRevisionDocument(
+                                          doc.fileUrl || doc.fileName,
+                                          doc.fileName
+                                        )
+                                      }
+                                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[10px] text-white hover:bg-emerald-700 transition"
+                                    >
+                                      <Icon
+                                        name="mdi:download-outline"
+                                        className="w-3.5 h-3.5"
+                                      />
+                                      Download
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>

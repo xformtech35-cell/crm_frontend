@@ -59,6 +59,13 @@ const groupedPermissions = [
         ]
       },
       {
+        name: "Negotiations",
+        viewPermission: { key: "negotiations.view", label: "View Negotiations" },
+        actions: [
+          { key: "negotiations.edit", label: "Edit / Revise Quotations" }
+        ]
+      },
+      {
         name: "Lead Masters (Status, Source, Group)",
         viewPermission: { key: "leads.view", label: "View Lead Masters" },
         actions: [
@@ -215,6 +222,41 @@ const groupedPermissions = [
   }
 ];
 
+const DEFAULT_ROLE_PERMISSIONS = {
+  ADMIN: [
+    "dashboard.view", "activities.view", "emails.view", "calendar.view", "calendar.create", "calendar.edit", "calendar.delete",
+    "attendance.view", "attendance.edit", "leads.view", "leads.create", "leads.edit", "leads.delete", "leads.import",
+    "negotiations.view", "negotiations.edit", "contacts.view", "contacts.create", "contacts.edit", "contacts.delete",
+    "organizations.view", "organizations.create", "organizations.edit", "organizations.delete",
+    "opportunities.view", "opportunities.create", "opportunities.edit", "opportunities.delete",
+    "projects.view", "projects.create", "projects.edit", "projects.delete",
+    "tasks.view", "tasks.create", "tasks.edit", "tasks.delete",
+    "teams.view", "teams.create", "teams.edit", "teams.delete", "team_leads.view", "team_leads.edit",
+    "users.view", "users.create", "users.edit", "users.delete",
+    "analytics.view", "reports.view", "automation.view", "roles.view", "roles.create", "roles.edit", "roles.delete",
+    "integrations.view", "integrations.edit", "data_access.view", "data_access.edit", "settings.view",
+    "trash.view", "trash.restore", "trash.delete"
+  ],
+  "TEAM LEAD": [
+    "dashboard.view", "activities.view", "emails.view", "calendar.view", "calendar.create", "calendar.edit", "calendar.delete",
+    "attendance.view", "attendance.edit", "leads.view", "leads.create", "leads.edit", "leads.delete", "leads.import",
+    "negotiations.view", "negotiations.edit", "contacts.view", "contacts.create", "contacts.edit",
+    "organizations.view", "organizations.create", "organizations.edit",
+    "opportunities.view", "opportunities.create", "opportunities.edit",
+    "projects.view", "projects.create", "projects.edit", "tasks.view", "tasks.create", "tasks.edit",
+    "teams.view", "teams.create", "team_leads.view", "users.view", "users.create",
+    "analytics.view", "reports.view"
+  ],
+  "SALES EXECUTIVE": [
+    "dashboard.view", "activities.view", "emails.view", "calendar.view", "calendar.create", "calendar.edit",
+    "attendance.view", "leads.view", "leads.create", "leads.edit",
+    "negotiations.view", "contacts.view", "contacts.create",
+    "organizations.view", "organizations.create",
+    "opportunities.view", "opportunities.create",
+    "projects.view", "tasks.view", "tasks.create"
+  ]
+};
+
 export default function RolePage() {
   const roleHook = useRole();
   const teamMemberHook = useTeamMember();
@@ -341,8 +383,18 @@ export default function RolePage() {
     const fetchPermissions = async () => {
       setLoadingPermissions(true);
       try {
-        const permsData = await roleHook.getPermissions(selectedRole.roleId);
+        const permsData = await roleHook.getPermissions(selectedRole.roleId).catch(() => []);
         let permKeys = Array.isArray(permsData) ? permsData.map(p => p.grpPerm) : [];
+        const rName = selectedRole.roleName?.toUpperCase() || "";
+
+        if (permKeys.length === 0 && DEFAULT_ROLE_PERMISSIONS[rName]) {
+          permKeys = DEFAULT_ROLE_PERMISSIONS[rName];
+        } else if (rName === "ADMIN") {
+          const adminKeysToAdd = ["negotiations.view", "negotiations.edit"].filter(k => !permKeys.includes(k));
+          if (adminKeysToAdd.length > 0) {
+            permKeys = [...permKeys, ...adminKeysToAdd];
+          }
+        }
 
         const isGlobalAdminRole = selectedRole.roleName?.toUpperCase() === "ADMIN" && selectedRole.userIdFk == null;
         if (isSuperAdmin && contextCompany && isGlobalAdminRole) {
@@ -359,8 +411,8 @@ export default function RolePage() {
         setSelectedPermissions(permKeys);
       } catch (error) {
         console.error("Failed to fetch role permissions:", error);
-        showToast("Failed to fetch permissions", "error");
-        setSelectedPermissions([]);
+        const rName = selectedRole.roleName?.toUpperCase() || "";
+        setSelectedPermissions(DEFAULT_ROLE_PERMISSIONS[rName] || []);
       } finally {
         setLoadingPermissions(false);
       }
@@ -380,30 +432,57 @@ export default function RolePage() {
     const fetchUserPerms = async () => {
       setLoadingPermissions(true);
       try {
-        const userId = selectedUser.teamMemberId || selectedUser.userIdFk || selectedUser.userid;
-        const data = await userPermissionHook.getUserPermissions(userId);
+        const userId = selectedUser.userIdFk || selectedUser.userid || selectedUser.teamMemberId;
+        const data = await userPermissionHook.getUserPermissions(userId).catch(() => ({ hasCustomPermissions: false, permissions: [] }));
         setHasCustomUserPerms(!!data.hasCustomPermissions);
 
-        if (data.hasCustomPermissions) {
-          setSelectedPermissions(data.permissions || []);
+        if (data.hasCustomPermissions && data.permissions && data.permissions.length > 0) {
+          setSelectedPermissions(data.permissions);
         } else {
           // Inherit permissions from user's assigned role
           const userRoleNameOrId = String(selectedUser.teamMemberRole || selectedUser.role || "").trim();
-          const matchingRole = roles.find(r => 
+          let matchingRole = roles.find(r => 
             String(r.roleId) === userRoleNameOrId || 
             String(r.roleName).trim().toUpperCase() === userRoleNameOrId.toUpperCase()
           );
 
+          if (!matchingRole) {
+            const userRoleStr = String(selectedUser.role || "").trim().toUpperCase();
+            matchingRole = roles.find(r => 
+              String(r.roleName).trim().toUpperCase() === userRoleStr
+            );
+          }
+
+          if (!matchingRole) {
+            const isCompanyAdmin = selectedUser.role === 'ADMIN' || selectedUser.role === 'SUPER_ADMIN' || userRoleNameOrId.toUpperCase() === 'ADMIN' || userRoleNameOrId.toUpperCase() === 'MEMBER';
+            if (isCompanyAdmin) {
+              matchingRole = roles.find(r => r.roleName?.toUpperCase() === 'ADMIN');
+            }
+          }
+
           if (matchingRole) {
-            const rolePermsData = await roleHook.getPermissions(matchingRole.roleId);
-            setSelectedPermissions(Array.isArray(rolePermsData) ? rolePermsData.map(p => p.grpPerm) : []);
+            const rolePermsData = await roleHook.getPermissions(matchingRole.roleId).catch(() => []);
+            let fetchedPerms = Array.isArray(rolePermsData) ? rolePermsData.map(p => p.grpPerm) : [];
+            const rName = matchingRole.roleName?.toUpperCase() || "";
+
+            if (fetchedPerms.length === 0 && DEFAULT_ROLE_PERMISSIONS[rName]) {
+              fetchedPerms = DEFAULT_ROLE_PERMISSIONS[rName];
+            } else if (rName === 'ADMIN') {
+              const missingAdminKeys = ["negotiations.view", "negotiations.edit"].filter(k => !fetchedPerms.includes(k));
+              if (missingAdminKeys.length > 0) {
+                fetchedPerms = [...fetchedPerms, ...missingAdminKeys];
+              }
+            }
+            setSelectedPermissions(fetchedPerms);
           } else {
-            setSelectedPermissions([]);
+            const userRoleStr = String(selectedUser.role || "").trim().toUpperCase();
+            setSelectedPermissions(DEFAULT_ROLE_PERMISSIONS[userRoleStr] || DEFAULT_ROLE_PERMISSIONS["TEAM LEAD"] || []);
           }
         }
       } catch (err) {
         console.error("Failed to fetch user permissions:", err);
-        setSelectedPermissions([]);
+        const userRoleStr = String(selectedUser.role || "").trim().toUpperCase();
+        setSelectedPermissions(DEFAULT_ROLE_PERMISSIONS[userRoleStr] || DEFAULT_ROLE_PERMISSIONS["TEAM LEAD"] || []);
       } finally {
         setLoadingPermissions(false);
       }

@@ -522,7 +522,12 @@ export default function DefaultLayout() {
             icon: "mdi:account-arrow-right-outline",
             permissions: ["leads.view"],
           },
-          
+          {
+            to: "/negotiation",
+            label: "Negotiation",
+            icon: "mdi:handshake-outline",
+            permissions: ["negotiations.view"],
+          },
           {
             to: "/leadsource",
             label: "Lead Sources",
@@ -598,7 +603,7 @@ export default function DefaultLayout() {
             to: "/team-lead",
             label: "Team Leads",
             icon: "mdi:account-star-outline",
-            permissions: ["team_leads.view", "teams.view"],
+            permissions: ["team_leads.view"],
           },
           {
             to: "/team-member",
@@ -726,19 +731,8 @@ export default function DefaultLayout() {
 
   const isActive = (path) => {
     if (location.pathname === path) return true;
-    if (path === "/lead" && location.pathname === "/negotiation") return true;
-    if (path === "/negotiation" && location.pathname === "/lead") return true;
-
-    // Check if location.pathname matches another registered sidebar item exactly
-    const isAnotherItemExactMatch = navGroups.some((group) =>
-      group.items.some((item) => item.to === location.pathname)
-    );
-
-    if (isAnotherItemExactMatch) {
-      return false;
-    }
-
-    return location.pathname.startsWith(`${path}/`);
+    if (location.pathname.startsWith(`${path}/`)) return true;
+    return false;
   };
 
   const navigateTo = (path) => {
@@ -1067,8 +1061,11 @@ export default function DefaultLayout() {
                   >
                     <Icon name="mdi:bell-outline" className="w-4 h-4" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center">
-                        {unreadCount}
+                      <span
+                        style={{ color: "#ffffff", backgroundColor: "#ef4444" }}
+                        className="absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] px-1.5 rounded-full text-[10.5px] font-extrabold !text-white flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-md leading-none shrink-0 pointer-events-none z-10"
+                      >
+                        {unreadCount > 99 ? "99+" : unreadCount}
                       </span>
                     )}
                   </button>

@@ -38,6 +38,7 @@ export function useLead() {
   const getReminders = (id) => api.get(`/leads/${id}/reminders`);
   const addReminder = (id, reminderText, reminderDate) =>
     api.post(`/leads/${id}/reminders`, { reminderText, reminderDate });
+  const removeReminder = (reminderId) => api.del(`/leads/reminders/${reminderId}`);
 
   const getScore = (id) => api.get(`/leads/${id}/leadRating`);
   const getAllScores = () => api.get("/leads/scores");
@@ -144,6 +145,7 @@ export function useLead() {
     addNote,
     getReminders,
     addReminder,
+    removeReminder,
     sendReminderEmail,
     getByUser,
     getScore,

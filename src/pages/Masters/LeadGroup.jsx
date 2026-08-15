@@ -69,27 +69,38 @@ export default function LeadGroup() {
   async function saveGroup(e) {
     e.preventDefault();
  
-    if (!form.groupName.trim()) return;
+    const targetName = form.groupName.trim();
+    if (!targetName) return;
+ 
+    const isDuplicate = groups.some(
+      (item) =>
+        item.groupName?.trim().toLowerCase() === targetName.toLowerCase() &&
+        (!editingGroup || String(item.id) !== String(editingGroup.id))
+    );
+ 
+    if (isDuplicate) {
+      alert(`Lead Group "${targetName}" already exists! Duplicate group names are not allowed.`);
+      return;
+    }
  
     setSaving(true);
  
     try {
       if (editingGroup) {
-        // FIX: Pass the complete group object with updated groupName
         const updatedGroup = {
           ...editingGroup,
-          groupName: form.groupName
+          groupName: targetName,
         };
         await leadGroupHook.update(editingGroup.id, updatedGroup);
       } else {
-        await leadGroupHook.create(form);
+        await leadGroupHook.create({ groupName: targetName });
       }
  
       setModalOpen(false);
       await loadData();
     } catch (error) {
       console.error('Save failed:', error);
-      alert('Unable to save lead group.');
+      alert(error?.response?.data?.message || 'Unable to save lead group.');
     } finally {
       setSaving(false);
     }

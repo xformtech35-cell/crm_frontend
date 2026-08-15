@@ -59,24 +59,37 @@ export default function LeadSource() {
  
   async function saveSource(e) {
     e.preventDefault();
-    if (!form.sourceName.trim()) return;
+    const targetName = form.sourceName.trim();
+    if (!targetName) return;
+
+    const isDuplicate = sources.some(
+      (item) =>
+        item.sourceName?.trim().toLowerCase() === targetName.toLowerCase() &&
+        (!editingSource || String(item.id) !== String(editingSource.id))
+    );
+
+    if (isDuplicate) {
+      alert(`Lead Source "${targetName}" already exists! Duplicate source names are not allowed.`);
+      return;
+    }
+
     setSaving(true);
     try {
       if (editingSource) {
-        // FIX: Pass the complete source object with updated sourceName
         const updatedSource = {
           ...editingSource,
-          sourceName: form.sourceName
+          sourceName: targetName,
+          description: form.description,
         };
         await leadSourceHook.update(editingSource.id, updatedSource);
       } else {
-        await leadSourceHook.create(form);
+        await leadSourceHook.create({ sourceName: targetName, description: form.description });
       }
       setModalOpen(false);
       await loadData();
     } catch (error) {
       console.error('Save failed:', error);
-      alert('Unable to save lead source.');
+      alert(error?.response?.data?.message || 'Unable to save lead source.');
     } finally {
       setSaving(false);
     }

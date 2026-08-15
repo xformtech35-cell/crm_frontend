@@ -14,6 +14,9 @@ import Icon from "../../components/Icon";
 import StarRating from "../../components/common/StarRating";
 import LeadForm from "../../components/lead/LeadForm";
 import { useNegotiation } from "../../hooks/useNegotiation";
+import { useTeamMember } from "../../hooks/useTeamMember";
+import { useAuthStore } from "../../stores/auth";
+import { RevisionHistorySection } from "../Negotiation/NegotiationDetailPage";
 
 /* ─── Helpers ─── */
 function gradeColor(grade) {
@@ -83,13 +86,15 @@ export default function LeadDetailPage() {
   const id = Number(idStr);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { getById, update, remove, updateStatus, getNotes, addNote, getReminders, addReminder, convertToNegotiation, getScore, updateLeadOutcomeStatus, sendReminderEmail } = useLead();
+  const { getById, update, remove, updateStatus, getNotes, addNote, getReminders, addReminder, removeReminder, convertToNegotiation, getScore, updateLeadOutcomeStatus, sendReminderEmail } = useLead();
   const { getAll: getAllTasks } = useTask();
   const { getAll: getAllOpportunities } = useOpportunity();
   const { getAll: getAllOrganizations } = useOrganization();
   const { getAll: getAllContacts } = useContact();
   const negotiationApi = useNegotiation();
   const { getRevisionsByLeadId } = negotiationApi;
+  const teamMemberApi = useTeamMember();
+  const currentUser = useAuthStore((s) => s.user);
 
   const [previewFile, setPreviewFile] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -102,6 +107,7 @@ export default function LeadDetailPage() {
   const [organizations, setOrganizations] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
@@ -110,11 +116,25 @@ export default function LeadDetailPage() {
   const [noteText, setNoteText] = useState("");
   const [reminderText, setReminderText] = useState("");
   const [reminderDate, setReminderDate] = useState("");
+  const [reminderType, setReminderType] = useState("Reminder");
+  const [reminderAssignedTo, setReminderAssignedTo] = useState("");
+  const [reminderTimingPreset, setReminderTimingPreset] = useState("0");
+  const [reminderNote, setReminderNote] = useState("");
   const [noteDrafts, setNoteDrafts] = useState({});
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [reminderDone, setReminderDone] = useState({});
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  useEffect(() => {
+    teamMemberApi.getAll().then((res) => {
+      let list = [];
+      if (Array.isArray(res)) list = res;
+      else if (Array.isArray(res?.data)) list = res.data;
+      else if (Array.isArray(res?.data?.data)) list = res.data.data;
+      setTeamMembers(list);
+    }).catch(() => setTeamMembers([]));
+  }, []);
   const [editingField, setEditingField] = useState(null);
   const [inlineValue, setInlineValue] = useState("");
   const [toast, setToast] = useState(null);
@@ -122,6 +142,7 @@ export default function LeadDetailPage() {
   const uploadInput = useRef(null);
   const [revisionHistory, setRevisionHistory] = useState([]);
   const [revisionLoading, setRevisionLoading] = useState(false);
+  const [showRevisions, setShowRevisions] = useState(true);
   const [expandedRevision, setExpandedRevision] = useState(null);
 
   const [leadForm, setLeadForm] = useState({ leadFirstName: "", leadLastName: "", leadTitle: "", leadEmail: "", leadMobileNo: "", leadPhoneNo: "", leadOrganisationName: "", leadWebsite: "", leadIndustry: "", leadStatus: "New Lead", leadSource: "", leadCountry: "", leadCity: "", leadState: "", leadAddress: "", noOfEmployee: undefined, leadType: "", designation: "", leadReason: "", leadRef: "", enquiryStatus: "", quotationRevision: "" });
@@ -366,18 +387,126 @@ export default function LeadDetailPage() {
   async function submitReminder(e) {
     e.preventDefault();
     if (!reminderText.trim() || !reminderDate) return;
+
+    const selectedTime = new Date(reminderDate).getTime();
+    if (selectedTime < Date.now() - 60000) {
+      showToastMsg("error", "Reminder date and time cannot be in the past.");
+      return;
+    }
+
     setActionLoading(true);
     try {
-      const dateObj = new Date(reminderDate);
-      const formattedDate = dateObj.toISOString().replace("Z", "").split(".")[0];
-      const rem = await addReminder(id, reminderText.trim(), formattedDate);
+      let cleanDate = reminderDate.replace("T", " ");
+      if (cleanDate.length === 16) {
+        cleanDate += ":00";
+      }
+
+      const assignedTarget = reminderAssignedTo || currentUser?.username || currentUser?.userEmail || "Myself";
+
+      let fullText = reminderText.trim();
+      if (reminderType && reminderType !== "Reminder") {
+        fullText = `[${reminderType}] ${fullText}`;
+      }
+      if (reminderNote && reminderNote.trim()) {
+        fullText += ` - Note: ${reminderNote.trim()}`;
+      }
+
+      const rem = await addReminder(id, fullText, cleanDate);
+
+      // Save custom notification for header dropdown sync
+      try {
+        const stored = JSON.parse(localStorage.getItem("crm-custom-reminders") || "[]");
+        const customRem = {
+          id: `reminder-${rem.leadReminderId || Date.now()}`,
+          title: `Reminder: ${leadName}`,
+          type: reminderType,
+          time: cleanDate,
+          note: fullText,
+          reminderPreset: reminderTimingPreset,
+          assignedTo: assignedTarget,
+          leadId: id,
+          createdAt: new Date().toISOString(),
+        };
+        stored.push(customRem);
+        localStorage.setItem("crm-custom-reminders", JSON.stringify(stored));
+      } catch (err) {
+        console.error("Failed to sync reminder to custom storage:", err);
+      }
+
       setReminders((p) => [rem, ...p]);
-      setReminderText(""); setReminderDate("");
-      showToastMsg("success", "Reminder added.");
+      setReminderText("");
+      setReminderDate("");
+      setReminderType("Reminder");
+      setReminderAssignedTo("");
+      setReminderTimingPreset("0");
+      setReminderNote("");
+
+      showToastMsg("success", "Reminder added successfully.");
       window.dispatchEvent(new CustomEvent("crm-notification-refresh"));
-    } catch (error) { console.error("Reminder Error:", error); showToastMsg("error", "Failed to add reminder."); }
-    finally { setActionLoading(false); }
+    } catch (error) {
+      console.error("Reminder Error:", error);
+      showToastMsg("error", "Failed to add reminder.");
+    } finally {
+      setActionLoading(false);
+    }
   }
+
+  async function handleDeleteReminder(reminderId) {
+    setActionLoading(true);
+    try {
+      await removeReminder(reminderId);
+      setReminders((p) => p.filter((r) => r.leadReminderId !== reminderId));
+      showToastMsg("success", "Reminder deleted.");
+      window.dispatchEvent(new CustomEvent("crm-notification-refresh"));
+    } catch (error) {
+      console.error("Failed to delete reminder:", error);
+      showToastMsg("error", "Failed to delete reminder.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  const applyReminderPreset = (minutesOrPreset) => {
+    const now = new Date();
+    let target = new Date();
+
+    if (typeof minutesOrPreset === "number") {
+      target = new Date(now.getTime() + minutesOrPreset * 60 * 1000);
+    } else if (minutesOrPreset === "tomorrow") {
+      target.setDate(now.getDate() + 1);
+      target.setHours(10, 0, 0, 0);
+    } else if (minutesOrPreset === "nextWeek") {
+      target.setDate(now.getDate() + 7);
+      target.setHours(10, 0, 0, 0);
+    }
+
+    const year = target.getFullYear();
+    const month = String(target.getMonth() + 1).padStart(2, "0");
+    const day = String(target.getDate()).padStart(2, "0");
+    const hours = String(target.getHours()).padStart(2, "0");
+    const mins = String(target.getMinutes()).padStart(2, "0");
+
+    setReminderDate(`${year}-${month}-${day}T${hours}:${mins}`);
+  };
+
+  const getReminderBadge = (reminderDateStr, isDone) => {
+    if (isDone) return { label: "Completed", color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: "mdi:check-circle" };
+    if (!reminderDateStr) return { label: "Scheduled", color: "bg-gray-50 text-gray-700 border-gray-200", icon: "mdi:clock-outline" };
+    
+    const dateObj = new Date(reminderDateStr.replace(" ", "T"));
+    if (isNaN(dateObj.getTime())) return { label: "Scheduled", color: "bg-gray-50 text-gray-700 border-gray-200", icon: "mdi:clock-outline" };
+
+    const now = Date.now();
+    const todayEnd = new Date().setHours(23, 59, 59, 999);
+
+    if (dateObj.getTime() < now) {
+      return { label: "Overdue", color: "bg-red-50 text-red-700 border-red-200 font-bold", icon: "mdi:alert-circle" };
+    } else if (dateObj.getTime() <= todayEnd) {
+      return { label: "Due Today", color: "bg-amber-50 text-amber-700 border-amber-200 font-semibold", icon: "mdi:clock-fast" };
+    } else {
+      return { label: "Upcoming", color: "bg-blue-50 text-blue-700 border-blue-200", icon: "mdi:calendar-clock" };
+    }
+  };
 
   function toggleReminderDone(reminderId) { setReminderDone((p) => ({ ...p, [reminderId]: !p[reminderId] })); }
 
@@ -954,21 +1083,125 @@ export default function LeadDetailPage() {
             {activeTab === "reminders" && (
               <section className="space-y-4">
                 <h3 className="text-base font-semibold text-gray-900">Reminders</h3>
-                <form className="bg-gray-50/50 rounded-xl border border-gray-100 p-4 space-y-3" onSubmit={submitReminder}>
+                <form className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4" onSubmit={submitReminder}>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reminder Text *</label>
-                    <input value={reminderText} onChange={(e) => setReminderText(e.target.value)} className="input-field text-sm" placeholder="Follow-up call, proposal review..." />
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                      Title <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      required
+                      value={reminderText}
+                      onChange={(e) => setReminderText(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-colors"
+                      placeholder="Event or reminder title"
+                    />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date & Time *</label>
-                      <input type="datetime-local" value={reminderDate} onChange={(e) => setReminderDate(e.target.value)} className="input-field text-sm" />
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">Type</label>
+                      <select
+                        value={reminderType}
+                        onChange={(e) => setReminderType(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-colors"
+                      >
+                        <option value="Reminder">Reminder</option>
+                        <option value="Follow-up Call">Follow-up Call</option>
+                        <option value="Meeting">Meeting</option>
+                        <option value="Proposal Review">Proposal Review</option>
+                      </select>
                     </div>
-                    <div className="flex items-end">
-                      <button type="submit" className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors disabled:opacity-50" disabled={actionLoading}>
-                        <Icon name="mdi:bell-plus-outline" className="h-4 w-4" /> Add Reminder
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                        Date / Time <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        required
+                        type="datetime-local"
+                        min={new Date().toISOString().slice(0, 16)}
+                        value={reminderDate}
+                        onChange={(e) => setReminderDate(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-gray-600">Quick Presets</label>
+                      <span className="text-[11px] text-gray-400">Click to quick-set date</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => applyReminderPreset(15)} className="px-3 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs font-medium text-gray-700 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors">
+                        +15 Mins
+                      </button>
+                      <button type="button" onClick={() => applyReminderPreset(60)} className="px-3 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs font-medium text-gray-700 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors">
+                        +1 Hour
+                      </button>
+                      <button type="button" onClick={() => applyReminderPreset("tomorrow")} className="px-3 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs font-medium text-gray-700 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors">
+                        Tomorrow 10 AM
+                      </button>
+                      <button type="button" onClick={() => applyReminderPreset("nextWeek")} className="px-3 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs font-medium text-gray-700 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors">
+                        Next Week
                       </button>
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">Set Reminder To</label>
+                      <select
+                        value={reminderAssignedTo}
+                        onChange={(e) => setReminderAssignedTo(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-colors"
+                      >
+                        <option value="">Myself ({currentUser?.username || currentUser?.userEmail || "Me"})</option>
+                        {teamMembers.map((m) => {
+                          const name = m.teamMemberName || m.name || m.teamMemberEmail || m.email;
+                          return (
+                            <option key={m.teamMemberId || m.id || name} value={name}>
+                              {name}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">Reminder Timing</label>
+                      <select
+                        value={reminderTimingPreset}
+                        onChange={(e) => setReminderTimingPreset(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-colors"
+                      >
+                        <option value="0">At time of event (0 min)</option>
+                        <option value="15">15 mins before</option>
+                        <option value="60">1 hour before</option>
+                        <option value="1440">1 day before</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Note</label>
+                    <textarea
+                      rows="2"
+                      value={reminderNote}
+                      onChange={(e) => setReminderNote(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-white resize-none focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-colors"
+                      placeholder="Optional details..."
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      disabled={actionLoading}
+                      className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors disabled:opacity-50 shadow-sm"
+                    >
+                      <Icon name="mdi:bell-plus-outline" className="h-4 w-4" /> Add Reminder
+                    </button>
                   </div>
                 </form>
                 {!reminders.length ? (
@@ -978,25 +1211,31 @@ export default function LeadDetailPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {reminders.map((r) => (
-                      <div key={r.leadReminderId} className={`rounded-xl border p-4 flex items-start justify-between gap-3 transition-colors ${reminderDone[r.leadReminderId] ? "bg-emerald-50/50 border-emerald-100" : "bg-white border-gray-100 hover:border-gray-200"}`}>
-                        <div className="flex items-start gap-3">
-                          <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${reminderDone[r.leadReminderId] ? "bg-emerald-100" : "bg-amber-100"}`}>
-                            <Icon name={reminderDone[r.leadReminderId] ? "mdi:check-circle-outline" : "mdi:bell-outline"} className={`h-5 w-5 ${reminderDone[r.leadReminderId] ? "text-emerald-600" : "text-amber-600"}`} />
-                          </div>
-                          <div>
-                            <p className={`text-sm font-medium ${reminderDone[r.leadReminderId] ? "line-through text-gray-400" : "text-gray-800"}`}>{r.reminderText}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <p className="text-xs text-gray-400">{formatDateTime(r.reminderDate)}</p>
-                              {r.sent && (
-                                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 shrink-0">
-                                  <Icon name="mdi:check-circle" className="h-3 w-3" /> Sent
+                    {reminders.map((r) => {
+                      const badge = getReminderBadge(r.reminderDate, reminderDone[r.leadReminderId]);
+                      return (
+                        <div key={r.leadReminderId} className={`rounded-xl border p-4 flex items-start justify-between gap-3 transition-colors ${reminderDone[r.leadReminderId] ? "bg-emerald-50/50 border-emerald-100" : "bg-white border-gray-100 hover:border-gray-200"}`}>
+                          <div className="flex items-start gap-3">
+                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${reminderDone[r.leadReminderId] ? "bg-emerald-100" : "bg-amber-100"}`}>
+                              <Icon name={reminderDone[r.leadReminderId] ? "mdi:check-circle-outline" : "mdi:bell-outline"} className={`h-5 w-5 ${reminderDone[r.leadReminderId] ? "text-emerald-600" : "text-amber-600"}`} />
+                            </div>
+                            <div>
+                              <p className={`text-sm font-medium ${reminderDone[r.leadReminderId] ? "line-through text-gray-400" : "text-gray-800"}`}>{r.reminderText}</p>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <p className="text-xs text-gray-400">{formatDateTime(r.reminderDate)}</p>
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badge.color}`}>
+                                  <Icon name={badge.icon} className="h-3 w-3" />
+                                  {badge.label}
                                 </span>
-                              )}
+                                {r.sent && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 shrink-0">
+                                    <Icon name="mdi:check-circle" className="h-3 w-3" /> Sent
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
                           <button
                             type="button"
                             onClick={() => handleSendReminderEmail(r.leadReminderId)}
@@ -1007,15 +1246,25 @@ export default function LeadDetailPage() {
                             <Icon name="mdi:email-send-outline" className="h-3.5 w-3.5" />
                             Send Email
                           </button>
-                          <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer shrink-0">
+                          <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer shrink-0">
                             <input type="checkbox" checked={!!reminderDone[r.leadReminderId]} onChange={() => toggleReminderDone(r.leadReminderId)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
                             <span className={reminderDone[r.leadReminderId] ? "text-emerald-600 font-semibold" : ""}>
                               {reminderDone[r.leadReminderId] ? "Done" : "Mark done"}
                             </span>
                           </label>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteReminder(r.leadReminderId)}
+                            disabled={actionLoading}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-all shrink-0"
+                            title="Delete reminder"
+                          >
+                            <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
+                          </button>
                         </div>
                       </div>
-                    ))}
+                    );
+                  })}
                   </div>
                 )}
               </section>
@@ -1123,209 +1372,14 @@ export default function LeadDetailPage() {
 
                 {/* ─── Revision History ─── */}
                 <div className="mt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                      <Icon name="mdi:history" className="h-5 w-5 text-indigo-500" />
-                      Revision History
-                    </h3>
-                    {revisionHistory.length > 0 && (
-                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                        {revisionHistory.length} revision{revisionHistory.length !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-
-                  {revisionLoading ? (
-                    <div className="flex items-center justify-center py-10">
-                      <Icon name="mdi:loading" className="h-8 w-8 text-indigo-400 animate-spin" />
-                      <span className="ml-3 text-sm text-gray-400">Loading revision history...</span>
-                    </div>
-                  ) : revisionHistory.length === 0 ? (
-                    <div className="text-center py-10 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
-                      <Icon name="mdi:timeline-outline" className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                      <p className="text-sm font-medium text-gray-400">No revision history yet</p>
-                      <p className="text-xs text-gray-300 mt-1">Revisions will appear here after lead updates</p>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      {/* Timeline line */}
-                      <div className="absolute left-5 top-4 bottom-4 w-0.5 bg-gradient-to-b from-indigo-200 via-blue-100 to-gray-100" />
-
-                      <div className="space-y-3">
-                        {revisionHistory.map((rev, idx) => {
-                          const revKey = rev.id ?? idx;
-                          const isExpanded = expandedRevision === revKey;
-                          const isCurrent = rev.isCurrent === true;
-                          const statusColors = {
-                            'Won': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-                            'Open': 'bg-blue-100 text-blue-700 border-blue-200',
-                            'Lost': 'bg-red-100 text-red-700 border-red-200',
-                            'Closed': 'bg-gray-100 text-gray-600 border-gray-200',
-                          };
-                          const statusClass = statusColors[rev.negotiationStatus] || 'bg-indigo-100 text-indigo-700 border-indigo-200';
-                          const docCount = rev.documentCount ?? rev.documents?.length ?? 0;
-
-                          return (
-                            <div key={String(revKey)} className="relative pl-12">
-                              {/* Timeline dot */}
-                              <div className={`absolute left-3.5 top-4 h-3 w-3 rounded-full border-2 border-white shadow-sm ${
-                                isCurrent ? 'bg-emerald-500' : 'bg-blue-200'
-                              }`} />
-
-                              <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all">
-                                {/* Revision Header */}
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedRevision(isExpanded ? null : revKey)}
-                                  className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-gray-50/50 transition-colors"
-                                >
-                                  {/* Revision Badge */}
-                                  <div className="flex-shrink-0 h-9 w-9 rounded-lg bg-indigo-50 flex items-center justify-center">
-                                    <span className="text-xs font-bold text-indigo-600">
-                                      {rev.revisionNo || `R${revisionHistory.length - idx - 1}`}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="text-sm font-semibold text-gray-800 truncate">
-                                        {rev.quotationNo || 'No Quotation No.'}
-                                      </span>
-                                      {rev.negotiationStatus && (
-                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${statusClass}`}>
-                                          {rev.negotiationStatus}
-                                        </span>
-                                      )}
-                                      {isCurrent && (
-                                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                          ● Active
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-xs text-gray-400 mt-0.5">
-                                      {rev.updatedDate
-                                        ? new Date(rev.updatedDate).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
-                                        : isCurrent ? 'Current active revision' : 'Unknown date'
-                                      }
-                                      {docCount > 0 && (
-                                        <span className="ml-2 inline-flex items-center gap-1">
-                                          <Icon name="mdi:file-outline" className="h-3 w-3" />
-                                          {docCount} file{docCount !== 1 ? 's' : ''}
-                                        </span>
-                                      )}
-                                    </p>
-                                  </div>
-
-                                  {/* Amount */}
-                                  {rev.quotationAmount != null && (
-                                    <div className="flex-shrink-0 text-right">
-                                      <p className="text-sm font-bold text-gray-800">
-                                        ₹{Number(rev.quotationAmount).toLocaleString('en-IN')}
-                                      </p>
-                                      <p className="text-[10px] text-gray-400">Amount</p>
-                                    </div>
-                                  )}
-
-                                  <Icon
-                                    name={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'}
-                                    className="h-4 w-4 text-gray-400 flex-shrink-0"
-                                  />
-                                </button>
-
-                                {/* Expanded Details */}
-                                {isExpanded && (
-                                  <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50 space-y-3">
-                                    {/* Details Grid */}
-                                    <div className="grid grid-cols-2 gap-3">
-                                      {rev.quotationDate && (
-                                        <div>
-                                          <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Quotation Date</p>
-                                          <p className="text-sm text-gray-700">
-                                            {new Date(rev.quotationDate).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
-                                          </p>
-                                        </div>
-                                      )}
-                                      {rev.revisionNo && (
-                                        <div>
-                                          <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Revision No.</p>
-                                          <p className="text-sm text-gray-700">{rev.revisionNo}</p>
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* Remarks */}
-                                    {rev.remarks && (
-                                      <div>
-                                        <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Remarks</p>
-                                        <p className="text-sm text-gray-700 leading-relaxed">{rev.remarks}</p>
-                                      </div>
-                                    )}
-
-                                    {/* Enquiry Description */}
-                                    {rev.enquiryDescription && (
-                                      <div>
-                                        <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Enquiry Description</p>
-                                        <p className="text-sm text-gray-700 leading-relaxed">{rev.enquiryDescription}</p>
-                                      </div>
-                                    )}
-
-                                    {/* Documents in this revision */}
-                                    {rev.documents && rev.documents.length > 0 && (
-                                      <div>
-                                        <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-2">Attached Files</p>
-                                        <div className="space-y-1.5">
-                                          {rev.documents.map((doc, dIdx) => {
-                                            const ext = (doc.fileName || '').split('.').pop()?.toLowerCase();
-                                            const isPdf = ext === 'pdf';
-                                            const isImg = ['jpg','jpeg','png','gif','webp'].includes(ext);
-                                            return (
-                                              <div key={doc.id ?? dIdx} className="flex items-center gap-2 p-2 rounded-lg bg-white border border-gray-100">
-                                                <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                                  isImg ? 'bg-pink-50' : isPdf ? 'bg-red-50' : 'bg-blue-50'
-                                                }`}>
-                                                  <Icon
-                                                    name={isImg ? 'mdi:image-outline' : isPdf ? 'mdi:file-pdf-box' : 'mdi:file-document-outline'}
-                                                    className={`h-4 w-4 ${
-                                                      isImg ? 'text-pink-500' : isPdf ? 'text-red-500' : 'text-blue-500'
-                                                    }`}
-                                                  />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                  <p className="text-xs font-medium text-gray-700 truncate">{doc.fileName || `File ${dIdx + 1}`}</p>
-                                                  {doc.uploadedDate && (
-                                                    <p className="text-[10px] text-gray-400">
-                                                      {new Date(doc.uploadedDate).toLocaleDateString('en-IN')}
-                                                    </p>
-                                                  )}
-                                                </div>
-                                                {doc.fileUrl && (
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => negotiationApi.handleViewDocument(doc.fileUrl)}
-                                                    className="flex-shrink-0 px-2 py-1 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-medium hover:bg-emerald-100 transition-colors"
-                                                  >
-                                                    <Icon name="mdi:download" className="h-3 w-3 inline mr-0.5" />Download
-                                                  </button>
-                                                )}
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {(!rev.documents || rev.documents.length === 0) && (
-                                      <p className="text-xs text-gray-400 text-center py-2">No files attached to this revision</p>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  <RevisionHistorySection
+                    revisions={revisionHistory}
+                    loading={revisionLoading}
+                    showRevisions={showRevisions}
+                    setShowRevisions={setShowRevisions}
+                    lead={lead}
+                    negotiationApi={negotiationApi}
+                  />
                 </div>
 
               </section>

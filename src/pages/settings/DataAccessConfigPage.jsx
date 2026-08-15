@@ -6,14 +6,39 @@ import { useTeamMember } from '../../hooks/useTeamMember'
 import { useAuthStore } from '../../stores/auth'
 
 const MODULES = [
-  { id: 'LEADS', name: 'Leads', icon: 'mdi:account-arrow-right-outline', desc: 'Inbound and sales leads' },
-  { id: 'LEAD_STATUS', name: 'Lead Status Master', icon: 'mdi:tag-outline', desc: 'Lead status master configurations' },
-  { id: 'TASKS', name: 'Tasks', icon: 'mdi:checkbox-marked-circle-outline', desc: 'Action items & assignments' },
-  { id: 'OPPORTUNITIES', name: 'Opportunities', icon: 'mdi:chart-line', desc: 'Deals & pipeline stages' },
-  { id: 'PROJECTS', name: 'Projects', icon: 'mdi:folder-outline', desc: 'Project boards & milestones' },
-  { id: 'CONTACTS', name: 'Contacts', icon: 'mdi:contacts-outline', desc: 'People & organization contacts' },
-  { id: 'TEAM_MEMBERS', name: 'Team Members', icon: 'mdi:account-multiple-outline', desc: 'Team member accounts & profiles' },
-  { id: 'DATA_ACCESS', name: 'Data Access Module', icon: 'mdi:shield-account-outline', desc: 'Data Access & visibility scoping configuration' },
+  // MAIN
+  { id: 'DASHBOARD', name: 'Dashboard', category: 'MAIN', icon: 'mdi:view-dashboard-outline', desc: 'Overview & workspace dashboard' },
+  { id: 'ACTIVITIES', name: 'Activities', category: 'MAIN', icon: 'mdi:timeline-text-outline', desc: 'Activity timeline & audit logs' },
+  { id: 'EMAILS', name: 'Emails', category: 'MAIN', icon: 'mdi:email-fast-outline', desc: 'Email communications & tracking' },
+  { id: 'CALENDAR', name: 'Calendar', category: 'MAIN', icon: 'mdi:calendar-month-outline', desc: 'Events & reminders' },
+  { id: 'ATTENDANCE', name: 'Attendance', category: 'MAIN', icon: 'mdi:clock-check-outline', desc: 'Attendance & time tracking' },
+
+  // SALES
+  { id: 'LEADS', name: 'Leads', category: 'SALES', icon: 'mdi:account-arrow-right-outline', desc: 'Inbound and sales leads' },
+  { id: 'NEGOTIATIONS', name: 'Negotiations', category: 'SALES', icon: 'mdi:handshake-outline', desc: 'Quotation revisions & negotiation deals' },
+  { id: 'LEAD_STATUS', name: 'Lead Masters', category: 'SALES', icon: 'mdi:tag-outline', desc: 'Lead status, source, and group masters' },
+  { id: 'CONTACTS', name: 'Contacts', category: 'SALES', icon: 'mdi:contacts-outline', desc: 'People & organization contacts' },
+  { id: 'ORGANIZATIONS', name: 'Organizations', category: 'SALES', icon: 'mdi:office-building-outline', desc: 'Companies & organization accounts' },
+  { id: 'OPPORTUNITIES', name: 'Opportunities', category: 'SALES', icon: 'mdi:chart-line', desc: 'Deals & pipeline stages' },
+
+  // PROJECTS
+  { id: 'PROJECTS', name: 'Projects', category: 'PROJECTS', icon: 'mdi:folder-outline', desc: 'Project boards & milestones' },
+  { id: 'TASKS', name: 'Tasks', category: 'PROJECTS', icon: 'mdi:checkbox-marked-circle-outline', desc: 'Action items & assignments' },
+  { id: 'TEAMS', name: 'Teams', category: 'PROJECTS', icon: 'mdi:account-group-outline', desc: 'Teams & departments' },
+  { id: 'TEAM_LEADS', name: 'Team Leads', category: 'PROJECTS', icon: 'mdi:account-star-outline', desc: 'Team leads management' },
+  { id: 'TEAM_MEMBERS', name: 'Team Members', category: 'PROJECTS', icon: 'mdi:account-multiple-outline', desc: 'Team member accounts & profiles' },
+
+  // ANALYTICS
+  { id: 'ANALYTICS', name: 'Analytics', category: 'ANALYTICS', icon: 'mdi:chart-donut', desc: 'Performance analytics & charts' },
+  { id: 'REPORTS', name: 'Reports', category: 'ANALYTICS', icon: 'mdi:file-chart-outline', desc: 'CRM reports' },
+  { id: 'AUTOMATION', name: 'Automation', category: 'ANALYTICS', icon: 'mdi:robot-outline', desc: 'Automation rules & workflows' },
+
+  // ADMINISTRATION
+  { id: 'ROLES', name: 'Roles & Permissions', category: 'ADMINISTRATION', icon: 'mdi:shield-key-outline', desc: 'Role access matrix' },
+  { id: 'INTEGRATIONS', name: 'Integrations', category: 'ADMINISTRATION', icon: 'mdi:api', desc: 'Third-party integrations' },
+  { id: 'DATA_ACCESS', name: 'Data Access Module', category: 'ADMINISTRATION', icon: 'mdi:shield-account-outline', desc: 'Data Access & visibility scoping configuration' },
+  { id: 'SETTINGS', name: 'Settings', category: 'ADMINISTRATION', icon: 'mdi:cog-outline', desc: 'System settings' },
+  { id: 'TRASH', name: 'Trash / Recycle Bin', category: 'ADMINISTRATION', icon: 'mdi:delete-outline', desc: 'Recycle bin & deleted items' },
 ]
 
 const SCOPES = [
@@ -62,6 +87,12 @@ export default function DataAccessConfigPage() {
   const [saving, setSaving] = useState(false)
   const [query, setQuery] = useState('')
   const [selectedUserForOverride, setSelectedUserForOverride] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('ALL')
+
+  const visibleModules = useMemo(() => {
+    if (selectedCategory === 'ALL') return MODULES
+    return MODULES.filter((m) => m.category === selectedCategory)
+  }, [selectedCategory])
 
   async function loadData() {
     setLoading(true)
@@ -156,7 +187,7 @@ export default function DataAccessConfigPage() {
   function batchSetScopeForTarget(type, id, scopeMode) {
     setMatrix((prev) => {
       const updated = { ...prev }
-      MODULES.forEach((m) => {
+      visibleModules.forEach((m) => {
         updated[`${type}_${id}_${m.id}`] = scopeMode
       })
       return updated
@@ -293,6 +324,34 @@ export default function DataAccessConfigPage() {
         </div>
       </div>
 
+      {/* Category Filter Pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <span className="font-semibold text-gray-500 mr-1 flex items-center gap-1">
+          <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" /> Modules:
+        </span>
+        {[
+          { id: 'ALL', label: `All Modules (${MODULES.length})` },
+          { id: 'MAIN', label: `Main (${MODULES.filter(m => m.category === 'MAIN').length})` },
+          { id: 'SALES', label: `Sales (${MODULES.filter(m => m.category === 'SALES').length})` },
+          { id: 'PROJECTS', label: `Projects (${MODULES.filter(m => m.category === 'PROJECTS').length})` },
+          { id: 'ANALYTICS', label: `Analytics (${MODULES.filter(m => m.category === 'ANALYTICS').length})` },
+          { id: 'ADMINISTRATION', label: `Administration (${MODULES.filter(m => m.category === 'ADMINISTRATION').length})` },
+        ].map((cat) => (
+          <button
+            key={cat.id}
+            type="button"
+            onClick={() => setSelectedCategory(cat.id)}
+            className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer border ${
+              selectedCategory === cat.id
+                ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
       {/* Main Scoping Matrix Table */}
       <section className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         {loading ? (
@@ -303,27 +362,27 @@ export default function DataAccessConfigPage() {
             <table className="w-full min-w-[900px] text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
-                  <th className="px-4 py-3 min-w-[200px]">System Role</th>
-                  {MODULES.map((m) => (
-                    <th key={m.id} className="px-4 py-3 text-center">
+                  <th className="px-4 py-3 min-w-[200px] sticky left-0 bg-gray-50 z-10 border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">System Role</th>
+                  {visibleModules.map((m) => (
+                    <th key={m.id} className="px-4 py-3 text-center min-w-[170px]">
                       <div className="inline-flex items-center gap-1.5 font-bold text-gray-700">
                         <Icon name={m.icon} className="h-4 w-4 text-purple-600" />
                         {m.name}
                       </div>
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-right">Quick Shortcut</th>
+                  <th className="px-4 py-3 text-right sticky right-0 bg-gray-50 z-10 border-l border-gray-200 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">Quick Shortcut</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRoles.map((role) => (
                   <tr key={role.roleId} className="border-t border-gray-100 hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 sticky left-0 bg-white z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                       <p className="font-bold text-gray-900">{role.roleName}</p>
                       <p className="text-xs text-gray-400">ID: #{role.roleId}</p>
                     </td>
 
-                    {MODULES.map((m) => {
+                    {visibleModules.map((m) => {
                       const currentScopeMode = getScope('role', role.roleId, m.id)
                       const scopeInfo = SCOPES.find((s) => s.id === currentScopeMode) || SCOPES[2]
 
@@ -346,7 +405,7 @@ export default function DataAccessConfigPage() {
                       )
                     })}
 
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right sticky right-0 bg-white z-10 border-l border-gray-100 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                       <select
                         onChange={(e) => {
                           if (e.target.value) batchSetScopeForTarget('role', role.roleId, e.target.value)
@@ -354,9 +413,9 @@ export default function DataAccessConfigPage() {
                         defaultValue=""
                         className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 focus:outline-none"
                       >
-                        <option value="" disabled>Set All Modules...</option>
+                        <option value="" disabled>Set Visible Modules...</option>
                         {SCOPES.map((s) => (
-                          <option key={s.id} value={s.id}>Set All to {s.shortName}</option>
+                          <option key={s.id} value={s.id}>Set Visible to {s.shortName}</option>
                         ))}
                       </select>
                     </td>
@@ -371,16 +430,16 @@ export default function DataAccessConfigPage() {
             <table className="w-full min-w-[900px] text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
-                  <th className="px-4 py-3 min-w-[220px]">User Member</th>
-                  {MODULES.map((m) => (
-                    <th key={m.id} className="px-4 py-3 text-center">
+                  <th className="px-4 py-3 min-w-[220px] sticky left-0 bg-gray-50 z-10 border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">User Member</th>
+                  {visibleModules.map((m) => (
+                    <th key={m.id} className="px-4 py-3 text-center min-w-[170px]">
                       <div className="inline-flex items-center gap-1.5 font-bold text-gray-700">
                         <Icon name={m.icon} className="h-4 w-4 text-purple-600" />
                         {m.name}
                       </div>
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-right">Quick Shortcut</th>
+                  <th className="px-4 py-3 text-right sticky right-0 bg-gray-50 z-10 border-l border-gray-200 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">Quick Shortcut</th>
                 </tr>
               </thead>
               <tbody>
@@ -389,12 +448,12 @@ export default function DataAccessConfigPage() {
 
                   return (
                     <tr key={memberId} className="border-t border-gray-100 hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 sticky left-0 bg-white z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                         <p className="font-bold text-gray-900">{member.teamMemberName || '-'}</p>
                         <p className="text-xs text-gray-500">{member.teamMemberEmail || '-'}</p>
                       </td>
 
-                      {MODULES.map((m) => {
+                      {visibleModules.map((m) => {
                         const hasExplicitOverride = !!matrix[`user_${memberId}_${m.id}`]
                         const currentScopeMode = getScope('user', memberId, m.id)
                         const scopeInfo = SCOPES.find((s) => s.id === currentScopeMode) || SCOPES[2]
@@ -425,7 +484,7 @@ export default function DataAccessConfigPage() {
                         )
                       })}
 
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right sticky right-0 bg-white z-10 border-l border-gray-100 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                         <select
                           onChange={(e) => {
                             if (e.target.value) batchSetScopeForTarget('user', memberId, e.target.value)
@@ -433,9 +492,9 @@ export default function DataAccessConfigPage() {
                           defaultValue=""
                           className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 focus:outline-none"
                         >
-                          <option value="" disabled>Set All Modules...</option>
+                          <option value="" disabled>Set Visible Modules...</option>
                           {SCOPES.map((s) => (
-                            <option key={s.id} value={s.id}>Set All to {s.shortName}</option>
+                            <option key={s.id} value={s.id}>Set Visible to {s.shortName}</option>
                           ))}
                         </select>
                       </td>
