@@ -8,25 +8,20 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
   CartesianGrid,
   YAxis,
 } from "recharts";
-import * as XLSX from 'xlsx';
+import * as XLSX from "xlsx";
 
 import Icon from "../../components/Icon";
 import { formatCurrency } from "../../utils/format";
 import { useLead } from "../../hooks/useLead";
 
-const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+const COLORS = ["#3B82F6", "#10B981", "#8B5CF6", "#F59E0B", "#EF4444", "#06B6D4", "#EC4899"];
 
-const currency = localStorage.getItem("appCurrency") || "INR";
-
-// Format KPI values with proper error handling
+// Format KPI currency values cleanly
 const formatKPIValue = (value) => {
   const currency = localStorage.getItem("appCurrency") || "INR";
-
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency,
@@ -34,120 +29,96 @@ const formatKPIValue = (value) => {
   }).format(Number(value || 0));
 };
 
-// Enhanced KPI Card Component
-function KPICard({ label, value, amount, change, icon, color = "blue", onClick }) {
-  const colorMap = {
-    blue: "border-l-blue-500 bg-blue-50 text-blue-500",
-    green: "border-l-green-500 bg-green-50 text-green-500",
-    purple: "border-l-purple-500 bg-purple-50 text-purple-500",
-    yellow: "border-l-yellow-500 bg-yellow-50 text-yellow-500",
-    orange: "border-l-orange-500 bg-orange-50 text-orange-500",
-    emerald: "border-l-emerald-500 bg-emerald-50 text-emerald-500",
-    indigo: "border-l-indigo-500 bg-indigo-50 text-indigo-500",
-    gray: "border-l-gray-500 bg-gray-50 text-gray-500",
-    red: "border-l-red-500 bg-red-50 text-red-500",
+// Funnel Step Progress Component
+function FunnelStep({ label, value, percentage, color = "blue", icon }) {
+  const colorClasses = {
+    blue: { bg: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50" },
+    purple: { bg: "bg-purple-500", text: "text-purple-600", light: "bg-purple-50" },
+    indigo: { bg: "bg-indigo-500", text: "text-indigo-600", light: "bg-indigo-50" },
+    yellow: { bg: "bg-amber-500", text: "text-amber-600", light: "bg-amber-50" },
+    emerald: { bg: "bg-emerald-500", text: "text-emerald-600", light: "bg-emerald-50" },
+    gray: { bg: "bg-slate-400", text: "text-slate-600", light: "bg-slate-50" },
   };
 
-  return (
-    <div
-      onClick={onClick}
-      className={`bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 border-l-4 ${colorMap[color]?.split(' ')[0] || 'border-l-blue-500'} hover:shadow-md transition-shadow group ${onClick ? 'cursor-pointer' : ''}`}
-    >
-      <div className="flex items-center justify-between mb-1 sm:mb-2">
-        <span className="text-[9px] sm:text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
-        <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg ${colorMap[color]?.split(' ')[1] || 'bg-blue-50'} group-hover:${colorMap[color]?.split(' ')[1]?.replace('50', '100') || 'bg-blue-100'} flex items-center justify-center transition-colors`}>
-          <Icon name={icon} className={`w-3 h-3 sm:w-4 sm:h-4 ${colorMap[color]?.split(' ')[2] || 'text-blue-500'}`} />
-        </div>
-      </div>
-      <p className="text-lg sm:text-2xl font-bold text-gray-900">{value}</p>
-      {amount !== undefined && amount !== null && (
-        <p className={`text-[8px] sm:text-xs ${colorMap[color]?.split(' ')[2] || 'text-blue-500'} mt-0.5 sm:mt-1 font-semibold truncate`}>
-          Amt: {amount}
-        </p>
-      )}
-      {change && (
-        <div className={`mt-1 flex items-center gap-1 text-[8px] sm:text-xs font-medium ${change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-          <Icon name={change.startsWith('+') ? "mdi:trending-up" : "mdi:trending-down"} className="w-3 h-3" />
-          {change}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Funnel Step Component
-function FunnelStep({ label, value, percentage, color = "blue", icon, onClick, change }) {
-  const colors = {
-    blue: "bg-blue-500",
-    orange: "bg-orange-500",
-    green: "bg-green-500",
-    purple: "bg-purple-500",
-    gray: "bg-gray-400",
-    red: "bg-red-500",
-    emerald: "bg-emerald-500",
-    yellow: "bg-yellow-500",
-    indigo: "bg-indigo-500",
-  };
+  const style = colorClasses[color] || colorClasses.blue;
 
   return (
-    <div
-      className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-      onClick={onClick}
-    >
-      <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: colors[color] || colors.blue }}>
-        <Icon name={icon || "mdi:circle"} className="w-3 h-3 text-white" />
+    <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
+      <div className={`w-8 h-8 rounded-lg ${style.light} flex items-center justify-center shrink-0`}>
+        <Icon name={icon || "mdi:circle"} className={`w-4 h-4 ${style.text}`} />
       </div>
-      <span className="w-20 text-xs font-medium text-gray-600 truncate">{label}</span>
-      <div className="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
+
+      <div className="w-24 shrink-0">
+        <p className="text-xs font-semibold text-slate-800 truncate">{label}</p>
+        <p className="text-[10px] text-slate-400 font-medium">{value} deals</p>
+      </div>
+
+      <div className="flex-1 h-3.5 bg-slate-100 rounded-full overflow-hidden p-0.5">
         <div
-          className={`h-full ${colors[color] || colors.blue} rounded-full flex items-center justify-end pr-2 text-white text-[10px] font-bold transition-all duration-500`}
-          style={{ width: `${Math.min(percentage, 100)}%` }}
-        >
-          {value}
-        </div>
+          className={`h-full ${style.bg} rounded-full transition-all duration-500`}
+          style={{ width: `${Math.max(percentage, 3)}%` }}
+        />
       </div>
-      <div className="flex flex-col items-end">
-        <span className="text-xs font-semibold text-gray-600 w-10 text-right">{percentage}%</span>
-        {change && (
-          <span className={`text-[8px] font-medium ${change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-            {change}
-          </span>
-        )}
+
+      <div className="w-12 text-right shrink-0">
+        <span className="text-xs font-bold text-slate-700">{percentage}%</span>
       </div>
     </div>
   );
 }
 
-// Top List Component
-function TopList({ title, items, icon }) {
-  if (!items || items.length === 0) {
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-        <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-          <Icon name={icon} className="w-4 h-4 text-blue-600" />
+// Top List Rank Component
+function TopListCard({ title, items, icon, valueFormatter }) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+            <Icon name={icon} className="w-4 h-4" />
+          </div>
           {title}
         </h4>
-        <p className="text-sm text-gray-400 text-center py-4">No data available</p>
+        <span className="text-[10px] font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Top 5</span>
+      </div>
+
+      {!items || items.length === 0 ? (
+        <div className="text-center py-6 text-slate-400 text-xs font-medium">No data available</div>
+      ) : (
+        <div className="space-y-2.5">
+          {items.slice(0, 5).map((item, idx) => (
+            <div key={idx} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${
+                  idx === 0 ? 'bg-amber-100 text-amber-700' : idx === 1 ? 'bg-slate-200 text-slate-700' : idx === 2 ? 'bg-amber-700/10 text-amber-800' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {idx + 1}
+                </span>
+                <span className="text-xs font-medium text-slate-800 truncate" title={item.name}>{item.name}</span>
+              </div>
+              <span className="text-xs font-bold text-slate-900 shrink-0 ml-2">
+                {valueFormatter ? valueFormatter(item.value) : item.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Custom Recharts Bar Chart Tooltip
+function CustomBarTooltip({ active, payload, label }) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-900 text-white p-3 rounded-xl shadow-xl text-xs border border-slate-700">
+        <p className="font-bold text-slate-300 mb-1">{label}</p>
+        <p className="font-semibold text-blue-400">
+          Sales: {formatKPIValue(payload[0].value)}
+        </p>
       </div>
     );
   }
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-      <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-        <Icon name={icon} className="w-4 h-4 text-blue-600" />
-        {title}
-      </h4>
-      <ul className="space-y-1.5">
-        {items.slice(0, 5).map((item, idx) => (
-          <li key={idx} className="flex justify-between items-center text-sm">
-            <span className="text-gray-600 truncate">{item.name}</span>
-            <span className="font-semibold text-gray-900">{item.value}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+  return null;
 }
 
 export default function ReportsPage() {
@@ -156,19 +127,10 @@ export default function ReportsPage() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-  const [exportFormat, setExportFormat] = useState("xlsx");
-  const [activeTab, setActiveTab] = useState("Sales");
-
-  const TABS = [
-    { id: "Enquiry", icon: "mdi:account-question-outline" },
-    { id: "Quotation", icon: "mdi:file-document-outline" },
-    { id: "Inventory", icon: "mdi:package-variant-closed" },
-    { id: "Accounting", icon: "mdi:calculator" },
-    { id: "SignIn", icon: "mdi:login" },
-    { id: "Tasks", icon: "mdi:checkbox-marked-circle-outline" },
-    { id: "Visit", icon: "mdi:map-marker-path" },
-    { id: "Sales", icon: "mdi:currency-usd" },
-  ];
+  const [dateRange, setDateRange] = useState("all"); // 'all' | 'month' | 'quarter' | 'year'
+  const [openDateDropdown, setOpenDateDropdown] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleSuccess, setScheduleSuccess] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -186,8 +148,35 @@ export default function ReportsPage() {
     fetchData();
   }, []);
 
+  // Filter leads based on selected date range
+  const filteredLeads = useMemo(() => {
+    if (!leads || leads.length === 0) return [];
+    if (dateRange === "all") return leads;
+
+    const now = new Date();
+    return leads.filter((lead) => {
+      const dateStr = lead.inquiryDate || lead.createdAt || lead.date || lead.createdDate;
+      if (!dateStr) return true;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return true;
+
+      if (dateRange === "month") {
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }
+      if (dateRange === "quarter") {
+        const qNow = Math.floor(now.getMonth() / 3);
+        const qD = Math.floor(d.getMonth() / 3);
+        return qNow === qD && d.getFullYear() === now.getFullYear();
+      }
+      if (dateRange === "year") {
+        return d.getFullYear() === now.getFullYear();
+      }
+      return true;
+    });
+  }, [leads, dateRange]);
+
   const analytics = useMemo(() => {
-    if (!leads || leads.length === 0) {
+    if (!filteredLeads || filteredLeads.length === 0) {
       return {
         totalRevenue: 0,
         totalLeads: 0,
@@ -205,86 +194,40 @@ export default function ReportsPage() {
         conversionRate: 0,
         qualifiedRate: 0,
         funnelData: [],
-        pipelineData: [],
-        revenueTrend: [],
         leadSources: [],
         topCustomers: [],
         topProducts: [],
-        topIndustries: [],
         topCountries: [],
-        winLossData: { won: 0, lost: 0, winRate: 0 },
         activityData: [],
-        salesPerformance: [],
-        reports: [],
-        reportsCount: 0,
-        salesByUser: [],
         monthlySales: [],
-        regionReport: [],
+        salesByUser: [],
         forecast: { q3: 0, bestCase: 0, commit: 0 },
+        winLossData: { won: 0, lost: 0, winRate: 0 },
       };
     }
 
-    // Calculate total revenue
-    const totalRevenue = leads.reduce(
+    const totalRevenue = filteredLeads.reduce(
       (sum, lead) => sum + Number(lead.quotationAmount || lead.amount || lead.price || lead.value || 0),
       0
     );
 
-    // Filter by leadOutcomeStatus (case insensitive)
-    const wonLeads = leads.filter(lead => {
-      const status = String(lead.leadOutcomeStatus || '').toLowerCase();
-      return status === "won";
-    });
+    const wonLeads = filteredLeads.filter(lead => String(lead.leadOutcomeStatus || '').toLowerCase() === "won");
+    const lostLeads = filteredLeads.filter(lead => String(lead.leadOutcomeStatus || '').toLowerCase() === "lost");
+    const negotiationLeads = filteredLeads.filter(lead => String(lead.leadOutcomeStatus || '').toLowerCase() === "negotiation");
+    const openLeads = filteredLeads.filter(lead => String(lead.leadOutcomeStatus || '').toLowerCase() === "open");
+    const closedLeads = filteredLeads.filter(lead => String(lead.leadOutcomeStatus || '').toLowerCase() === "closed");
+    const qualifiedLeads = filteredLeads.filter(lead => String(lead.leadStatus || '').toLowerCase() === "qualified");
 
-    const lostLeads = leads.filter(lead => {
-      const status = String(lead.leadOutcomeStatus || '').toLowerCase();
-      return status === "lost";
-    });
+    const totalLeads = filteredLeads.length;
 
-    const negotiationLeads = leads.filter(lead => {
-      const status = String(lead.leadOutcomeStatus || '').toLowerCase();
-      return status === "negotiation";
-    });
-
-    const openLeads = leads.filter(lead => {
-      const status = String(lead.leadOutcomeStatus || '').toLowerCase();
-      return status === "open";
-    });
-
-    const closedLeads = leads.filter(lead => {
-      const status = String(lead.leadOutcomeStatus || '').toLowerCase();
-      return status === "closed";
-    });
-
-    const qualifiedLeads = leads.filter(lead => {
-      const status = String(lead.leadStatus || '').toLowerCase();
-      return status === "qualified";
-    });
-
-    const totalLeads = leads.length;
-
-    // Calculate amounts
-    const totalLeadsAmount = totalRevenue;
-    const qualifiedLeadsAmount = qualifiedLeads.reduce((sum, lead) => {
-      return sum + Number(lead.quotationAmount || lead.amount || lead.price || lead.value || 0);
-    }, 0);
-    const negotiationAmount = negotiationLeads.reduce((sum, lead) => {
-      return sum + Number(lead.quotationAmount || lead.amount || lead.price || lead.value || 0);
-    }, 0);
-    const openLeadsAmount = openLeads.reduce((sum, lead) => {
-      return sum + Number(lead.quotationAmount || lead.amount || lead.price || lead.value || 0);
-    }, 0);
-    const wonLeadsAmount = wonLeads.reduce((sum, lead) => {
-      return sum + Number(lead.quotationAmount || lead.amount || lead.price || lead.value || 0);
-    }, 0);
-    const closedLeadsAmount = closedLeads.reduce((sum, lead) => {
-      return sum + Number(lead.quotationAmount || lead.amount || lead.price || lead.value || 0);
-    }, 0);
+    const qualifiedLeadsAmount = qualifiedLeads.reduce((sum, lead) => sum + Number(lead.quotationAmount || lead.amount || 0), 0);
+    const negotiationAmount = negotiationLeads.reduce((sum, lead) => sum + Number(lead.quotationAmount || lead.amount || 0), 0);
+    const openLeadsAmount = openLeads.reduce((sum, lead) => sum + Number(lead.quotationAmount || lead.amount || 0), 0);
+    const wonLeadsAmount = wonLeads.reduce((sum, lead) => sum + Number(lead.quotationAmount || lead.amount || 0), 0);
 
     const conversionRate = totalLeads > 0 ? (wonLeads.length / totalLeads) * 100 : 0;
     const qualifiedRate = totalLeads > 0 ? (qualifiedLeads.length / totalLeads) * 100 : 0;
 
-    // Funnel data
     const funnelData = [
       {
         label: "Total Leads",
@@ -292,209 +235,122 @@ export default function ReportsPage() {
         percentage: 100,
         color: "blue",
         icon: "mdi:account-multiple",
-        change: null,
       },
       {
         label: "Qualified",
         value: qualifiedLeads.length,
-        percentage:
-          totalLeads > 0
-            ? Math.round((qualifiedLeads.length / totalLeads) * 100)
-            : 0,
+        percentage: totalLeads > 0 ? Math.round((qualifiedLeads.length / totalLeads) * 100) : 0,
         color: "purple",
         icon: "mdi:account-check",
-        change: null,
       },
       {
         label: "Open",
         value: openLeads.length,
-        percentage:
-          totalLeads > 0
-            ? Math.round((openLeads.length / totalLeads) * 100)
-            : 0,
+        percentage: totalLeads > 0 ? Math.round((openLeads.length / totalLeads) * 100) : 0,
         color: "indigo",
         icon: "mdi:folder-open",
-        change: null,
       },
       {
         label: "Negotiation",
         value: negotiationLeads.length,
-        percentage:
-          totalLeads > 0
-            ? Math.round((negotiationLeads.length / totalLeads) * 100)
-            : 0,
+        percentage: totalLeads > 0 ? Math.round((negotiationLeads.length / totalLeads) * 100) : 0,
         color: "yellow",
         icon: "mdi:handshake",
-        change: null,
       },
       {
         label: "Won",
         value: wonLeads.length,
-        percentage:
-          totalLeads > 0
-            ? Math.round((wonLeads.length / totalLeads) * 100)
-            : 0,
+        percentage: totalLeads > 0 ? Math.round((wonLeads.length / totalLeads) * 100) : 0,
         color: "emerald",
         icon: "mdi:trophy",
-        change: null,
       },
       {
         label: "Closed",
         value: closedLeads.length,
-        percentage:
-          totalLeads > 0
-            ? Math.round((closedLeads.length / totalLeads) * 100)
-            : 0,
+        percentage: totalLeads > 0 ? Math.round((closedLeads.length / totalLeads) * 100) : 0,
         color: "gray",
         icon: "mdi:close-circle",
-        change: null,
       },
     ];
 
-    // Pipeline data for chart
-    const pipelineData = [
-      { name: "Open", deals: openLeads.length },
-      { name: "Negotiation", deals: negotiationLeads.length },
-      { name: "Won", deals: wonLeads.length },
-      { name: "Closed", deals: closedLeads.length },
-    ];
-
-    // Revenue trend by month
-    const revenueTrend = leads.reduce((acc, lead) => {
-      const dateField = lead.inquiryDate || lead.createdAt || lead.date || lead.createdDate;
+    // Monthly Sales Trend
+    const monthMap = {};
+    filteredLeads.forEach((lead) => {
+      const dateField = lead.inquiryDate || lead.createdAt || lead.createdDate;
       if (dateField) {
         const date = new Date(dateField);
         if (!isNaN(date.getTime())) {
-          const month = date.toLocaleString('default', { month: 'short' });
-          const year = date.getFullYear();
-          const key = `${month} ${year}`;
-          const existing = acc.find(item => item.month === key);
-          const value = Number(lead.quotationAmount || lead.amount || lead.price || lead.value || 0);
-          if (existing) {
-            existing.revenue += value;
-          } else {
-            acc.push({ month: key, revenue: value });
-          }
+          const key = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+          const val = Number(lead.quotationAmount || lead.amount || lead.value || 0);
+          monthMap[key] = (monthMap[key] || 0) + val;
         }
       }
-      return acc;
-    }, []).sort((a, b) => {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const aMonth = a.month?.split(' ')[0] || '';
-      const bMonth = b.month?.split(' ')[0] || '';
-      return months.indexOf(aMonth) - months.indexOf(bMonth);
     });
 
-    // Monthly sales data (for chart)
-    const monthlySales = revenueTrend.map(item => ({
-      month: item.month,
-      sales: item.revenue
+    const monthlySales = Object.entries(monthMap).map(([month, sales]) => ({
+      month,
+      sales,
     }));
 
-    // Lead sources
-    const leadSources = leads.reduce((acc, lead) => {
-      const source = lead.leadSource || lead.source || 'Unknown';
-      const existing = acc.find(item => item.name === source);
-      if (existing) {
-        existing.value += 1;
-      } else {
-        acc.push({ name: source, value: 1 });
-      }
-      return acc;
-    }, []).sort((a, b) => b.value - a.value);
+    // Lead Sources
+    const sourceMap = {};
+    filteredLeads.forEach((lead) => {
+      const src = lead.leadSource || lead.source || 'Other';
+      sourceMap[src] = (sourceMap[src] || 0) + 1;
+    });
 
-    // Sales by user
-    const salesByUser = leads.reduce((acc, lead) => {
-      const user = lead.assignedTo || lead.owner || 'Unassigned';
-      const existing = acc.find(item => item.name === user);
-      const value = Number(lead.quotationAmount || lead.amount || lead.price || lead.value || 0);
-      if (existing) {
-        existing.value += value;
-        existing.count = (existing.count || 0) + 1;
-      } else {
-        acc.push({ name: user, value: value, count: 1 });
-      }
-      return acc;
-    }, []).sort((a, b) => b.value - a.value).slice(0, 5)
-      .map(item => ({
-        ...item,
-        value: formatKPIValue(item.value)
-      }));
+    const leadSources = Object.entries(sourceMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
 
-    // Top customers
-    const topCustomers = leads.reduce((acc, lead) => {
-      const customer = lead.leadOrganisationName || lead.companyContactPersonName || lead.customer || 'Unknown';
-      const existing = acc.find(item => item.name === customer);
-      const value = Number(lead.quotationAmount || lead.amount || lead.price || lead.value || 0);
-      if (existing) {
-        existing.value += value;
-      } else {
-        acc.push({ name: customer, value: value });
-      }
-      return acc;
-    }, []).sort((a, b) => b.value - a.value).slice(0, 5)
-      .map(item => ({
-        ...item,
-        value: formatKPIValue(item.value)
-      }));
+    // Sales by User
+    const userMap = {};
+    filteredLeads.forEach((lead) => {
+      const user = lead.teamMemberName || lead.assignedTo || lead.owner || 'Unassigned';
+      const val = Number(lead.quotationAmount || lead.amount || 0);
+      if (!userMap[user]) userMap[user] = { name: user, value: 0, count: 0 };
+      userMap[user].value += val;
+      userMap[user].count += 1;
+    });
 
-    // Top products
-    const topProducts = leads.reduce((acc, lead) => {
-      const product = lead.productName || lead.product || 'Unknown';
-      const existing = acc.find(item => item.name === product);
-      const value = Number(lead.quotationAmount || lead.amount || lead.price || lead.value || 0);
-      if (existing) {
-        existing.value += value;
-      } else {
-        acc.push({ name: product, value: value });
-      }
-      return acc;
-    }, []).sort((a, b) => b.value - a.value).slice(0, 5)
-      .map(item => ({
-        ...item,
-        value: formatKPIValue(item.value)
-      }));
+    const salesByUser = Object.values(userMap).sort((a, b) => b.value - a.value);
 
-    // Top industries
-    const topIndustries = leads.reduce((acc, lead) => {
-      const industry = lead.leadIndustry || lead.industry || 'Unknown';
-      const existing = acc.find(item => item.name === industry);
-      if (existing) {
-        existing.value += 1;
-      } else {
-        acc.push({ name: industry, value: 1 });
-      }
-      return acc;
-    }, []).sort((a, b) => b.value - a.value).slice(0, 5)
-      .map(item => ({
-        ...item,
-        value: totalLeads > 0 ? `${Math.round((item.value / totalLeads) * 100)}%` : '0%'
-      }));
+    // Top Customers
+    const customerMap = {};
+    filteredLeads.forEach((lead) => {
+      const customer = lead.leadOrganisationName || lead.companyContactPersonName || 'Unknown';
+      const val = Number(lead.quotationAmount || lead.amount || 0);
+      customerMap[customer] = (customerMap[customer] || 0) + val;
+    });
 
-    // Top countries (region report)
-    const topCountries = leads.reduce((acc, lead) => {
-      const country = lead.leadCountry || lead.country || 'Unknown';
-      const existing = acc.find(item => item.name === country);
-      if (existing) {
-        existing.value += 1;
-      } else {
-        acc.push({ name: country, value: 1 });
-      }
-      return acc;
-    }, []).sort((a, b) => b.value - a.value).slice(0, 5)
-      .map(item => ({
-        ...item,
-        value: String(item.value)
-      }));
+    const topCustomers = Object.entries(customerMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
 
-    // Win/Loss
-    const winLossData = {
-      won: wonLeads.length,
-      lost: lostLeads.length,
-      winRate: totalLeads > 0 ? (wonLeads.length / totalLeads) * 100 : 0
-    };
+    // Top Products
+    const productMap = {};
+    filteredLeads.forEach((lead) => {
+      const prod = lead.enquiryType || lead.productName || lead.product || 'Standard Product';
+      const val = Number(lead.quotationAmount || lead.amount || 0);
+      productMap[prod] = (productMap[prod] || 0) + val;
+    });
 
-    // Activity data (from leads)
+    const topProducts = Object.entries(productMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    // Top Regions / Countries
+    const regionMap = {};
+    filteredLeads.forEach((lead) => {
+      const country = lead.leadCountry || lead.country || 'India';
+      regionMap[country] = (regionMap[country] || 0) + 1;
+    });
+
+    const topCountries = Object.entries(regionMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    // Activity Data
     const activityData = [
       { name: "New Leads", value: totalLeads },
       { name: "Qualified", value: qualifiedLeads.length },
@@ -503,32 +359,16 @@ export default function ReportsPage() {
       { name: "Closed", value: closedLeads.length },
     ];
 
-    // Forecast
-    const openRevenue = openLeads.reduce(
-      (sum, lead) => sum + Number(lead.quotationAmount || 0),
-      0
-    );
-
-    const negotiationRevenue = negotiationLeads.reduce(
-      (sum, lead) => sum + Number(lead.quotationAmount || 0),
-      0
-    );
-
-    const wonRevenue = wonLeads.reduce(
-      (sum, lead) => sum + Number(lead.quotationAmount || 0),
-      0
-    );
-
     const forecast = {
-      q3: openRevenue + negotiationRevenue + wonRevenue,
+      q3: openLeadsAmount + negotiationAmount + wonLeadsAmount,
       bestCase: totalRevenue,
-      commit: negotiationRevenue + wonRevenue,
+      commit: negotiationAmount + wonLeadsAmount,
     };
 
     return {
       totalRevenue,
       totalLeads,
-      totalLeadsAmount,
+      totalLeadsAmount: totalRevenue,
       qualifiedLeads: qualifiedLeads.length,
       qualifiedLeadsAmount,
       openLeads: openLeads.length,
@@ -542,287 +382,274 @@ export default function ReportsPage() {
       conversionRate,
       qualifiedRate,
       funnelData,
-      pipelineData,
-      revenueTrend,
       monthlySales,
       leadSources,
       topCustomers,
       topProducts,
-      topIndustries,
       topCountries,
-      winLossData,
       activityData,
       salesByUser,
-      regionReport: topCountries,
-      reports: [],
-      reportsCount: 0,
-      salesPerformance: [],
       forecast,
+      winLossData: {
+        won: wonLeads.length,
+        lost: lostLeads.length,
+        winRate: totalLeads > 0 ? (wonLeads.length / totalLeads) * 100 : 0,
+      },
     };
-  }, [leads]);
+  }, [filteredLeads]);
 
-  // Function to export to XLSX
+  // Export to Excel XLSX
   const exportToXLSX = () => {
     if (!analytics) return;
-
-    const wb = XLSX.utils.book_new();
-
-    // Sheet 1: Summary
-    const summaryData = [
-      ['Reports & Analytics Export'],
-      [`Generated: ${new Date().toLocaleString()}`],
-      [],
-      ['KPI Summary'],
-      ['Metric', 'Value'],
-      ['Total Revenue', formatCurrency(analytics.totalRevenue)],
-      ['Total Leads', analytics.totalLeads],
-      ['Qualified Leads', analytics.qualifiedLeads],
-      ['Open Leads', analytics.openLeads],
-      ['Negotiation Leads', analytics.negotiationLeads],
-      ['Won Deals', analytics.wonLeads],
-      ['Closed Deals', analytics.closedLeads],
-      ['Win Rate', `${Math.round((analytics.wonLeads / Math.max(analytics.totalLeads, 1)) * 100)}%`],
-      ['Conversion Rate', `${analytics.conversionRate.toFixed(1)}%`],
-      [],
-      ['Pipeline Overview'],
-      ['Stage', 'Deals'],
-    ];
-
-    analytics.pipelineData.forEach((stage) => {
-      summaryData.push([stage.name, stage.deals]);
-    });
-
-    // Lead Sources
-    if (analytics.leadSources && analytics.leadSources.length > 0) {
-      summaryData.push([]);
-      summaryData.push(['Lead Sources']);
-      summaryData.push(['Source', 'Count']);
-      analytics.leadSources.forEach((source) => {
-        summaryData.push([source.name, source.value]);
-      });
-    }
-
-    // Sales by User
-    if (analytics.salesByUser && analytics.salesByUser.length > 0) {
-      summaryData.push([]);
-      summaryData.push(['Sales by User']);
-      summaryData.push(['User', 'Revenue', 'Count']);
-      analytics.salesByUser.forEach((user) => {
-        summaryData.push([user.name, user.value, user.count || 0]);
-      });
-    }
-
-    const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
-
-    // Sheet 2: Top Customers
-    if (analytics.topCustomers && analytics.topCustomers.length > 0) {
-      const customerData = [
-        ['Top Customers'],
-        ['Customer Name', 'Revenue'],
-      ];
-      analytics.topCustomers.forEach((customer) => {
-        customerData.push([customer.name, customer.value]);
-      });
-      const ws2 = XLSX.utils.aoa_to_sheet(customerData);
-      XLSX.utils.book_append_sheet(wb, ws2, 'Top Customers');
-    }
-
-    // Sheet 3: Top Products
-    if (analytics.topProducts && analytics.topProducts.length > 0) {
-      const productData = [
-        ['Top Products'],
-        ['Product Name', 'Revenue'],
-      ];
-      analytics.topProducts.forEach((product) => {
-        productData.push([product.name, product.value]);
-      });
-      const ws3 = XLSX.utils.aoa_to_sheet(productData);
-      XLSX.utils.book_append_sheet(wb, ws3, 'Top Products');
-    }
-
-    // Generate Excel file
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([wbout], { type: 'application/octet-stream' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${activeTab.toLowerCase()}_report_${new Date().toISOString().split('T')[0]}.xlsx`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportReport = async () => {
-    if (!analytics || leads.length === 0) {
-      alert('No data available to export');
-      return;
-    }
     setExporting(true);
+
     try {
-      if (exportFormat === 'xlsx') {
-        exportToXLSX();
-      } else {
-        alert("Only XLSX format is supported.");
+      const wb = XLSX.utils.book_new();
+
+      // Summary sheet
+      const summaryData = [
+        ['Reports & Analytics Summary'],
+        [`Date Range: ${dateRange.toUpperCase()} | Generated: ${new Date().toLocaleString()}`],
+        [],
+        ['KPI Metric', 'Value'],
+        ['Total Revenue', formatCurrency(analytics.totalRevenue)],
+        ['Total Leads', analytics.totalLeads],
+        ['Qualified Leads', analytics.qualifiedLeads],
+        ['Open Leads', analytics.openLeads],
+        ['Negotiation Deals', analytics.negotiationLeads],
+        ['Won Deals', analytics.wonLeads],
+        ['Closed Deals', analytics.closedLeads],
+        ['Win Rate', `${analytics.winLossData.winRate.toFixed(1)}%`],
+        ['Conversion Rate', `${analytics.conversionRate.toFixed(1)}%`],
+        [],
+        ['Sales Funnel Breakdown'],
+        ['Stage', 'Deals Count', 'Percentage'],
+      ];
+
+      analytics.funnelData.forEach((item) => {
+        summaryData.push([item.label, item.value, `${item.percentage}%`]);
+      });
+
+      if (analytics.leadSources.length > 0) {
+        summaryData.push([]);
+        summaryData.push(['Lead Sources Breakdown']);
+        summaryData.push(['Source', 'Leads Count']);
+        analytics.leadSources.forEach((src) => {
+          summaryData.push([src.name, src.value]);
+        });
       }
-    } catch (error) {
-      console.error('Export failed:', error);
-      alert('Failed to export report. Please try again.');
+
+      if (analytics.salesByUser.length > 0) {
+        summaryData.push([]);
+        summaryData.push(['Sales Performance by User']);
+        summaryData.push(['User', 'Revenue', 'Deals Count']);
+        analytics.salesByUser.forEach((user) => {
+          summaryData.push([user.name, formatKPIValue(user.value), user.count]);
+        });
+      }
+
+      const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
+
+      // Top Customers sheet
+      if (analytics.topCustomers.length > 0) {
+        const customerData = [['Top Customers'], ['Customer Name', 'Total Revenue']];
+        analytics.topCustomers.forEach((c) => {
+          customerData.push([c.name, formatKPIValue(c.value)]);
+        });
+        const ws2 = XLSX.utils.aoa_to_sheet(customerData);
+        XLSX.utils.book_append_sheet(wb, ws2, 'Top Customers');
+      }
+
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/octet-stream' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `sales_reports_${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export error:", err);
     } finally {
       setExporting(false);
     }
   };
 
-  const ExportButton = () => (
-    <div className="flex items-center gap-2 flex-wrap">
-      <button className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-gray-600 text-sm hover:bg-gray-50 transition-colors">
-        <Icon name="mdi:calendar" className="w-4 h-4" />
-        <span>Date Filter</span>
-        <Icon name="mdi:chevron-down" className="w-4 h-4" />
-      </button>
-      <button
-        onClick={handleExportReport}
-        disabled={exporting || loading}
-        className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
-      >
-        {exporting ? "Exporting..." : <><Icon name="mdi:file-export-outline" className="w-4 h-4" /> Export</>}
-      </button>
-      <button className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-gray-600 text-sm hover:bg-gray-50 transition-colors">
-        <Icon name="mdi:clock-outline" className="w-4 h-4" />
-        <span>Schedule</span>
-      </button>
-    </div>
-  );
+  const handleScheduleSubmit = (e) => {
+    e.preventDefault();
+    setScheduleSuccess(true);
+    setTimeout(() => {
+      setScheduleSuccess(false);
+      setShowScheduleModal(false);
+    }, 1500);
+  };
 
   if (loading) {
     return (
-      <div className="h-[80vh] flex items-center justify-center text-gray-500">
+      <div className="h-[75vh] flex items-center justify-center text-slate-400">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          Loading reports...
-        </div>
-      </div>
-    );
-  }
-
-  if (!analytics || leads.length === 0) {
-    return (
-      <div className="h-[80vh] flex items-center justify-center text-gray-500">
-        <div className="text-center">
-          <div className="rounded-full h-16 w-16 bg-gray-100 flex items-center justify-center mx-auto mb-4">
-            <Icon name="mdi:file-document-outline" className="w-8 h-8 text-gray-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-700">No leads found</h3>
-          <p className="text-sm text-gray-500 mt-1">Create leads to see analytics here</p>
+          <Icon name="mdi:loading" className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-slate-600">Loading reports & analytics...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 animate-fade-in pb-10 max-w-[1600px] mx-auto px-4 sm:px-6">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 animate-fade-in pb-12 max-w-[1600px] mx-auto px-4 sm:px-6">
+      {/* HEADER BAR */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5">
         <div>
-          {/* <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Reports</h1> */}
-          <p className="text-sm text-gray-500 mt-1">Track performance and make data-driven decisions</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Reports & Analytics</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-medium">Track performance, sales pipeline metrics, and key revenue forecasts</p>
         </div>
-        <ExportButton />
+
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Date Filter Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setOpenDateDropdown(!openDateDropdown)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 border border-slate-200 rounded-xl bg-white text-slate-700 text-xs font-semibold hover:border-slate-300 transition-colors shadow-sm"
+            >
+              <Icon name="mdi:calendar-range" className="w-4 h-4 text-blue-600" />
+              <span>
+                {dateRange === "all" && "All Time"}
+                {dateRange === "month" && "This Month"}
+                {dateRange === "quarter" && "This Quarter"}
+                {dateRange === "year" && "This Year"}
+              </span>
+              <Icon name="mdi:chevron-down" className={`w-3.5 h-3.5 text-slate-400 transition-transform ${openDateDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {openDateDropdown && (
+              <div 
+                className="absolute right-0 top-full mt-1.5 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 text-xs text-slate-700 animate-in fade-in zoom-in-95 duration-100"
+                onClick={() => setOpenDateDropdown(false)}
+              >
+                {[
+                  { id: "all", label: "All Time" },
+                  { id: "month", label: "This Month" },
+                  { id: "quarter", label: "This Quarter" },
+                  { id: "year", label: "This Year" },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setDateRange(item.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg font-medium flex items-center justify-between transition-colors ${
+                      dateRange === item.id ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    {dateRange === item.id && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Export Button */}
+          <button
+            onClick={exportToXLSX}
+            disabled={exporting}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all text-xs font-semibold shadow-sm shadow-blue-200 disabled:opacity-60"
+          >
+            {exporting ? (
+              <Icon name="mdi:loading" className="w-4 h-4 animate-spin" />
+            ) : (
+              <Icon name="mdi:file-excel-outline" className="w-4 h-4" />
+            )}
+            <span>{exporting ? "Exporting..." : "Export Excel (.xlsx)"}</span>
+          </button>
+
+          {/* Schedule Button */}
+          <button
+            onClick={() => setShowScheduleModal(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 border border-slate-200 rounded-xl bg-white text-slate-700 text-xs font-semibold hover:border-slate-300 transition-colors shadow-sm"
+          >
+            <Icon name="mdi:clock-outline" className="w-4 h-4 text-slate-500" />
+            <span>Schedule</span>
+          </button>
+        </div>
       </div>
 
-      {/* KPI CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-        <div
-          className="relative overflow-hidden bg-white rounded-2xl border border-gray-100/80 shadow-sm p-4 hover:shadow-xl hover:border-blue-200 transition-all duration-300 cursor-pointer group"
-          onClick={() => console.log('Navigate to all leads')}
-        >
-          <div className="absolute -right-6 -top-6 w-20 h-20 bg-blue-500/5 rounded-full group-hover:bg-blue-500/10 transition-all"></div>
-          <div className="absolute -right-4 -top-4 w-14 h-14 bg-blue-500/5 rounded-full group-hover:bg-blue-500/10 transition-all"></div>
-          <div className="relative flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Leads</span>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-100 transition-all">
+      {/* KPI TOP ROW CARDS */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5">
+        <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-lg hover:border-blue-200 transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Leads</span>
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Icon name="mdi:account-multiple-outline" className="w-5 h-5" />
             </div>
           </div>
-          <p className="relative text-2xl font-bold text-gray-900">{analytics.totalLeads || 0}</p>
-          <p className="relative text-xs text-gray-500 font-medium mt-1">{formatKPIValue(analytics.totalLeadsAmount || 0)}</p>
+          <p className="text-2xl font-bold text-slate-900 tracking-tight">{analytics.totalLeads || 0}</p>
+          <p className="text-xs text-blue-600 font-semibold mt-1 truncate">{formatKPIValue(analytics.totalLeadsAmount || 0)}</p>
         </div>
 
-        <div
-          className="relative overflow-hidden bg-white rounded-2xl border border-gray-100/80 shadow-sm p-4 hover:shadow-xl hover:border-purple-200 transition-all duration-300 cursor-pointer group"
-          onClick={() => console.log('Navigate to qualified leads')}
-        >
-          <div className="absolute -right-6 -top-6 w-20 h-20 bg-purple-500/5 rounded-full group-hover:bg-purple-500/10 transition-all"></div>
-          <div className="absolute -right-4 -top-4 w-14 h-14 bg-purple-500/5 rounded-full group-hover:bg-purple-500/10 transition-all"></div>
-          <div className="relative flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Qualified</span>
-            <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 group-hover:bg-purple-100 transition-all">
+        <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-lg hover:border-purple-200 transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Qualified</span>
+            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Icon name="mdi:account-check-outline" className="w-5 h-5" />
             </div>
           </div>
-          <p className="relative text-2xl font-bold text-gray-900">{analytics.qualifiedLeads || 0}</p>
-          <p className="relative text-xs text-gray-500 font-medium mt-1">{formatKPIValue(analytics.qualifiedLeadsAmount || 0)}</p>
+          <p className="text-2xl font-bold text-slate-900 tracking-tight">{analytics.qualifiedLeads || 0}</p>
+          <p className="text-xs text-purple-600 font-semibold mt-1 truncate">{formatKPIValue(analytics.qualifiedLeadsAmount || 0)}</p>
         </div>
 
-        <div
-          className="relative overflow-hidden bg-white rounded-2xl border border-gray-100/80 shadow-sm p-4 hover:shadow-xl hover:border-emerald-200 transition-all duration-300 cursor-pointer group"
-          onClick={() => console.log('Navigate to won leads')}
-        >
-          <div className="absolute -right-6 -top-6 w-20 h-20 bg-emerald-500/5 rounded-full group-hover:bg-emerald-500/10 transition-all"></div>
-          <div className="absolute -right-4 -top-4 w-14 h-14 bg-emerald-500/5 rounded-full group-hover:bg-emerald-500/10 transition-all"></div>
-          <div className="relative flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Won</span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-all">
+        <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-lg hover:border-emerald-200 transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Won Deals</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Icon name="mdi:trophy-outline" className="w-5 h-5" />
             </div>
           </div>
-          <p className="relative text-2xl font-bold text-gray-900">{analytics.wonLeads || 0}</p>
-          <p className="relative text-xs text-gray-500 font-medium mt-1">{formatKPIValue(analytics.wonLeadsAmount || 0)}</p>
+          <p className="text-2xl font-bold text-slate-900 tracking-tight">{analytics.wonLeads || 0}</p>
+          <p className="text-xs text-emerald-600 font-semibold mt-1 truncate">{formatKPIValue(analytics.wonLeadsAmount || 0)}</p>
         </div>
 
-        <div
-          className="relative overflow-hidden bg-white rounded-2xl border border-gray-100/80 shadow-sm p-4 hover:shadow-xl hover:border-green-200 transition-all duration-300 cursor-pointer group"
-          onClick={() => console.log('Navigate to revenue')}
-        >
-          <div className="absolute -right-6 -top-6 w-20 h-20 bg-green-500/5 rounded-full group-hover:bg-green-500/10 transition-all"></div>
-          <div className="absolute -right-4 -top-4 w-14 h-14 bg-green-500/5 rounded-full group-hover:bg-green-500/10 transition-all"></div>
-          <div className="relative flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Revenue</span>
-            <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600 group-hover:bg-green-100 transition-all">
+        <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-lg hover:border-green-200 transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Revenue</span>
+            <div className="w-9 h-9 rounded-xl bg-green-50 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Icon name="mdi:cash-multiple" className="w-5 h-5" />
             </div>
           </div>
-          <p className="relative text-2xl font-bold text-gray-900">{formatKPIValue(analytics.totalRevenue || 0)}</p>
-          <p className="relative text-xs text-gray-500 font-medium mt-1">{analytics.totalLeads} deals</p>
+          <p className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight truncate">{formatKPIValue(analytics.totalRevenue || 0)}</p>
+          <p className="text-xs text-green-600 font-semibold mt-1">{analytics.totalLeads} total deal(s)</p>
         </div>
 
-        <div
-          className="relative overflow-hidden bg-white rounded-2xl border border-gray-100/80 shadow-sm p-4 hover:shadow-xl hover:border-indigo-200 transition-all duration-300 cursor-pointer group"
-          onClick={() => console.log('Navigate to conversion')}
-        >
-          <div className="absolute -right-6 -top-6 w-20 h-20 bg-indigo-500/5 rounded-full group-hover:bg-indigo-500/10 transition-all"></div>
-          <div className="absolute -right-4 -top-4 w-14 h-14 bg-indigo-500/5 rounded-full group-hover:bg-indigo-500/10 transition-all"></div>
-          <div className="relative flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Conversion</span>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-100 transition-all">
+        <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-lg hover:border-indigo-200 transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Conversion</span>
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Icon name="mdi:chart-arc" className="w-5 h-5" />
             </div>
           </div>
-          <p className="relative text-2xl font-bold text-gray-900">{(analytics.conversionRate || 0).toFixed(1)}%</p>
-          <p className="relative text-xs text-gray-500 font-medium mt-1">Qualified: {(analytics.qualifiedRate || 0).toFixed(1)}%</p>
+          <p className="text-2xl font-bold text-slate-900 tracking-tight">{(analytics.conversionRate || 0).toFixed(1)}%</p>
+          <p className="text-xs text-indigo-600 font-semibold mt-1">Qualified: {(analytics.qualifiedRate || 0).toFixed(1)}%</p>
         </div>
       </div>
 
-      {/* Main Grid: Sales Funnel | Lead Source | Monthly Sales */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        <div className="lg:col-span-1 border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-            <Icon name="mdi:filter" className="w-4 h-4 text-blue-600" />
-            Sales Funnel
-          </h3>
-          <div className="space-y-2.5">
+      {/* GRID 1: Sales Funnel | Lead Source | Monthly Sales */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Sales Funnel Card */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Icon name="mdi:filter-variant" className="w-4 h-4" />
+              </div>
+              Sales Funnel
+            </h3>
+            <span className="text-[10px] font-semibold text-slate-400">Stage Conversion</span>
+          </div>
+
+          <div className="space-y-1">
             {(analytics.funnelData || []).map((step, idx) => (
               <FunnelStep
                 key={idx}
@@ -831,170 +658,317 @@ export default function ReportsPage() {
                 percentage={step.percentage}
                 color={step.color}
                 icon={step.icon}
-                change={step.change}
-                onClick={() => console.log(`Navigate to ${step.label}`)}
               />
             ))}
           </div>
         </div>
 
-        <div className="lg:col-span-1 border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-            <Icon name="mdi:source-commit" className="w-4 h-4 text-blue-600" />
-            Lead Source
-          </h3>
+        {/* Lead Source Card */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Icon name="mdi:source-commit" className="w-4 h-4" />
+              </div>
+              Lead Source
+            </h3>
+            <span className="text-[10px] font-semibold text-slate-400">Channel Origin</span>
+          </div>
+
           {(analytics.leadSources || []).length > 0 ? (
-            <div className="space-y-3">
-              {(analytics.leadSources || []).slice(0, 5).map((source, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                  <span className="text-xs text-gray-600 flex-1">{source.name}</span>
-                  <span className="text-xs font-semibold text-gray-900">{source.value}</span>
-                  <span className="text-[10px] text-gray-400 w-10 text-right">
-                    {analytics.totalLeads > 0 ? Math.round((source.value / analytics.totalLeads) * 100) : 0}%
-                  </span>
-                </div>
-              ))}
+            <div className="space-y-3 pt-2">
+              {(analytics.leadSources || []).slice(0, 6).map((source, idx) => {
+                const pct = analytics.totalLeads > 0 ? Math.round((source.value / analytics.totalLeads) * 100) : 0;
+                return (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                        <span className="font-semibold text-slate-800">{source.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900">{source.value}</span>
+                        <span className="text-[10px] font-semibold text-slate-400">({pct}%)</span>
+                      </div>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.max(pct, 4)}%`, backgroundColor: COLORS[idx % COLORS.length] }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <p className="text-sm text-gray-400 text-center py-4">No lead source data available</p>
+            <div className="text-center py-8 text-slate-400 text-xs font-medium">No lead source data available</div>
           )}
         </div>
 
-        <div className="lg:col-span-1 border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-            <Icon name="mdi:chart-bar" className="w-4 h-4 text-blue-600" />
-            Monthly Sales
-          </h3>
+        {/* Monthly Sales Chart Card */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Icon name="mdi:chart-bar" className="w-4 h-4" />
+              </div>
+              Monthly Sales Trend
+            </h3>
+            <span className="text-[10px] font-semibold text-slate-400">Revenue Volume</span>
+          </div>
+
           {(analytics.monthlySales || []).length > 0 ? (
-            <div className="h-[200px]">
+            <div className="h-[210px] pt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics.monthlySales}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                  <Tooltip formatter={(value) => formatKPIValue(value)} />
-                  <Bar dataKey="sales" radius={[4, 4, 0, 0]} fill="#3B82F6" barSize={20} />
+                <BarChart data={analytics.monthlySales} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#64748B" }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: "#64748B" }} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${(v / 100000).toFixed(0)}L`} />
+                  <Tooltip content={<CustomBarTooltip />} />
+                  <Bar dataKey="sales" radius={[6, 6, 0, 0]} fill="#3B82F6" barSize={24} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-[200px] flex items-center justify-center text-gray-400">
-              No sales data available
+            <div className="h-[210px] flex items-center justify-center text-slate-400 text-xs font-medium">
+              No sales trend data available
             </div>
           )}
         </div>
       </div>
 
-      {/* Bottom Grid: Sales by User | Activity Report | Forecast */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        <div className="border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-            <Icon name="mdi:account-group" className="w-4 h-4 text-blue-600" />
-            Sales by User
-          </h3>
+      {/* GRID 2: Sales by User | Activity Report | Forecast */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Sales by User */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Icon name="mdi:account-group" className="w-4 h-4" />
+              </div>
+              Sales by User
+            </h3>
+            <span className="text-[10px] font-semibold text-slate-400">Rep Revenue</span>
+          </div>
+
           {(analytics.salesByUser || []).length > 0 ? (
             <div className="space-y-3">
               {(analytics.salesByUser || []).slice(0, 5).map((user, idx) => (
-                <div key={idx} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600">
+                <div key={idx} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center text-xs font-bold shrink-0">
                       {user.name.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-xs text-gray-600">{user.name}</span>
+                    <span className="text-xs font-semibold text-slate-800 truncate max-w-[120px]">{user.name}</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-semibold text-gray-900">{user.value}</span>
-                    <span className="text-[10px] text-gray-400 ml-2">({user.count || 0})</span>
+                    <p className="text-xs font-bold text-slate-900">{formatKPIValue(user.value)}</p>
+                    <p className="text-[10px] font-semibold text-slate-400">{user.count} deal(s)</p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-400 text-center py-4">No user data available</p>
+            <div className="text-center py-6 text-slate-400 text-xs font-medium">No user sales data available</div>
           )}
         </div>
 
-        <div className="border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-            <Icon name="mdi:chart-pie" className="w-4 h-4 text-blue-600" />
-            Activity Report
-          </h3>
+        {/* Activity Report */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                <Icon name="mdi:chart-pie" className="w-4 h-4" />
+              </div>
+              Activity Report
+            </h3>
+            <span className="text-[10px] font-semibold text-slate-400">Volume</span>
+          </div>
+
           {(analytics.activityData || []).length > 0 ? (
-            <div className="space-y-2.5">
-              {(analytics.activityData || []).map((activity, idx) => (
-                <div key={idx} className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">{activity.name}</span>
-                  <div className="flex items-center gap-3">
-                    <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="space-y-3 pt-1">
+              {(analytics.activityData || []).map((activity, idx) => {
+                const pct = analytics.totalLeads > 0 ? Math.round((activity.value / analytics.totalLeads) * 100) : 0;
+                return (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-700">{activity.name}</span>
+                      <span className="font-bold text-slate-900">{activity.value}</span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full"
+                        className="h-full rounded-full transition-all duration-500"
                         style={{
-                          width: `${analytics.totalLeads > 0 ? Math.round((activity.value / analytics.totalLeads) * 100) : 0}%`,
-                          backgroundColor: COLORS[idx % COLORS.length]
+                          width: `${Math.max(pct, 4)}%`,
+                          backgroundColor: COLORS[idx % COLORS.length],
                         }}
                       />
                     </div>
-                    <span className="text-xs font-semibold text-gray-900 w-8 text-right">{activity.value}</span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <p className="text-sm text-gray-400 text-center py-4">No activity data available</p>
+            <div className="text-center py-6 text-slate-400 text-xs font-medium">No activity data available</div>
           )}
         </div>
 
-        <div className="border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-            <Icon name="mdi:chart-simple" className="w-4 h-4 text-indigo-500" />
-            Forecast
-          </h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-              <span className="text-sm text-gray-600">Q3 Forecast</span>
-              <span className="text-sm font-semibold text-gray-900">{formatKPIValue(analytics.forecast?.q3 || 0)}</span>
+        {/* Forecast Card */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Icon name="mdi:chart-simple" className="w-4 h-4" />
+              </div>
+              Forecast & Target
+            </h3>
+            <span className="text-[10px] font-semibold text-slate-400">Projections</span>
+          </div>
+
+          <div className="space-y-2.5">
+            <div className="flex justify-between items-center p-2.5 bg-slate-50 border border-slate-100 rounded-xl">
+              <span className="text-xs font-semibold text-slate-600">Q3 Forecast</span>
+              <span className="text-xs font-bold text-slate-900">{formatKPIValue(analytics.forecast?.q3 || 0)}</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-green-50 rounded-lg">
-              <span className="text-sm text-gray-600">Best Case</span>
-              <span className="text-sm font-semibold text-green-600">{formatKPIValue(analytics.forecast?.bestCase || 0)}</span>
+
+            <div className="flex justify-between items-center p-2.5 bg-emerald-50/70 border border-emerald-100 rounded-xl">
+              <span className="text-xs font-semibold text-emerald-800">Best Case</span>
+              <span className="text-xs font-bold text-emerald-700">{formatKPIValue(analytics.forecast?.bestCase || 0)}</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-blue-50 rounded-lg">
-              <span className="text-sm text-gray-600">Commit</span>
-              <span className="text-sm font-semibold text-blue-600">{formatKPIValue(analytics.forecast?.commit || 0)}</span>
+
+            <div className="flex justify-between items-center p-2.5 bg-blue-50/70 border border-blue-100 rounded-xl">
+              <span className="text-xs font-semibold text-blue-800">Commit</span>
+              <span className="text-xs font-bold text-blue-700">{formatKPIValue(analytics.forecast?.commit || 0)}</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-amber-50 rounded-lg">
-              <span className="text-sm text-gray-600">Win Rate</span>
-              <span className="text-sm font-semibold text-amber-600">{(analytics.winLossData?.winRate || 0).toFixed(1)}%</span>
+
+            <div className="flex justify-between items-center p-2.5 bg-amber-50/70 border border-amber-100 rounded-xl">
+              <span className="text-xs font-semibold text-amber-800">Win Rate</span>
+              <span className="text-xs font-bold text-amber-700">{(analytics.winLossData?.winRate || 0).toFixed(1)}%</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* TOP 5 Sections */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 border-t border-gray-200 pt-6">
-        <TopList
+      {/* TOP 5 SECTIONS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 border-t border-slate-200/60 pt-6">
+        <TopListCard
           title="Top Customers"
           items={analytics.topCustomers || []}
           icon="mdi:account-tie"
+          valueFormatter={(val) => formatKPIValue(val)}
         />
-        <TopList
+
+        <TopListCard
           title="Top Products"
           items={analytics.topProducts || []}
-          icon="mdi:cube"
+          icon="mdi:cube-outline"
+          valueFormatter={(val) => formatKPIValue(val)}
         />
-        <TopList
+
+        <TopListCard
           title="Region Report"
-          items={analytics.regionReport || []}
+          items={analytics.topCountries || []}
           icon="mdi:earth"
+          valueFormatter={(val) => `${val} deals`}
         />
       </div>
 
-      {/* Footer */}
-      <div className="flex justify-between items-center text-xs text-gray-400 border-t border-gray-100 pt-4">
-        <span><Icon name="mdi:calendar-check" className="w-3 h-3 inline" /> Data updated: {new Date().toLocaleString()}</span>
-        <span><Icon name="mdi:refresh" className="w-3 h-3 inline" /> Auto-refresh every 30min</span>
+      {/* FOOTER METADATA */}
+      <div className="flex flex-col sm:flex-row justify-between items-center text-xs text-slate-400 border-t border-slate-100 pt-4 gap-2">
+        <span className="flex items-center gap-1.5">
+          <Icon name="mdi:calendar-check" className="w-3.5 h-3.5 text-slate-400" />
+          Data updated: {new Date().toLocaleString()}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Icon name="mdi:refresh" className="w-3.5 h-3.5 text-slate-400" />
+          Auto-refresh every 30min
+        </span>
       </div>
+
+      {/* SCHEDULE REPORT MODAL */}
+      {showScheduleModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setShowScheduleModal(false)}
+        >
+          <div 
+            className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <Icon name="mdi:clock-outline" className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">Schedule Email Report</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowScheduleModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <Icon name="mdi:close" className="w-5 h-5" />
+              </button>
+            </div>
+
+            {scheduleSuccess ? (
+              <div className="py-8 text-center space-y-2">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                  <Icon name="mdi:check" className="w-6 h-6" />
+                </div>
+                <p className="text-sm font-bold text-slate-900">Report Scheduled!</p>
+                <p className="text-xs text-slate-500">You will receive automated report emails as requested.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleScheduleSubmit} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Frequency</label>
+                  <select className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+                    <option value="daily">Daily Summary</option>
+                    <option value="weekly">Weekly Report (Mondays)</option>
+                    <option value="monthly">Monthly Report (1st of month)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Recipient Email</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="manager@company.com"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Format</label>
+                  <select className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+                    <option value="xlsx">Excel (.xlsx)</option>
+                    <option value="pdf">PDF Summary</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowScheduleModal(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 shadow-sm"
+                  >
+                    Schedule Report
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
