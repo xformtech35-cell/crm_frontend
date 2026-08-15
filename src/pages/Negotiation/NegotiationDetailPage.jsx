@@ -366,7 +366,7 @@ const handleFileChange = (e) => {
       {isEditing && (
         <>
           <div className="fixed inset-0 bg-black/30 z-40" onClick={handleCancelEdit} />
-          <div className="fixed top-0 right-0 h-screen w-full lg:w-[45%] bg-white shadow-2xl overflow-y-auto z-50 animate-slide-in">
+          <div className="fixed top-0 right-0 h-screen w-full lg:w-[60%] xl:w-[55%] bg-white shadow-2xl overflow-y-auto z-50 animate-slide-in">
             <EditForm
               lead={editedLead}
               revisions={revisions}
@@ -932,7 +932,7 @@ const EditForm = ({
             <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">High Priority</span>
           </div>
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <FormField label="Quotation Amount (₹)" name="quotationAmount" value={lead.quotationAmount || ""} onChange={onChange} type="number" placeholder="e.g. 150000" required />
               <FormField label="Quotation Number" name="quotationNumber" value={lead.quotationNumber || ""} onChange={onChange} placeholder="UWS/26-27/224/R1" />
               <div>
@@ -1075,14 +1075,16 @@ const EditForm = ({
             <Icon icon="mdi:note-text-outline" className="text-blue-500" />
             <h3 className="text-sm font-semibold text-gray-700">Negotiation Remarks & Notes</h3>
           </div>
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Follow Up & Revision Remarks ({selectedRevCode})</label>
-              <textarea name="followUpRemark" value={lead.followUpRemark || ""} onChange={onChange} rows="3" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm" placeholder={`Remarks for ${selectedRevCode}... e.g. Revised quote with 5% discount.`} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Enquiry Scope Description</label>
-              <textarea name="enquiryDescription" value={lead.enquiryDescription || ""} onChange={onChange} rows="2" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm" placeholder="Scope description..." />
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Follow Up & Revision Remarks ({selectedRevCode})</label>
+                <textarea name="followUpRemark" value={lead.followUpRemark || ""} onChange={onChange} rows="3" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm" placeholder={`Remarks for ${selectedRevCode}... e.g. Revised quote with 5% discount.`} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Enquiry Scope Description</label>
+                <textarea name="enquiryDescription" value={lead.enquiryDescription || ""} onChange={onChange} rows="3" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm" placeholder="Scope description..." />
+              </div>
             </div>
           </div>
         </div>
@@ -1094,7 +1096,7 @@ const EditForm = ({
             <h3 className="text-sm font-semibold text-gray-700">Basic Client Information</h3>
           </div>
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <FormField label="Company Name" name="leadOrganisationName" value={lead.leadOrganisationName || ""} onChange={onChange} required />
               <FormField label="Contact Person Name" name="companyContactPersonName" value={lead.companyContactPersonName || ""} onChange={onChange} />
               <FormField label="Contact Phone" name="leadMobileNo" value={lead.leadMobileNo || ""} onChange={onChange} type="tel" placeholder="Phone/Mobile Number" />
@@ -1118,7 +1120,8 @@ const EditForm = ({
                 </select>
               </div>
               <FormField label="City" name="leadCity" value={lead.leadCity || ""} onChange={onChange} placeholder="e.g. Mumbai" />
-              <FormField label="State / Country" name="leadState" value={lead.leadState || lead.leadCountry || ""} onChange={onChange} placeholder="e.g. Maharashtra, India" />
+              <FormField label="State" name="leadState" value={lead.leadState || ""} onChange={onChange} placeholder="e.g. Maharashtra" />
+              <FormField label="Country" name="leadCountry" value={lead.leadCountry || "India"} onChange={onChange} placeholder="e.g. India" />
             </div>
           </div>
         </div>
