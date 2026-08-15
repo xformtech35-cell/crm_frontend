@@ -482,6 +482,9 @@ const DocumentSection = ({
 // ============= REVISION HISTORY SECTION =============
 
 export const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevisions, lead, negotiationApi }) => {
+  const [selectedRevId, setSelectedRevId] = useState(null);
+  const [viewMode, setViewMode] = useState("tabs"); // "tabs" or "vertical"
+
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -572,7 +575,19 @@ export const RevisionHistorySection = ({ revisions, loading, showRevisions, setS
     return [...map.values()].sort((a, b) => new Date(b.updatedDate || 0) - new Date(a.updatedDate || 0));
   }, [revisions, lead]);
 
+  const chronologicalRevisions = React.useMemo(() => {
+    return [...displayRevisions].sort((a, b) => {
+      const numA = parseInt((a.revisionNo || "R0").replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt((b.revisionNo || "R0").replace(/\D/g, ""), 10) || 0;
+      return numA - numB;
+    });
+  }, [displayRevisions]);
+
   const latestRevision = displayRevisions.length > 0 ? displayRevisions[0] : revisions[0];
+
+  const activeSelectedRev = selectedRevId 
+    ? displayRevisions.find(r => r.id === selectedRevId) || latestRevision
+    : latestRevision;
 
   const currentQuotationNo = lead?.quotationNumber || lead?.quotationNo || "N/A";
   const currentRevisionNo = lead?.quotationRevision || latestRevision?.revisionNo || "R0";
@@ -581,42 +596,172 @@ export const RevisionHistorySection = ({ revisions, loading, showRevisions, setS
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Card Title Bar */}
       <div 
-        className="px-6 py-4 border-b border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors flex items-center justify-between"
-        onClick={() => setShowRevisions(!showRevisions)}
+        className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between"
       >
-        <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
-          <Icon icon="mdi:history" className="text-blue-500" />
-          Revision History ({displayRevisions.length})
-        </h3>
-        <Icon icon={showRevisions ? "mdi:chevron-up" : "mdi:chevron-down"} className="text-gray-400 text-xl" />
+        <div className="flex items-center gap-3">
+          <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wider flex items-center gap-2">
+            <Icon icon="mdi:history" className="text-blue-600 text-lg" />
+            Revision Timeline ({displayRevisions.length})
+          </h3>
+          <div className="flex items-center bg-gray-200/80 p-0.5 rounded-lg text-xs">
+            <button 
+              type="button" 
+              onClick={() => setViewMode("tabs")}
+              className={`px-2.5 py-1 rounded-md font-semibold transition ${viewMode === "tabs" ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+            >
+              Tabs View
+            </button>
+            <button 
+              type="button" 
+              onClick={() => setViewMode("vertical")}
+              className={`px-2.5 py-1 rounded-md font-semibold transition ${viewMode === "vertical" ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+            >
+              All Timeline
+            </button>
+          </div>
+        </div>
+        <button type="button" onClick={() => setShowRevisions(!showRevisions)} className="text-gray-400 hover:text-gray-600">
+          <Icon icon={showRevisions ? "mdi:chevron-up" : "mdi:chevron-down"} className="text-xl" />
+        </button>
       </div>
 
-      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-slate-50/50">
-        <div className="flex flex-wrap gap-2 items-center bg-white p-2 sm:p-3 rounded-lg border border-gray-200/60 shadow-sm text-xs">
+      {/* Commercial Summary Banner */}
+      <div className="px-4 sm:px-6 py-3 border-b border-gray-100 bg-slate-50/50">
+        <div className="flex flex-wrap gap-2 items-center bg-white p-2.5 rounded-lg border border-gray-200/60 shadow-sm text-xs">
           <div className="flex flex-col gap-0.5">
-            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">Quotation No.</span>
-            <span className="font-mono font-semibold text-gray-800 text-[10px] sm:text-xs">{currentQuotationNo}</span>
+            <span className="text-[9px] uppercase font-bold tracking-wide text-gray-400">Quotation No.</span>
+            <span className="font-mono font-semibold text-gray-800 text-xs">{currentQuotationNo}</span>
           </div>
-          <div className="w-px h-6 bg-gray-200 mx-1 sm:mx-2" />
+          <div className="w-px h-6 bg-gray-200 mx-2" />
           <div className="flex flex-col gap-0.5">
-            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">Current Revision</span>
-            <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100 w-fit">{currentRevisionNo}</span>
+            <span className="text-[9px] uppercase font-bold tracking-wide text-gray-400">Current Revision</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100 w-fit">{currentRevisionNo}</span>
           </div>
-          <div className="w-px h-6 bg-gray-200 mx-1 sm:mx-2" />
+          <div className="w-px h-6 bg-gray-200 mx-2" />
           <div className="flex flex-col gap-0.5">
-            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">Current Amount</span>
-            <span className="font-bold text-gray-900 text-xs sm:text-xs">{formatCurrency(currentAmount)}</span>
+            <span className="text-[9px] uppercase font-bold tracking-wide text-gray-400">Current Amount</span>
+            <span className="font-bold text-gray-900 text-xs">{formatCurrency(currentAmount)}</span>
           </div>
-          <div className="w-px h-6 bg-gray-200 mx-1 sm:mx-2" />
+          <div className="w-px h-6 bg-gray-200 mx-2" />
           <div className="flex flex-col gap-0.5">
-            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wide text-gray-400">Status</span>
+            <span className="text-[9px] uppercase font-bold tracking-wide text-gray-400">Status</span>
             <span className={getRevStatusClass(currentStatus)}>{currentStatus}</span>
           </div>
         </div>
       </div>
-      
+
+      {/* HORIZONTAL TIMELINE STEPPER TABS (R0 -> R1 -> R2...) */}
       {showRevisions && (
+        <div className="border-b border-gray-200 bg-slate-50/70 p-4">
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Icon icon="mdi:timeline-text-outline" className="text-blue-600 text-sm" />
+            Revision Sequence (Click tab to view details)
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-1 scrollbar-thin">
+            {chronologicalRevisions.map((rev, idx) => {
+              const isSelected = activeSelectedRev.id === rev.id;
+              const isLatest = rev.id === latestRevision.id;
+              return (
+                <React.Fragment key={rev.id}>
+                  {idx > 0 && <Icon icon="mdi:arrow-right" className="text-gray-300 flex-shrink-0 text-sm" />}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedRevId(rev.id);
+                      setViewMode("tabs");
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all flex-shrink-0 shadow-sm ${
+                      isSelected 
+                        ? "bg-blue-600 text-white border-blue-600 ring-2 ring-blue-200" 
+                        : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      isSelected ? "bg-white/20 text-white" : isLatest ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"
+                    }`}>
+                      {rev.revisionNo}
+                    </span>
+                    <span className="font-bold">{formatCurrency(rev.quotationAmount || 0)}</span>
+                    {isLatest && (
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                        isSelected ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
+                      }`}>
+                        Active
+                      </span>
+                    )}
+                  </button>
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      
+      {showRevisions && viewMode === "tabs" && (
+        <div className="p-6 bg-white">
+          <div className="border border-blue-200 rounded-xl p-5 bg-blue-50/20 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-gray-900">Revision {activeSelectedRev.revisionNo}</span>
+                {activeSelectedRev.id === latestRevision.id ? (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">Current Active</span>
+                ) : (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">Superseded</span>
+                )}
+              </div>
+              <span className={getRevStatusClass(activeSelectedRev.negotiationStatus)}>{activeSelectedRev.negotiationStatus || "Negotiation"}</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-3.5 rounded-lg border border-gray-200/80 mb-3 text-xs">
+              <div>
+                <span className="text-[10px] text-gray-400 block mb-0.5 font-bold uppercase tracking-wider">Quotation Amount</span>
+                <span className="font-bold text-gray-900 text-base">{formatCurrency(activeSelectedRev.quotationAmount || 0)}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 block mb-0.5 font-bold uppercase tracking-wider">Date & Time Logged</span>
+                <span className="font-semibold text-gray-700 text-xs">
+                  {activeSelectedRev.updatedDate ? new Date(activeSelectedRev.updatedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"} ·{" "}
+                  {activeSelectedRev.updatedDate ? new Date(activeSelectedRev.updatedDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                </span>
+              </div>
+            </div>
+
+            <div className="text-xs text-gray-700 bg-white p-3 rounded-lg border border-gray-200/80 mb-3">
+              <span className="font-bold text-gray-400 block text-[9px] uppercase tracking-wider mb-1">Follow Up & Revision Remarks</span>
+              {activeSelectedRev.remarks || <em className="text-gray-400">No remarks logged for this revision.</em>}
+            </div>
+
+            {/* Attached Documents for Selected Tab */}
+            {activeSelectedRev.documents && activeSelectedRev.documents.length > 0 && (
+              <div className="pt-2 border-t border-gray-200">
+                <span className="font-bold text-gray-500 block text-[10px] uppercase tracking-wider mb-2">Attached Quotation Files ({activeSelectedRev.documents.length})</span>
+                <div className="space-y-2">
+                  {activeSelectedRev.documents.map((doc) => (
+                    <div key={doc.id || doc.fileName} className="flex items-center justify-between rounded-lg border bg-white px-3 py-2 text-xs shadow-sm">
+                      <div className="flex items-center gap-2 truncate">
+                        <Icon icon="mdi:file-pdf-box" className="text-red-500 text-lg flex-shrink-0" />
+                        <span className="truncate font-semibold text-gray-800 max-w-[240px]">{doc.fileName}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {negotiationApi?.handleViewDocument && (
+                          <button type="button" onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName)} className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700 transition">View</button>
+                        )}
+                        {negotiationApi?.handleDownloadRevisionDocument && (
+                          <button type="button" onClick={() => negotiationApi.handleDownloadRevisionDocument(doc.fileUrl || doc.fileName, doc.fileName)} className="px-2.5 py-1 bg-emerald-600 text-white rounded text-xs font-semibold hover:bg-emerald-700 transition">Download</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showRevisions && viewMode === "vertical" && (
         <div className="p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto bg-gray-50/30 space-y-4 sm:space-y-6">
           {displayRevisions.map((rev, idx) => {
             const isLatest = idx === 0;
