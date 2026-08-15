@@ -566,10 +566,16 @@ export default function LeadListPage() {
   const [groupSearch, setGroupSearch] = useState("");
   const [leadStatusSearch, setLeadStatusSearch] = useState("");
   const [quotationSearch, setQuotationSearch] = useState("");
+  const [sourceSearch, setSourceSearch] = useState("");
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (!e.target.closest('.header-filter-popover') && !e.target.closest('.header-filter-btn')) {
+      if (
+        !e.target.closest('.header-filter-popover') && 
+        !e.target.closest('.header-filter-btn') &&
+        !e.target.closest('.source-filter-popover') && 
+        !e.target.closest('.source-filter-btn')
+      ) {
         setActiveHeaderDropdown(null);
       }
     }
@@ -2897,19 +2903,99 @@ export default function LeadListPage() {
             />
           </div>
 
-          {/* Source dropdown */}
-          <select
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-          >
-            <option value="">All sources</option>
-            {availableSourcesOptions.map((srcName) => (
-              <option key={srcName} value={srcName}>
-                {srcName}
-              </option>
-            ))}
-          </select>
+          {/* Searchable Source dropdown */}
+          <div className="relative">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className={`source-filter-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                  sourceFilter
+                    ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm font-bold'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveHeaderDropdown(activeHeaderDropdown === 'source' ? null : 'source');
+                }}
+              >
+                <span>{sourceFilter || "All sources"}</span>
+                <Icon name="mdi:chevron-down" className={`w-3.5 h-3.5 transition-transform ${activeHeaderDropdown === 'source' ? 'rotate-180 text-blue-600' : 'text-gray-400'}`} />
+              </button>
+
+              {sourceFilter && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSourceFilter("");
+                    setCurrentPage(1);
+                  }}
+                  className="p-1 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                  title="Clear source filter"
+                >
+                  <Icon name="mdi:close" className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {activeHeaderDropdown === 'source' && (
+              <div
+                className="source-filter-popover absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-56 p-2 text-gray-700 animate-in fade-in zoom-in-95 duration-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="relative mb-2">
+                  <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search source..."
+                    value={sourceSearch}
+                    onChange={(e) => setSourceSearch(e.target.value)}
+                    className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                  <button
+                    type="button"
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                      !sourceFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
+                    }`}
+                    onClick={() => {
+                      setSourceFilter("");
+                      setCurrentPage(1);
+                      setActiveHeaderDropdown(null);
+                      setSourceSearch("");
+                    }}
+                  >
+                    <span>All sources</span>
+                    {!sourceFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                  </button>
+
+                  {availableSourcesOptions
+                    .filter((srcName) => String(srcName).toLowerCase().includes(sourceSearch.toLowerCase()))
+                    .map((srcName) => (
+                      <button
+                        key={srcName}
+                        type="button"
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                          sourceFilter === srcName ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
+                        }`}
+                        onClick={() => {
+                          setSourceFilter(srcName);
+                          setCurrentPage(1);
+                          setActiveHeaderDropdown(null);
+                          setSourceSearch("");
+                        }}
+                      >
+                        <span className="truncate">{srcName}</span>
+                        {sourceFilter === srcName && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Date range picker */}
           <div className="flex items-center gap-1">
