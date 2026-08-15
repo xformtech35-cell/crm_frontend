@@ -972,21 +972,15 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
                 //         {saving
                 //           ? "Saving…"
                 //           : selected
-                //             ? `Update ${config.singular}`
-                //             : `Create ${config.singular}`}
-                //       </button>
-                //     </div>
-                //   </div>
-                // </form>
                 <form className="flex flex-1 flex-col overflow-hidden" onSubmit={save}>
-                  <div className="flex-1 overflow-y-auto px-6 py-6">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="flex-1 overflow-y-auto p-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       {(config.formFields || []).map((field) => (
                         <label
                           key={field.name}
-                          className={field.span === 2 ? "md:col-span-2" : ""}
+                          className={field.span === 3 ? "sm:col-span-2 md:col-span-3" : field.span === 2 ? "sm:col-span-2" : ""}
                         >
-                          <span className="mb-1.5 block text-xs font-semibold text-gray-600">
+                          <span className="mb-1.5 block text-xs font-semibold text-gray-700">
                             {field.label}{" "}
                             {field.required && <span className="text-red-500">*</span>}
                           </span>
@@ -1062,15 +1056,15 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/70 shrink-0">
+                  <div className="flex items-center justify-between gap-3 px-6 py-3.5 border-t border-gray-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.05)] shrink-0 z-20">
                     <div className="text-xs text-gray-400">
                       <span className="text-red-500">*</span> Required fields
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <button
                         type="button"
-                        className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors bg-white"
+                        className="px-5 py-2.5 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors bg-white"
                         onClick={() => setPanelMode(null)}
                       >
                         Cancel
@@ -1079,7 +1073,7 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
                       <button
                         type="submit"
                         disabled={saving}
-                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors shadow-sm"
+                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors shadow-md"
                       >
                         {saving ? (
                           <Icon name="mdi:loading" className="w-4 h-4 animate-spin" />
@@ -1087,7 +1081,7 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
                           <Icon
                             name={
                               selected
-                                ? "mdi:check-circle-outline"
+                                ? "mdi:content-save-outline"
                                 : "mdi:plus-circle-outline"
                             }
                             className="w-4 h-4"

@@ -565,7 +565,7 @@ const apiiii = import.meta.env.VITE_API_BASE
           <p className="text-sm font-bold text-slate-800">Section 1: Basic Information</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div className="sm:col-span-2">
             <label className={labelCls}>
               Company Name <span className="text-red-500">*</span>
@@ -1093,7 +1093,7 @@ const apiiii = import.meta.env.VITE_API_BASE
             <p className="text-sm font-bold text-emerald-800">Section 3: Quotation Details</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>Quotation Status</label>
               <select

@@ -7,9 +7,10 @@ export default function AppDrawer({
   onClose,
   title,
   subtitle,
-  icon = 'mdi:plus-circle-outline',
+  icon = 'mdi:pencil-outline',
   children,
   footer,
+  width = 'w-full lg:w-[60%] xl:w-[55%] max-w-5xl',
 }) {
   useEffect(() => {
     if (!open) return
@@ -31,38 +32,38 @@ export default function AppDrawer({
       />
 
       {/* Drawer */}
-      <div className="relative w-full h-full max-w-[640px] bg-white shadow-2xl border-l border-gray-100 flex flex-col z-10 animate-in slide-in-from-right duration-200">
+      <div className={`relative h-full bg-white shadow-2xl border-l border-gray-200 flex flex-col z-10 animate-in slide-in-from-right duration-200 ${width}`}>
         {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-            <Icon name={icon} className="w-5 h-5 text-white" />
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center shrink-0 border border-blue-200">
+            <Icon name={icon} className="w-5 h-5 text-blue-700" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-base font-bold text-white leading-tight">
+            <h2 className="text-base font-bold text-gray-900 leading-tight">
               {title}
             </h2>
             {subtitle && (
-              <p className="text-xs text-blue-100 mt-0.5 truncate">
+              <p className="text-xs text-gray-500 mt-0.5 truncate">
                 {subtitle}
               </p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
           >
             <Icon name="mdi:close" className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {children}
         </div>
 
         {/* Footer */}
         {footer && (
-          <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2.5 bg-slate-50/50 shrink-0">
+          <div className="px-6 py-3.5 border-t border-gray-200 bg-white flex items-center justify-between shadow-[0_-4px_12px_rgba(0,0,0,0.05)] shrink-0 z-20">
             {footer}
           </div>
         )}

@@ -1574,44 +1574,44 @@ export default function LeadDetailPage() {
       {showEditPanel && createPortal(
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={() => setShowEditPanel(false)} />
-          <div className="relative w-full max-w-[640px] h-full bg-white shadow-2xl flex flex-col">
-            <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 shrink-0">
-              <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                <Icon name="mdi:pencil-outline" className="w-5 h-5 text-white" />
+          <div className="relative w-full lg:w-[60%] xl:w-[55%] h-full bg-white shadow-2xl flex flex-col">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center shrink-0 border border-blue-200">
+                <Icon name="mdi:pencil-outline" className="w-5 h-5 text-blue-700" />
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-base font-bold text-white leading-tight">Edit Lead</h2>
-                <p className="text-xs text-blue-100 mt-0.5 truncate">Updating: {leadName}</p>
+                <h2 className="text-base font-bold text-gray-900 leading-tight">Edit Lead Information</h2>
+                <p className="text-xs text-gray-500 mt-0.5 truncate">Updating details for: <strong className="text-blue-700 font-semibold">{leadName}</strong></p>
               </div>
-              <button onClick={() => setShowEditPanel(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-white/70 hover:bg-white/20 hover:text-white transition-colors">
+              <button onClick={() => setShowEditPanel(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
                 <Icon name="mdi:close" className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="flex-1 overflow-y-auto p-6">
               <LeadForm initial={lead} loading={actionLoading} onSubmit={saveEditPanel} onUploadFiles={handleUploadFiles} />
             </div>
-            <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/70 shrink-0">
+            <div className="flex items-center justify-between gap-3 px-6 py-3.5 border-t border-gray-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.05)] shrink-0 z-20">
               <div className="text-xs text-gray-400">
                 <span className="text-red-500">*</span> Required fields
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowEditPanel(false)}
-                  className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors bg-white"
+                  className="px-5 py-2.5 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors bg-white"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => document.getElementById("lead-form")?.requestSubmit()}
                   disabled={actionLoading}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors shadow-sm"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors shadow-md"
                 >
                   {actionLoading ? (
                     <Icon name="mdi:loading" className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Icon name="mdi:check-circle-outline" className="w-4 h-4" />
+                    <Icon name="mdi:content-save-outline" className="w-4 h-4" />
                   )}
-                  {actionLoading ? "Saving…" : "Save Changes"}
+                  {actionLoading ? "Saving…" : "Save Lead Changes"}
                 </button>
               </div>
             </div>
