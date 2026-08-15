@@ -23,6 +23,7 @@ const pageTitles = {
   "/super-admin/calendar": "Calendar",
   "/super-admin/attendance": "Attendance",
   "/super-admin/lead": "Leads",
+  "/super-admin/negotiation": "Negotiations",
   "/super-admin/contact": "Contacts",
   "/super-admin/organization": "Organizations",
   "/super-admin/opportunity": "Opportunities",
@@ -123,6 +124,11 @@ const navGroups = [
         to: "/super-admin/lead",
         label: "Leads",
         icon: "mdi:account-arrow-right-outline",
+      },
+      {
+        to: "/super-admin/negotiation",
+        label: "Negotiations",
+        icon: "mdi:handshake-outline",
       },
       {
         to: "/super-admin/leadsource",

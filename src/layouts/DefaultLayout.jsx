@@ -524,9 +524,9 @@ export default function DefaultLayout() {
           },
           {
             to: "/negotiation",
-            label: "Negotiation",
+            label: "Negotiations",
             icon: "mdi:handshake-outline",
-            permissions: ["negotiations.view"],
+            permissions: ["negotiations.view", "negotiation.view", "leads.view"],
           },
           {
             to: "/leadsource",
