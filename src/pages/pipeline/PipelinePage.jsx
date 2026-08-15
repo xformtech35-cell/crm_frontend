@@ -542,23 +542,29 @@ export default function PipelinePage() {
       return probabilityMap[stage] || lead.probability || 10;
     };
 
+    let calculatedStage = "New Lead";
+    if (lead.leadOutcomeStatus && ACTIVE_PIPELINE_STAGES.some(s => s.key === lead.leadOutcomeStatus)) {
+      calculatedStage = lead.leadOutcomeStatus;
+    } else if (lead.leadStatus === "Qualified" || lead.quotationNumber || Number(lead.quotationAmount || 0) > 0) {
+      calculatedStage = "Quotation Sent";
+    } else if (lead.leadStatus && ACTIVE_PIPELINE_STAGES.some(s => s.key === lead.leadStatus)) {
+      calculatedStage = lead.leadStatus;
+    }
+
     return {
       oppId: lead.leadId,
-      oppName: `${lead.leadFirstName ?? ""} ${lead.leadLastName ?? ""}`.trim() ||
-        lead.leadTitle ||
-        "Untitled Lead",
-      oppTitle: lead.leadOrganisationName || "No Company",
-      oppStatus: lead.leadStatus || "New Lead",
-      oppAmount: lead.quotationAmount || 0,
+      oppName: lead.leadOrganisationName || `${lead.leadFirstName ?? ""} ${lead.leadLastName ?? ""}`.trim() || lead.leadTitle || "Untitled Lead",
+      oppTitle: lead.companyContactPersonName ? `Contact: ${lead.companyContactPersonName}` : (lead.leadTitle || "No Company"),
+      oppStatus: calculatedStage,
+      oppAmount: Number(lead.quotationAmount || 0),
       nextFollowupDate: lead.nextFollowupDate || lead.quotationDate || "",
-      probability: lead.probability || getProbabilityFromStage(lead.leadStatus),
+      probability: lead.probability || getProbabilityFromStage(calculatedStage),
       oppDescription: lead.enquiryDescription || lead.leadReason || "",
-      owner: lead.companyContactPersonName ||
-        (lead.leadAssignedMember ? lead.leadAssignedMember : "Unassigned"),
-      contactNumber: lead.leadPhone || "",
+      owner: lead.createdBy || (lead.leadAssignedMember ? String(lead.leadAssignedMember) : "Admin"),
+      contactNumber: lead.leadMobileNo || lead.leadPhoneNo || "",
       email: lead.leadEmail || "",
       leadIdFk: lead.leadId,
-      createdAt: lead.createdAt || lead.inquiryDate,
+      createdAt: lead.inquiryDate || lead.leadCreatedDate,
       leadCountry: lead.leadCountry || "",
       _rawLead: lead,
     };
