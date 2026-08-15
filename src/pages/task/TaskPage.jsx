@@ -303,18 +303,21 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
   useEffect(() => {
     if (open) {
       setActiveTab('details')
-      if (editingTask?.taskId || editingTask?.id) {
-        const id = editingTask.taskId || editingTask.id
-        getLogsByTask(id).then(data => {
-          setLogs(data)
-          setActiveLog(data.find(l => !l.endTime) || null)
-        }).catch(console.error)
-      } else {
-        setLogs([])
-        setActiveLog(null)
-      }
     }
-  }, [open, editingTask, getLogsByTask])
+  }, [open])
+
+  useEffect(() => {
+    if (open && (editingTask?.taskId || editingTask?.id)) {
+      const id = editingTask.taskId || editingTask.id
+      getLogsByTask(id).then(data => {
+        setLogs(data)
+        setActiveLog(data.find(l => !l.endTime) || null)
+      }).catch(console.error)
+    } else if (open) {
+      setLogs([])
+      setActiveLog(null)
+    }
+  }, [open, editingTask?.taskId, editingTask?.id, getLogsByTask])
 
   useEffect(() => {
     if (open) {
