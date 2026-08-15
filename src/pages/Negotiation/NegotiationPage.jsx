@@ -639,116 +639,111 @@ export default function NegotiationPage() {
   return (
     <div className="animate-fade-in flex flex-col gap-0 p-2 sm:p-4">
       {/* Header Bar */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden w-full max-w-5xl mx-auto">
-            <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50/30">
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Search Input */}
-                <div className="relative flex-1 min-w-[140px] max-w-[220px]">
-                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                    <Icon
-                      name="mdi:magnify"
-                      className="w-3.5 h-3.5 text-gray-400"
-                    />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search negotiations..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-8 pr-8 py-1.5 text-xs bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder-gray-400"
-                  />
-                  {search && (
-                    <button
-                      onClick={() => setSearch("")}
-                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center"
-                    >
-                      <Icon
-                        name="mdi:close-circle"
-                        className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 transition-colors"
-                      />
-                    </button>
-                  )}
-                </div>
-
-                {/* Date Range Picker */}
-                <div className="flex items-center gap-1 bg-white px-2 py-1.5 rounded-md border border-gray-200 hover:border-gray-300 transition-colors">
-                  <Icon
-                    name="mdi:calendar-range"
-                    className="w-3.5 h-3.5 text-gray-400 flex-shrink-0"
-                  />
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="text-[10px] border-0 bg-transparent text-gray-700 focus:outline-none focus:ring-0 w-[70px] sm:w-[90px] py-0.5 font-medium"
-                    placeholder="From"
-                  />
-                  <span className="text-gray-300 text-[10px] font-medium">
-                    —
-                  </span>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="text-[10px] border-0 bg-transparent text-gray-700 focus:outline-none focus:ring-0 w-[70px] sm:w-[90px] py-0.5 font-medium"
-                    placeholder="To"
-                  />
-                  {(dateFrom || dateTo) && (
-                    <button
-                      onClick={() => {
-                        setDateFrom("");
-                        setDateTo("");
-                      }}
-                      className="ml-0.5 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
-                    >
-                      <Icon name="mdi:close-circle" className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Clear Button */}
-                <button
-                  onClick={() => {
-                    setSearch("");
-                    setDateFrom("");
-                    setDateTo("");
-                  }}
-                  className="px-2.5 py-1.5 text-[10px] font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors border border-transparent hover:border-gray-200 whitespace-nowrap"
-                >
-                  Clear All
-                </button>
-
-                {/* Action Buttons */}
-                <div className="flex items-center gap-1.5 ml-auto">
-                  <button
-                    onClick={() => exportToExcel(filteredDeals, "Negotiations")}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 text-white text-[10px] font-semibold hover:bg-emerald-700 transition-all shadow-sm hover:shadow whitespace-nowrap"
-                  >
-                    <Icon
-                      name="mdi:file-excel-outline"
-                      className="w-3.5 h-3.5"
-                    />
-                    <span>Export</span>
-                    {filteredDeals.length > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-white text-[8px] font-bold">
-                        {filteredDeals.length}
-                      </span>
-                    )}
-                  </button>
-
-                  <Link
-                    to="/lead"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 text-[10px] font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm hover:shadow whitespace-nowrap"
-                  >
-                    <Icon name="mdi:arrow-left" className="w-3.5 h-3.5" />
-                    <span className="hidden xs:inline">Back to Leads</span>
-                    <span className="inline xs:hidden">Back</span>
-                  </Link>
-                </div>
-              </div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[200px] max-w-[280px]">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Icon
+                name="mdi:magnify"
+                className="w-4 h-4 text-gray-400"
+              />
             </div>
+            <input
+              type="text"
+              placeholder="Search negotiations..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-colors placeholder-gray-400"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute inset-y-0 right-0 pr-2.5 flex items-center"
+              >
+                <Icon
+                  name="mdi:close-circle"
+                  className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors"
+                />
+              </button>
+            )}
+          </div>
+
+          {/* Date Range Picker */}
+          <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
+            <Icon
+              name="mdi:calendar-range"
+              className="w-4 h-4 text-gray-400 flex-shrink-0"
+            />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="text-xs border-0 bg-transparent text-gray-700 focus:outline-none focus:ring-0 w-[105px] py-0.5 font-medium"
+              placeholder="From"
+            />
+            <span className="text-gray-300 text-xs font-medium">
+              —
+            </span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="text-xs border-0 bg-transparent text-gray-700 focus:outline-none focus:ring-0 w-[105px] py-0.5 font-medium"
+              placeholder="To"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+                className="ml-0.5 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+              >
+                <Icon name="mdi:close-circle" className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Clear Button */}
+          {(search || dateFrom || dateTo) && (
+            <button
+              onClick={() => {
+                setSearch("");
+                setDateFrom("");
+                setDateTo("");
+              }}
+              className="px-3 py-2 text-xs font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors whitespace-nowrap"
+            >
+              Clear All
+            </button>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={() => exportToExcel(filteredDeals, "Negotiations")}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-all shadow-sm hover:shadow whitespace-nowrap"
+            >
+              <Icon
+                name="mdi:file-excel-outline"
+                className="w-4 h-4"
+              />
+              <span>Export</span>
+              {filteredDeals.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold">
+                  {filteredDeals.length}
+                </span>
+              )}
+            </button>
+
+            <Link
+              to="/lead"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 text-xs font-bold hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm hover:shadow whitespace-nowrap"
+            >
+              <Icon name="mdi:arrow-left" className="w-4 h-4" />
+              <span>Back to Leads</span>
+            </Link>
           </div>
         </div>
       </div>
