@@ -481,44 +481,15 @@ const DocumentSection = ({
 
 // ============= REVISION HISTORY SECTION =============
 
-export const RevisionHistorySection = ({ revisions, loading, showRevisions, setShowRevisions, lead, negotiationApi }) => {
+export const RevisionHistorySection = ({ revisions = [], loading, showRevisions, setShowRevisions, lead, negotiationApi }) => {
   const [selectedRevId, setSelectedRevId] = useState(null);
   const [viewMode, setViewMode] = useState("tabs"); // "tabs" or "vertical"
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
-            <Icon icon="mdi:history" className="text-blue-500" />
-            Revision History
-          </h3>
-          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!revisions || revisions.length === 0) {
-    return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
-            <Icon icon="mdi:history" className="text-blue-500" />
-            Revision History
-          </h3>
-        </div>
-        <div className="p-6 text-center text-gray-400">
-          <Icon icon="mdi:history" className="text-4xl mx-auto mb-2 opacity-50" />
-          <p>No revision history found</p>
-        </div>
-      </div>
-    );
-  }
+  const safeRevisions = Array.isArray(revisions) ? revisions : [];
 
   const displayRevisions = React.useMemo(() => {
     const map = new Map();
-    revisions.forEach((rev) => {
+    safeRevisions.forEach((rev) => {
       const key = rev.revisionNo || "R0";
       if (!map.has(key) || new Date(rev.updatedDate || 0) > new Date(map.get(key).updatedDate || 0)) {
         map.set(key, rev);
@@ -549,10 +520,10 @@ export const RevisionHistorySection = ({ revisions, loading, showRevisions, setS
       }
       if ((!r0.documents || r0.documents.length === 0) && lead) {
         const leadDocs = [
-          lead.uploadDocument,
-          lead.uploadDocument1,
-          lead.uploadDocument2,
-          lead.uploadDocument3
+          lead?.uploadDocument,
+          lead?.uploadDocument1,
+          lead?.uploadDocument2,
+          lead?.uploadDocument3
         ].filter(Boolean).map((url, i) => {
           let name = url.substring(url.lastIndexOf('/') + 1);
           if (name.includes('_')) {
@@ -573,7 +544,7 @@ export const RevisionHistorySection = ({ revisions, loading, showRevisions, setS
     }
 
     return [...map.values()].sort((a, b) => new Date(b.updatedDate || 0) - new Date(a.updatedDate || 0));
-  }, [revisions, lead]);
+  }, [safeRevisions, lead]);
 
   const chronologicalRevisions = React.useMemo(() => {
     return [...displayRevisions].sort((a, b) => {
@@ -582,6 +553,37 @@ export const RevisionHistorySection = ({ revisions, loading, showRevisions, setS
       return numA - numB;
     });
   }, [displayRevisions]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+          <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
+            <Icon icon="mdi:history" className="text-blue-500" />
+            Revision History
+          </h3>
+          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!safeRevisions || safeRevisions.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wider flex items-center gap-2">
+            <Icon icon="mdi:history" className="text-blue-500" />
+            Revision History
+          </h3>
+        </div>
+        <div className="p-6 text-center text-gray-400">
+          <Icon icon="mdi:history" className="text-4xl mx-auto mb-2 opacity-50" />
+          <p>No revision history found</p>
+        </div>
+      </div>
+    );
+  }
 
   const latestRevision = displayRevisions.length > 0 ? displayRevisions[0] : revisions[0];
 
