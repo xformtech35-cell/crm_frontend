@@ -5,6 +5,7 @@ import AppAlert from '../../components/common/AppAlert'
 import AppCard from '../../components/common/AppCard'
 import Icon from '../../components/Icon'
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 const REQUIRED_DISPLAY = 'first name and either mobile or email'
 
@@ -560,49 +561,196 @@ export default function LeadImportPage() {
   //   URL.revokeObjectURL(url)
   // }
 
-  function downloadSample() {
-    const workbook = XLSX.utils.book_new();
+  async function downloadSample() {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Leads Sample");
 
-    const worksheet = XLSX.utils.aoa_to_sheet([
-      SAMPLE_HEADERS,
-      [
-        "Rahul",
-        "Patil",
-        "Garware Industrial",
-        "Rahul Patil",
-        "9876543210",
-        "02012345678",
-        "rahul@gmail.com",
-        "Hanuman Nagar",
-        "Pune",
-        "Maharashtra",
-        "India",
-        "www.garware.com",
-        "Manufacturing",
-        "500",
-        "IndiaMart",
-        "New",
-        "Qualified",
-        "Dosing",
-        "Yogita",
-        "Qualified",
-        "Pending",
-        "Water treatment enquiry",
-        "2026-06-30",
-        "UWS/RRW/26-27/001/R0",
-        "R0",
-        "2026-06-30",
-        "75000",
-        "5",
-        "Customer asked for discount",
-        "Purchase Manager",
-        "Priority customer"
-      ]
-    ]);
+      const headers = [
+        "First Name",
+        "Last Name",
+        "Company Name",
+        "Contact Person",
+        "Mobile",
+        "Phone",
+        "Email",
+        "Address",
+        "City",
+        "State",
+        "Country",
+        "Website",
+        "Industry",
+        "Employees",
+        "Lead Source",
+        "Lead Type",
+        "Lead Status",
+        "Lead Group",
+        "Lead Ref",
+        "Enquiry Type",
+        "Enquiry Status",
+        "Enquiry Description",
+        "Inquiry Date",
+        "Quotation Number",
+        "Quotation Revision",
+        "Quotation Date",
+        "Quotation Amount",
+        "Lead Rating",
+        "Follow Up Remark",
+        "Designation",
+        "Remarks"
+      ];
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
+      // 1. ADD TITLE ROW (ROW 1)
+      worksheet.mergeCells(1, 1, 1, headers.length);
+      const titleCell = worksheet.getCell("A1");
+      titleCell.value = "Enquiry Sheet 2026-27 (Sample Import Template)";
+      titleCell.font = { bold: true, size: 18, color: { argb: "FFFFFFFF" } }; // White text
+      titleCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF1F4E78" }, // Dark Blue
+      };
+      titleCell.alignment = { horizontal: "center", vertical: "center" };
+      worksheet.getRow(1).height = 32;
 
-    XLSX.writeFile(workbook, "lead-import-sample.xlsx");
+      // 2. ADD HEADERS ROW (ROW 2)
+      const headerRow = worksheet.addRow(headers);
+      headerRow.height = 28;
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, size: 12, color: { argb: "FF000000" } };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFE8B384" }, // Peach / Orange
+        };
+        cell.alignment = {
+          horizontal: "center",
+          vertical: "center",
+          wrapText: true,
+        };
+        cell.border = {
+          top: { style: "thin" },
+          bottom: { style: "thin" },
+          left: { style: "thin" },
+          right: { style: "thin" },
+        };
+      });
+
+      // 3. SAMPLE DATA ROWS
+      const sampleRows = [
+        [
+          "Rahul",
+          "Patil",
+          "Garware Industrial",
+          "Rahul Patil",
+          "9876543210",
+          "02012345678",
+          "rahul@gmail.com",
+          "Hanuman Nagar",
+          "Pune",
+          "Maharashtra",
+          "India",
+          "www.garware.com",
+          "Manufacturing",
+          "500",
+          "IndiaMart",
+          "New",
+          "Qualified",
+          "Dosing",
+          "Yogita",
+          "Qualified",
+          "Pending",
+          "Water treatment enquiry",
+          "2026-06-30",
+          "UWS/RRW/26-27/001/R0",
+          "R0",
+          "2026-06-30",
+          "75000",
+          "5",
+          "Customer asked for discount",
+          "Purchase Manager",
+          "Priority customer"
+        ],
+        [
+          "Amit",
+          "Sharma",
+          "Reliance Industries",
+          "Amit Sharma",
+          "9123456789",
+          "02298765432",
+          "amit.sharma@reliance.com",
+          "Bandra Kurla Complex",
+          "Mumbai",
+          "Maharashtra",
+          "India",
+          "www.reliance.com",
+          "Oil & Gas",
+          "10000",
+          "Website",
+          "New",
+          "Open",
+          "Pumping",
+          "Rohan",
+          "Qualified",
+          "Sent",
+          "Industrial Pump set supply",
+          "2026-07-15",
+          "UWS/RRW/26-27/002/R0",
+          "R0",
+          "2026-07-16",
+          "150000",
+          "4",
+          "Follow up scheduled next week",
+          "General Manager",
+          "VIP Lead"
+        ]
+      ];
+
+      sampleRows.forEach((rowValues, index) => {
+        const addedRow = worksheet.addRow(rowValues);
+        const fillColor = index % 2 === 0 ? "FFD9EAF7" : "FFF8F9FA"; // Sky Blue / Off-White
+
+        addedRow.eachCell((cell) => {
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: fillColor },
+          };
+          cell.alignment = {
+            horizontal: "center",
+            vertical: "center",
+            wrapText: true,
+          };
+          cell.font = { color: { argb: "FF000000" } };
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFD0D7DE" } },
+            bottom: { style: "thin", color: { argb: "FFD0D7DE" } },
+            left: { style: "thin", color: { argb: "FFD0D7DE" } },
+            right: { style: "thin", color: { argb: "FFD0D7DE" } },
+          };
+        });
+      });
+
+      // 4. AUTO COLUMN WIDTHS
+      worksheet.columns.forEach((col, idx) => {
+        const headerLen = headers[idx] ? headers[idx].length : 10;
+        col.width = Math.max(headerLen + 6, 18);
+      });
+
+      // 5. WRITE & DOWNLOAD FILE (.xlsx)
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      link.download = "lead-import-sample.xlsx";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error generating sample Excel:", err);
+    }
   }
 
   async function handleImport() {
@@ -704,10 +852,10 @@ export default function LeadImportPage() {
               <button
                 type="button"
                 onClick={downloadSample}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm"
               >
-                <Icon name="mdi:download-outline" className="w-4 h-4" />
-                Sample CSV
+                <Icon name="mdi:file-excel-outline" className="w-4 h-4 text-green-600" />
+                Sample Excel (.xlsx)
               </button>
             </div>
 
