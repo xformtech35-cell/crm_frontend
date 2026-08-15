@@ -296,31 +296,50 @@ const handleFileChange = (e) => {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-10">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Icon icon="mdi:arrow-left" className="text-xl text-black" />
+      {/* Clean Header Bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 max-w-7xl mx-auto">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => navigate(-1)} 
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 text-gray-700"
+              title="Go Back"
+            >
+              <Icon icon="mdi:arrow-left" className="text-xl" />
             </button>
             <div>
-              <h1 className="text-xl font-semibold text-gray-800">
-                {isEditing ? "Edit Negotiation Details" : "Negotiation Details"}
-              </h1>
-              {isEditing ? (
-                <p className="text-sm text-gray-500">Updating Commercials: {lead?.leadOrganisationName}</p>
-              ) : (
-                <p className="text-xs text-gray-500">{lead?.leadOrganisationName} · Qtn: {lead?.quotationNumber || "—"}</p>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-bold text-gray-900">
+                  {isEditing ? "Edit Negotiation Details" : "Negotiation Details"}
+                </h1>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100">
+                  {lead?.quotationRevision || "R0"}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-100">
+                  {lead?.leadOutcomeStatus || "Negotiation"}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-gray-700">{lead?.leadOrganisationName}</span>
+                <span>•</span>
+                <span>Quotation No: <strong className="text-gray-800 font-mono">{lead?.quotationNumber || "—"}</strong></span>
+              </p>
             </div>
           </div>
+
           {!isEditing && (
             <div className="flex items-center gap-3">
-              <button onClick={handleAddNewRevision} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium flex items-center gap-2 transition shadow-sm text-sm">
-                <Icon icon="mdi:plus-circle" className="text-lg" /> Add New Revision
+              <button 
+                onClick={handleAddNewRevision} 
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold flex items-center gap-2 transition shadow-sm text-xs"
+              >
+                <Icon icon="mdi:plus-circle" className="text-base" /> + Add New Revision
               </button>
-              <button onClick={handleEdit} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition shadow-sm text-sm">
-                <Icon icon="mdi:pencil" className="text-lg" /> Edit Commercials
+              <button 
+                onClick={handleEdit} 
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-2 transition shadow-sm text-xs"
+              >
+                <Icon icon="mdi:pencil" className="text-base" /> Edit Commercials
               </button>
             </div>
           )}
@@ -328,7 +347,7 @@ const handleFileChange = (e) => {
       </div>
 
       {/* Main Content */}
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="px-6 max-w-7xl mx-auto pb-12">
         <ViewMode 
           lead={lead} 
           revisions={revisions}
@@ -388,7 +407,6 @@ const ViewMode = ({
 }) => (
   <div className="grid lg:grid-cols-3 gap-6">
     <div className="lg:col-span-2 space-y-6">
-      <InfoSection title="General Information" fields={getGeneralFields(lead)} />
       <InfoSection title="Quotation & Commercials" fields={getCommercialFields(lead)} />
       
       <DocumentSection 
@@ -406,14 +424,16 @@ const ViewMode = ({
         lead={lead}
         negotiationApi={negotiationApi}
       />
+
+      <InfoSection title="General Client Information" fields={getGeneralFields(lead)} />
     </div>
 
-    <div className="space-y-5">
-      <StatCard title="Quotation Value" value={formatCurrency(lead.quotationAmount)} icon="mdi:currency-inr" />
-      <StatCard title="Revision" value={lead.quotationRevision || "R0"} icon="mdi:file-document-edit" />
-      <StatCard title="Lead Status" value={lead.leadStatus || "—"} icon="mdi:chart-timeline-variant" />
-      <StatCard title="Outcome Status" value={lead.leadOutcomeStatus || "—"} icon="mdi:flag-outline" />
-      <StatCard title="Lead Source" value={lead.leadSource || "—"} icon="mdi:source-branch" />
+    <div className="space-y-4">
+      <StatCard title="Quotation Value" value={formatCurrency(lead.quotationAmount)} icon="mdi:currency-inr" color="blue" />
+      <StatCard title="Revision" value={lead.quotationRevision || "R0"} icon="mdi:file-document-edit" color="amber" />
+      <StatCard title="Lead Status" value={lead.leadStatus || "—"} icon="mdi:chart-timeline-variant" color="indigo" />
+      <StatCard title="Outcome Status" value={lead.leadOutcomeStatus || "—"} icon="mdi:flag-outline" color="emerald" />
+      <StatCard title="Lead Source" value={lead.leadSource || "—"} icon="mdi:source-branch" color="purple" />
     </div>
   </div>
 );
