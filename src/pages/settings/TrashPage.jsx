@@ -58,7 +58,16 @@ export default function TrashPage() {
     return items.filter((item) => {
       const matchesTab = activeTab === 'all' || item.moduleKey?.toLowerCase() === activeTab
       const query = searchTerm.toLowerCase().trim()
-      const matchesSearch = !query || item.name?.toLowerCase().includes(query) || item.itemType?.toLowerCase().includes(query)
+      const matchesSearch =
+        !query ||
+        item.name?.toLowerCase().includes(query) ||
+        item.itemType?.toLowerCase().includes(query) ||
+        item.email?.toLowerCase().includes(query) ||
+        item.phone?.toLowerCase().includes(query) ||
+        item.organization?.toLowerCase().includes(query) ||
+        item.status?.toLowerCase().includes(query) ||
+        item.details?.toLowerCase().includes(query) ||
+        String(item.recordId).includes(query)
       return matchesTab && matchesSearch
     })
   }, [items, activeTab, searchTerm])
@@ -132,7 +141,7 @@ export default function TrashPage() {
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">Trash / Recycle Bin</h1>
           </div>
           <p className="mt-1 text-sm text-gray-500">
-            View soft-deleted records across all modules. Restore items back to active modules or permanently delete them.
+            View soft-deleted records across all modules with complete details. Restore items back to active modules or permanently delete them.
           </p>
         </div>
 
@@ -167,13 +176,13 @@ export default function TrashPage() {
           })}
         </div>
 
-        <div className="relative w-full sm:w-64">
+        <div className="relative w-full sm:w-72">
           <Icon name="mdi:magnify" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search trash items..."
+            placeholder="Search by name, ID, org, email, status..."
             className="w-full rounded-xl border border-gray-200 bg-white py-1.5 pl-9 pr-3 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
           />
         </div>
@@ -191,13 +200,14 @@ export default function TrashPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] text-left text-sm">
-              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+            <table className="w-full min-w-[850px] text-left text-sm">
+              <thead className="bg-gray-50/80 text-xs uppercase text-gray-500">
                 <tr>
-                  <th className="px-4 py-3">Module</th>
-                  <th className="px-4 py-3">Item Name</th>
-                  <th className="px-4 py-3">Deleted Date</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-4 py-3 font-semibold">Module</th>
+                  <th className="px-4 py-3 font-semibold">Item Details</th>
+                  <th className="px-4 py-3 font-semibold">Status / Stage</th>
+                  <th className="px-4 py-3 font-semibold">Deleted Date</th>
+                  <th className="px-4 py-3 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -205,14 +215,74 @@ export default function TrashPage() {
                   const colorClass = MODULE_COLORS[item.moduleKey] || 'bg-gray-50 text-gray-700 border-gray-200'
                   return (
                     <tr key={item.id} className="transition-colors hover:bg-gray-50/50">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${colorClass}`}>
+                      {/* Module Badge */}
+                      <td className="px-4 py-3.5 whitespace-nowrap align-top">
+                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${colorClass}`}>
                           {item.itemType}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-semibold text-gray-900">{item.name}</td>
-                      <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{formatDate(item.deletedAt)}</td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
+
+                      {/* Item Details */}
+                      <td className="px-4 py-3.5 align-top">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-gray-900 text-sm">{item.name}</span>
+                            <span className="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600 border border-gray-200">
+                              #{item.recordId}
+                            </span>
+                          </div>
+
+                          {/* Subtitle Meta Info Badges */}
+                          <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap pt-0.5">
+                            {item.organization && item.organization !== item.name && (
+                              <span className="inline-flex items-center gap-1 text-gray-700 font-medium">
+                                <Icon name="mdi:domain" className="h-3.5 w-3.5 text-gray-400" />
+                                {item.organization}
+                              </span>
+                            )}
+                            {item.email && (
+                              <span className="inline-flex items-center gap-1 text-gray-600">
+                                <Icon name="mdi:email-outline" className="h-3.5 w-3.5 text-gray-400" />
+                                {item.email}
+                              </span>
+                            )}
+                            {item.phone && (
+                              <span className="inline-flex items-center gap-1 text-gray-600">
+                                <Icon name="mdi:phone-outline" className="h-3.5 w-3.5 text-gray-400" />
+                                {item.phone}
+                              </span>
+                            )}
+                            {item.details && (
+                              <span className="inline-flex items-center gap-1 text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                                <Icon name="mdi:information-outline" className="h-3.5 w-3.5 text-gray-400" />
+                                {item.details}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Status / Stage */}
+                      <td className="px-4 py-3.5 whitespace-nowrap align-top">
+                        {item.status ? (
+                          <span className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                            {item.status}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">—</span>
+                        )}
+                      </td>
+
+                      {/* Deleted Date */}
+                      <td className="px-4 py-3.5 text-xs text-gray-500 whitespace-nowrap align-top">
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <Icon name="mdi:clock-outline" className="h-3.5 w-3.5 text-gray-400" />
+                          {formatDate(item.deletedAt)}
+                        </div>
+                      </td>
+
+                      {/* Action Buttons */}
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap align-top">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleRestore(item)}
