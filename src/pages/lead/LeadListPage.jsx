@@ -2785,7 +2785,7 @@ export default function LeadListPage() {
   return (
     <div className="animate-fade-in flex flex-col gap-0">
       {/* Filter Bar */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 mb-3">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 mb-3 relative z-30">
         {/* Row 1: Status Filters & Actions */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
           {/* Status Tabs */}
@@ -2940,7 +2940,7 @@ export default function LeadListPage() {
 
             {activeHeaderDropdown === 'source' && (
               <div
-                className="source-filter-popover absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-56 p-2 text-gray-700 animate-in fade-in zoom-in-95 duration-100"
+                className="source-filter-popover absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 w-64 p-2 text-gray-700 animate-in fade-in zoom-in-95 duration-100"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="relative mb-2">
