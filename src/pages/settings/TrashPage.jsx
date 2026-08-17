@@ -10,6 +10,9 @@ const MODULE_TABS = [
   { id: 'organizations', label: 'Organizations', icon: 'mdi:domain' },
   { id: 'projects', label: 'Projects', icon: 'mdi:folder-outline' },
   { id: 'tasks', label: 'Tasks', icon: 'mdi:checkbox-marked-circle-outline' },
+  { id: 'documents', label: 'Documents', icon: 'mdi:file-document-outline' },
+  { id: 'negotiations', label: 'Negotiations', icon: 'mdi:handshake-outline' },
+  { id: 'events', label: 'Events', icon: 'mdi:calendar-clock-outline' },
 ]
 
 const MODULE_COLORS = {
@@ -19,7 +22,11 @@ const MODULE_COLORS = {
   organizations: 'bg-amber-50 text-amber-700 border-amber-200',
   projects: 'bg-indigo-50 text-indigo-700 border-indigo-200',
   tasks: 'bg-rose-50 text-rose-700 border-rose-200',
+  documents: 'bg-teal-50 text-teal-700 border-teal-200',
+  negotiations: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  events: 'bg-violet-50 text-violet-700 border-violet-200',
 }
+
 
 export default function TrashPage() {
   const trashHook = useTrash()
