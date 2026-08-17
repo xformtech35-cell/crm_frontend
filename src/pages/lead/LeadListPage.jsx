@@ -3211,9 +3211,9 @@ export default function LeadListPage() {
                     width: "max-content",
                   }}
                 >
-                  <thead>
+                  <thead className="sticky top-0 z-20 bg-gray-50">
                     <tr className="bg-gray-50 border-b border-gray-100">
-                      <th className="w-10 pl-4 py-2.5">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-10 pl-4 py-2.5">
                         <input
                           type="checkbox"
                           checked={allPageSelected}
@@ -3221,7 +3221,7 @@ export default function LeadListPage() {
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                       </th>
-                      <th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         <button
                           className="flex items-center gap-1 hover:text-gray-700 transition-colors"
                           onClick={() => toggleSort("leadFirstName")}
@@ -3233,7 +3233,7 @@ export default function LeadListPage() {
                           />
                         </button>
                       </th>
-                      <th className="w-[100px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[100px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         <button
                           className="flex items-center gap-1 hover:text-gray-700 transition-colors"
                           onClick={() => toggleSort("leadRef")}
@@ -3245,59 +3245,9 @@ export default function LeadListPage() {
                           />
                         </button>
                       </th>
-                      {/* <th className="w-[140px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        <button
-                          className="flex items-center gap-1 hover:text-gray-700 transition-colors"
-                          onClick={() => toggleSort("leadGroup")}
-                        >
-                          GROUP{" "}
-                          <Icon
-                            name={sortIcon("leadGroup")}
-                            className="w-3.5 h-3.5"
-                          />
-                        </button>
-                      </th> */}
-
-                      {/* <th className="w-[10%] py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                          <button
-                            className="flex items-center gap-1 hover:text-gray-700 transition-colors"
-                            onClick={() => toggleSort("leadStatus")}
-                          >
-                            Status{" "}
-                            <Icon
-                              name={sortIcon("leadStatus")}
-                              className="w-3.5 h-3.5"
-                            />
-                          </button>
-                        </th> */}
-                      {/* <th className="w-[140px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        <button
-                          className="flex items-center gap-1 hover:text-gray-700 transition-colors"
-                          onClick={() => toggleSort("leadOutcomeStatus")}
-                        >
-                          LEAD STATUS{" "}
-                          <Icon
-                            name={sortIcon("leadOutcomeStatus")}
-                            className="w-3.5 h-3.5"
-                          />
-                        </button>
-                      </th>
-
-                      <th className="w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        <button
-                          className="flex items-center gap-1 hover:text-gray-700 transition-colors"
-                          onClick={() => toggleSort("enquiryStatus")}
-                        >
-                          QUOTATION STATUS{" "}
-                          <Icon
-                            name={sortIcon("enquiryStatus")}
-                            className="w-3.5 h-3.5"
-                          />
-                        </button>
-                      </th> */}
 
 {/* GROUP Column with Searchable Dropdown Filter */}
-<th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
+<th className="sticky top-0 bg-gray-50 z-30 w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
   <div className="flex flex-col items-start gap-1">
     <div className="flex items-center gap-1.5">
       <button
@@ -3385,7 +3335,7 @@ export default function LeadListPage() {
 </th>
 
 {/* LEAD STATUS Column with Searchable Dropdown Filter */}
-<th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
+<th className="sticky top-0 bg-gray-50 z-30 w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
   <div className="flex flex-col items-start gap-1">
     <div className="flex items-center gap-1.5">
       <button
@@ -3473,7 +3423,7 @@ export default function LeadListPage() {
 </th>
 
 {/* QUOTATION STATUS Column with Searchable Dropdown Filter */}
-<th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
+<th className="sticky top-0 bg-gray-50 z-30 w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
   <div className="flex flex-col items-start gap-1">
     <div className="flex items-center gap-1.5">
       <button
@@ -3561,10 +3511,10 @@ export default function LeadListPage() {
 </th>
 
 
-                      <th className="w-[250px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[250px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         ENQUIRY DESCRIPTION
                       </th>
-                      <th className="w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         <button
                           className="flex items-center gap-1 hover:text-gray-700 transition-colors"
                           onClick={() => toggleSort("quotationNumber")}
@@ -3576,39 +3526,40 @@ export default function LeadListPage() {
                           />
                         </button>
                       </th>
-                      <th className="w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         ENQUIRY DATE
                       </th>
-                      <th className="w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         QUOTATION WORKING DATE
                       </th>
-                      <th className="w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         SENT QUOTATION  DATE
                       </th>
-                      <th className="w-[90px] whitespace-nowrap py-2.5 px-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[90px] whitespace-nowrap py-2.5 px-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         AMOUNT
                       </th>
-                      <th className="w-[120px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[120px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         GRADE
                       </th>
-                      <th className="w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         ENQUIRY TYPE
                       </th>
-                      <th className="w-[250px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[250px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         REMARKS
                       </th>
-                      <th className="w-[160px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[160px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         CREATED BY
                       </th>
-                      <th className="w-[160px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="sticky top-0 bg-gray-50 z-20 w-[160px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         UPDATED BY
                       </th>
-                      <th className="sticky right-0 z-20 w-[120px] bg-gray-50 py-2.5 pl-3 pr-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide shadow-[-8px_0_12px_rgba(15,23,42,0.04)]">
+                      <th className="sticky top-0 right-0 z-40 w-[120px] bg-gray-50 py-2.5 pl-3 pr-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide shadow-[-8px_0_12px_rgba(15,23,42,0.04)]">
                         ACTIONS
                       </th>
 
                     </tr>
                   </thead>
+
                   <tbody className="divide-y divide-gray-50">
                     {pagedLeads.map((lead, idx) => {
                       const score = scoresMap[lead.leadId];
