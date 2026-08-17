@@ -2882,10 +2882,10 @@ export default function LeadListPage() {
 
         {/* Row 2: Secondary Filters (Search, Date, Source, Grade) */}
         <div
-          className={`flex flex-wrap items-center gap-3 border-t border-gray-100 transition-all duration-300 ease-in-out origin-top overflow-hidden ${
+          className={`flex flex-wrap items-center gap-3 border-t border-gray-100 transition-all duration-300 ease-in-out origin-top ${
             filtersCollapsed
-              ? "max-h-0 pt-0 border-t-0 opacity-0 pointer-events-none mt-0"
-              : "max-h-96 pt-3 opacity-100 mt-3"
+              ? "max-h-0 pt-0 border-t-0 opacity-0 pointer-events-none mt-0 overflow-hidden"
+              : "max-h-none pt-3 opacity-100 mt-3 overflow-visible z-30 relative"
           }`}
         >
           {/* Search Input */}
@@ -2904,7 +2904,7 @@ export default function LeadListPage() {
           </div>
 
           {/* Searchable Source dropdown */}
-          <div className="relative">
+          <div className="relative z-40">
             <div className="flex items-center gap-1">
               <button
                 type="button"
