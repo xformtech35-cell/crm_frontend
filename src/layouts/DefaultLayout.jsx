@@ -731,7 +731,7 @@ export default function DefaultLayout() {
 
   const isActive = (path) => {
     if (location.pathname === path) return true;
-    if (location.pathname.startsWith(`${path}/`)) return true;
+    if (path !== "/settings" && location.pathname.startsWith(`${path}/`)) return true;
     return false;
   };
 
