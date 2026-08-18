@@ -53,16 +53,30 @@ function getUserFromToken() {
   }
 }
 
+export function getApiBaseUrl() {
+  if (import.meta.env.VITE_API_BASE) {
+    return import.meta.env.VITE_API_BASE
+  }
+  if (typeof window !== 'undefined' && (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1')) {
+    return 'http://localhost:8080/xformcrm/api'
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/xformcrm/api`
+  }
+  return 'http://localhost:8080/xformcrm/api'
+}
+
 export function getApiClient(baseURL) {
-  // Always create a new instance to avoid stale token issues
-  // Or recreate if token has changed
+  const targetBaseUrl = baseURL || getApiBaseUrl()
   const token = getStoredToken()
-  const shouldRecreate = !instance || instance.defaults.headers?.Authorization !== `Bearer ${token}`
+  const shouldRecreate = !instance || 
+    instance.defaults.headers?.Authorization !== `Bearer ${token}` ||
+    instance.defaults.baseURL !== targetBaseUrl
   
   if (!instance || shouldRecreate) {
     // Create fresh instance
     instance = axios.create({ 
-      baseURL,
+      baseURL: targetBaseUrl,
       timeout: 45000, // 45 seconds timeout for slow DB/network
     })
 

@@ -1,22 +1,7 @@
-import { getApiClient } from '../utils/api'
-
-const getDefaultBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE) {
-    return import.meta.env.VITE_API_BASE
-  }
-  if (typeof window !== 'undefined' && window.location?.hostname === 'localhost') {
-    return 'http://localhost:8080/xformcrm/api'
-  }
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}/xformcrm/api`
-  }
-  return 'https://api-test.richgoldshine.com/xformcrm/api'
-}
-
-const BASE_URL = getDefaultBaseUrl()
+import { getApiClient, getApiBaseUrl } from '../utils/api'
 
 export function useApi() {
-  const client = getApiClient(BASE_URL)
+  const client = getApiClient(getApiBaseUrl())
 
   // Add a request interceptor to ensure token is always included
   client.interceptors.request.use(

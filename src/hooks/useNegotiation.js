@@ -1,4 +1,5 @@
 import { useApi } from "./useApi";
+import { getApiBaseUrl } from '../utils/api';
 
 export function useNegotiation() {
   const api = useApi();
@@ -139,9 +140,8 @@ const uploadQuotationDocuments = async (quotationNo, files) => {
    */
   const getDocument = async (id) => {
     try {
-      const defaultOrigin = typeof window !== 'undefined' ? `${window.location.origin}/xformcrm` : 'http://localhost:8080/xformcrm';
-      const baseUrl = api.defaults?.baseURL || defaultOrigin;
-      const url = `${baseUrl}/api/negotiations/${id}/document`;
+      const baseUrl = api.defaults?.baseURL || getApiBaseUrl();
+      const url = `${baseUrl}/negotiations/${id}/document`;
       
       const response = await fetch(url, {
         method: 'GET',
@@ -180,9 +180,8 @@ const uploadQuotationDocuments = async (quotationNo, files) => {
    * Get the full URL for a document
    */
   const getFullDocumentUrl = (id) => {
-    const defaultOrigin = typeof window !== 'undefined' ? `${window.location.origin}/xformcrm` : 'http://localhost:8080/xformcrm';
-    const baseUrl = api.defaults?.baseURL || defaultOrigin;
-    return `${baseUrl}/api/negotiations/${id}/document`;
+    const baseUrl = api.defaults?.baseURL || getApiBaseUrl();
+    return `${baseUrl}/negotiations/${id}/document`;
   };
 
   /**
