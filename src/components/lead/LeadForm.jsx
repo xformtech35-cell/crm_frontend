@@ -103,7 +103,7 @@ function getFinancialYear(dateStr) {
 
 function parseQuotationParts(qNum, orgName, inquiryDateVal) {
   const parts = {
-    prefix: '',
+    prefix: 'UWS',
     ref: '',
     year: getFinancialYear(inquiryDateVal),
     serial: '',
@@ -111,28 +111,38 @@ function parseQuotationParts(qNum, orgName, inquiryDateVal) {
   };
 
   if (orgName) {
-    parts.prefix = orgName.split(/\s+/).map(w => w[0]).join('').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    const orgPrefix = orgName.split(/\s+/).map(w => w[0]).join('').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    if (orgPrefix) parts.prefix = orgPrefix;
   }
 
   if (!qNum) return parts;
 
-  const clean = qNum.replace(/\s+/g, '/').split('/');
-  if (clean.length >= 2) {
-    parts.prefix = clean[0];
-    const yearIndex = clean.findIndex(p => p.includes('-'));
-    if (yearIndex === 1) {
-      parts.year = clean[1];
-      parts.serial = clean[2] || '';
-      parts.revision = clean[3] || '';
-    } else if (yearIndex === 2) {
-      parts.ref = clean[1];
-      parts.year = clean[2];
-      parts.serial = clean[3] || '';
-      parts.revision = clean[4] || '';
-    } else {
-      parts.serial = clean[clean.length - 1];
-    }
+  const rawTokens = qNum.replace(/\s+/g, '/').split('/').filter(Boolean);
+  if (rawTokens.length === 0) return parts;
+
+  let tokens = [...rawTokens];
+
+  // Extract revision at the end (e.g. R0, R1, R2...)
+  if (tokens.length > 1 && /^R\d+$/i.test(tokens[tokens.length - 1])) {
+    parts.revision = tokens.pop().toUpperCase();
   }
+
+  if (tokens.length === 0) return parts;
+
+  parts.prefix = tokens[0];
+
+  const yearIdx = tokens.findIndex(t => t.includes('-') && /\d/.test(t));
+  if (yearIdx === 1) {
+    parts.year = tokens[1];
+    parts.serial = tokens[2] || '';
+  } else if (yearIdx === 2) {
+    parts.ref = tokens[1];
+    parts.year = tokens[2];
+    parts.serial = tokens[3] || '';
+  } else if (tokens.length >= 2) {
+    parts.serial = tokens[tokens.length - 1];
+  }
+
   return parts;
 }
 
@@ -306,19 +316,19 @@ const apiiii = import.meta.env.VITE_API_BASE
   useEffect(() => {
     if (initial?.quotationNumber) {
       const qParts = parseQuotationParts(initial.quotationNumber, initial.leadOrganisationName, initial.inquiryDate);
-      setQPrefix(qParts.prefix);
-      setQSerial(qParts.serial);
-      setQYear(qParts.year);
+      if (qParts.prefix) setQPrefix(qParts.prefix);
+      if (qParts.serial) setQSerial(qParts.serial);
+      if (qParts.year) setQYear(qParts.year);
       setIsManualQuotation(true);
     } else if (!initial?.id) {
       setIsManualQuotation(false);
     }
   }, [initial?.quotationNumber, initial?.id]);
 
-  // Auto-generate quotation number
+  // Auto-generate quotation number from helper fields
   useEffect(() => {
     if (isManualQuotation) return;
-    const parts = [qPrefix, form.leadRefQuotation, qYear, qSerial].filter(Boolean).join('/');
+    const parts = [qPrefix || 'UWS', form.leadRefQuotation, qYear || getFinancialYear(form.inquiryDate), qSerial].filter(Boolean).join('/');
     const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
     setForm(f => {
       if (f.quotationNumber !== finalQ) {
@@ -326,22 +336,22 @@ const apiiii = import.meta.env.VITE_API_BASE
       }
       return f;
     });
-  }, [qPrefix, form.leadRefQuotation, qYear, qSerial, form.quotationRevision, isManualQuotation]);
+  }, [qPrefix, form.leadRefQuotation, qYear, qSerial, form.quotationRevision, isManualQuotation, form.inquiryDate]);
 
-  // Prefix from company name
+  // Default Prefix from company name
   useEffect(() => {
-    if (form.leadOrganisationName && !initial?.quotationNumber && !isManualQuotation) {
+    if (form.leadOrganisationName && !initial?.quotationNumber && !isManualQuotation && !qPrefix) {
       const initials = form.leadOrganisationName.split(/\s+/).map(w => w[0]).join('').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-      setQPrefix();
+      setQPrefix(initials || 'UWS');
     }
-  }, [form.leadOrganisationName, initial?.quotationNumber, isManualQuotation]);
+  }, [form.leadOrganisationName, initial?.quotationNumber, isManualQuotation, qPrefix]);
 
   // Year from inquiry date
   useEffect(() => {
-    if (form.inquiryDate) {
+    if (form.inquiryDate && !isManualQuotation) {
       setQYear(getFinancialYear(form.inquiryDate));
     }
-  }, [form.inquiryDate]);
+  }, [form.inquiryDate, isManualQuotation]);
 
   // Load team members, teams, and assignments for team-wise display
   useEffect(() => {
@@ -1138,20 +1148,23 @@ const apiiii = import.meta.env.VITE_API_BASE
 
             <div className="sm:col-span-2 bg-slate-50/80 p-3 rounded-lg border border-slate-200 space-y-3">
               <div className="flex items-center justify-between">
-                {isManualQuotation && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsManualQuotation(false);
-                      const parts = [qPrefix, form.leadRefQuotation, qYear, qSerial].filter(Boolean).join('/');
-                      const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
-                      set('quotationNumber', finalQ);
-                    }}
-                    className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold"
-                  >
-                    Reset to Auto-Generated Format
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsManualQuotation(false);
+                    const parsed = parseQuotationParts(form.quotationNumber, form.leadOrganisationName, form.inquiryDate);
+                    const p = qPrefix || parsed.prefix || 'UWS';
+                    const y = qYear || parsed.year || getFinancialYear(form.inquiryDate);
+                    const s = qSerial || parsed.serial || '001';
+                    const parts = [p, form.leadRefQuotation, y, s].filter(Boolean).join('/');
+                    const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
+                    set('quotationNumber', finalQ);
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-semibold cursor-pointer underline flex items-center gap-1"
+                >
+                  <Icon name="mdi:refresh" className="w-3.5 h-3.5" />
+                  Reset to Auto-Generated Format
+                </button>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1160,45 +1173,55 @@ const apiiii = import.meta.env.VITE_API_BASE
                     Prefix
                   </label>
                   <select
-                    value={qPrefix}
+                    value={qPrefix || 'UWS'}
                     onChange={(e) => {
-                      setQPrefix(e.target.value);
+                      const val = e.target.value;
+                      setQPrefix(val);
                       setIsManualQuotation(false);
+                      const parts = [val, form.leadRefQuotation, qYear || getFinancialYear(form.inquiryDate), qSerial].filter(Boolean).join('/');
+                      const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
+                      set('quotationNumber', finalQ);
                     }}
-                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white font-medium text-slate-800"
                   >
-                    <option value="">Select Prefix</option>
                     <option value="UWS">UWS</option>
                     <option value="UETPL">UETPL</option>
                   </select>
                 </div>
 
-                {/* <div>
+                <div>
                   <label className="text-[10px] text-gray-500 font-medium">SP for Quotation</label>
                   <input
                     type="text"
-                    value={form.leadRefQuotation}
+                    value={form.leadRefQuotation || ''}
                     onChange={(e) => {
                       const value = e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 5);
                       set("leadRefQuotation", value);
                       setIsManualQuotation(false);
+                      const parts = [qPrefix || 'UWS', value, qYear || getFinancialYear(form.inquiryDate), qSerial].filter(Boolean).join('/');
+                      const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
+                      set('quotationNumber', finalQ);
                     }}
                     placeholder="e.g. RRW"
-                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white uppercase"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white uppercase font-medium text-slate-800"
                   />
-                </div> */}
+                </div>
 
                 <div>
                   <label className="text-[10px] text-gray-500 font-medium">FY Year</label>
                   <input
                     type="text"
-                    value={qYear}
+                    value={qYear || getFinancialYear(form.inquiryDate)}
                     onChange={(e) => {
-                      setQYear(e.target.value);
+                      const val = e.target.value;
+                      setQYear(val);
                       setIsManualQuotation(false);
+                      const parts = [qPrefix || 'UWS', form.leadRefQuotation, val, qSerial].filter(Boolean).join('/');
+                      const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
+                      set('quotationNumber', finalQ);
                     }}
-                    placeholder="e.g. 26-27"
-                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white"
+                    placeholder="26-27"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white font-medium text-slate-800"
                   />
                 </div>
 
@@ -1207,14 +1230,17 @@ const apiiii = import.meta.env.VITE_API_BASE
                   <div className="relative">
                     <input
                       type="text"
-                      value={qSerial}
+                      value={qSerial || ''}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, "");
                         setQSerial(value);
                         setIsManualQuotation(false);
+                        const parts = [qPrefix || 'UWS', form.leadRefQuotation, qYear || getFinancialYear(form.inquiryDate), value].filter(Boolean).join('/');
+                        const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
+                        set('quotationNumber', finalQ);
                       }}
-                      placeholder="e.g. 001"
-                      className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white"
+                      placeholder="e.g. 225"
+                      className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white font-mono font-medium text-slate-800"
                     />
                   </div>
                   {previousSerialNo && previousSerialNo !== '000' && (
@@ -1251,11 +1277,20 @@ const apiiii = import.meta.env.VITE_API_BASE
                 type="text"
                 value={form.quotationNumber}
                 onChange={(e) => {
-                  set('quotationNumber', e.target.value);
+                  const newVal = e.target.value;
+                  set('quotationNumber', newVal);
                   setIsManualQuotation(true);
+
+                  // 2-Way Dynamic Sync: parse input quotation number and update helper inputs above
+                  const parsed = parseQuotationParts(newVal, form.leadOrganisationName, form.inquiryDate);
+                  if (parsed.prefix) setQPrefix(parsed.prefix);
+                  if (parsed.ref !== undefined) set('leadRefQuotation', parsed.ref);
+                  if (parsed.year) setQYear(parsed.year);
+                  if (parsed.serial) setQSerial(parsed.serial);
+                  if (parsed.revision !== undefined) set('quotationRevision', parsed.revision);
                 }}
-                placeholder="e.g. UWS/RRW/26-27/001"
-                className={inputCls}
+                placeholder="e.g. UWS/26-27/225"
+                className={`${inputCls} font-mono font-medium`}
               />
               <p className="text-[10px] text-gray-400 mt-1">
                 {isManualQuotation ? "⚠️ Edited manually. Click reset link above to lock back to the format helper." : "ℹ️ Live formatted from the generation helper."}
