@@ -55,16 +55,16 @@ function getUserFromToken() {
 }
 
 export function getApiBaseUrl() {
+  if (import.meta.env.VITE_API_BASE) {
+    return import.meta.env.VITE_API_BASE
+  }
   if (typeof window !== 'undefined' && (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1')) {
     return 'http://localhost:8080/xformcrm/api'
   }
   if (typeof window !== 'undefined' && window.location?.origin) {
     return `${window.location.origin}/xformcrm/api`
   }
-  if (import.meta.env.VITE_API_BASE) {
-    return import.meta.env.VITE_API_BASE
-  }
-  return '/xformcrm/api'
+  return 'http://localhost:8080/xformcrm/api'
 }
 
 export function getApiClient(baseURL) {
