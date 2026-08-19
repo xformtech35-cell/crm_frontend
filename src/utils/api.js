@@ -3,22 +3,23 @@ import axios from 'axios'
 let instance = null
 
 function getStoredToken() {
-  const authStorage = localStorage.getItem('auth-storage')
+  const authStorage = sessionStorage.getItem('auth-storage') || localStorage.getItem('auth-storage')
   if (authStorage) {
     try {
       const parsed = JSON.parse(authStorage)
       return parsed?.state?.token || null
     } catch (e) {
       console.error('Error parsing auth-storage:', e)
+      sessionStorage.removeItem('auth-storage')
       localStorage.removeItem('auth-storage')
     }
   }
   // Fallback for older storage
-  return localStorage.getItem('crm_token') || null
+  return sessionStorage.getItem('crm_token') || localStorage.getItem('crm_token') || null
 }
 
 function getStoredImpersonatedCompanyId() {
-  const authStorage = localStorage.getItem('auth-storage')
+  const authStorage = sessionStorage.getItem('auth-storage') || localStorage.getItem('auth-storage')
   if (authStorage) {
     try {
       return JSON.parse(authStorage)?.state?.selectedCompanyId || null
@@ -30,7 +31,7 @@ function getStoredImpersonatedCompanyId() {
 }
 
 function getStoredImpersonatedTeamMemberId() {
-  const authStorage = localStorage.getItem('auth-storage')
+  const authStorage = sessionStorage.getItem('auth-storage') || localStorage.getItem('auth-storage')
   if (authStorage) {
     try {
       return JSON.parse(authStorage)?.state?.selectedTeamMemberId || null
@@ -54,16 +55,16 @@ function getUserFromToken() {
 }
 
 export function getApiBaseUrl() {
-  if (import.meta.env.VITE_API_BASE) {
-    return import.meta.env.VITE_API_BASE
-  }
   if (typeof window !== 'undefined' && (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1')) {
     return 'http://localhost:8080/xformcrm/api'
   }
   if (typeof window !== 'undefined' && window.location?.origin) {
     return `${window.location.origin}/xformcrm/api`
   }
-  return 'http://localhost:8080/xformcrm/api'
+  if (import.meta.env.VITE_API_BASE) {
+    return import.meta.env.VITE_API_BASE
+  }
+  return '/xformcrm/api'
 }
 
 export function getApiClient(baseURL) {
