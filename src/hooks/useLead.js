@@ -30,6 +30,9 @@ export function useLead() {
   const updateGroup = (id, group) => api.patch(`/leads/${id}/group`, { group });
   const updateEnquiryStatus = (id, enquiryStatus) =>
     api.patch(`/leads/${id}/enquiry-status`, { enquiryStatus });
+  const updateEnquiryType = (id, enquiryType) =>
+    api.patch(`/leads/${id}/enquiryType`, { enquiryType });
+  const getMaxQuotationSerial = () => api.get("/leads/max-quotation-serial");
 
   const getNotes = (id) => api.get(`/leads/${id}/notes`);
   const addNote = (id, noteText) =>
@@ -45,7 +48,6 @@ export function useLead() {
   const getAllNotes = () => api.get("/leads/notes/all");
   const sendReminderEmail = (reminderId) => api.post(`/leads/reminders/${reminderId}/send-email`, {});
 
-  // In useLead.js, add this function
   const updateLeadOutcomeStatus = useCallback(
     (leadId, status) => {
       return api.patch(`/leads/${leadId}/lead-outcome-status`, {
@@ -141,6 +143,8 @@ export function useLead() {
     updateStatus,
     updateGroup,
     updateEnquiryStatus,
+    updateEnquiryType,
+    getMaxQuotationSerial,
     getNotes,
     addNote,
     getReminders,

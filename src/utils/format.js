@@ -45,7 +45,7 @@ export function formatDate(value) {
 export const formatDateDDMMYY = formatDate
 
 /**
- * Format a date-time value to DD/MM/YY HH:MM  e.g. 25/06/26 14:30
+ * Format a date-time value to DD/MM/YY hh:mm AM/PM e.g. 19/08/26 10:30 AM
  */
 export function formatDateTime(value) {
   if (!value) return '—'
@@ -54,9 +54,13 @@ export function formatDateTime(value) {
   const dd = String(d.getDate()).padStart(2, '0')
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const yy = String(d.getFullYear()).slice(-2)
-  const hh = String(d.getHours()).padStart(2, '0')
-  const min = String(d.getMinutes()).padStart(2, '0')
-  return `${dd}/${mm}/${yy} ${hh}:${min}`
+  let hours = d.getHours()
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  const ampm = hours >= 12 ? 'PM' : 'AM'
+  hours = hours % 12
+  hours = hours ? hours : 12
+  const hh = String(hours).padStart(2, '0')
+  return `${dd}/${mm}/${yy} ${hh}:${minutes} ${ampm}`
 }
 
 export function todayString() {

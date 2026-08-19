@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 export const useAuthStore = create(
   persist(
@@ -62,9 +62,9 @@ export const useAuthStore = create(
     }),
     {
       name: 'auth-storage',
-
+      storage: createJSONStorage(() => sessionStorage),
       onRehydrateStorage: () => (state) => {
-        state.setHasHydrated(true)
+        state?.setHasHydrated?.(true)
       },
     }
   )
