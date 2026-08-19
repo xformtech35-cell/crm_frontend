@@ -6,8 +6,8 @@ export function useApi() {
   // Add a request interceptor to ensure token is always included
   client.interceptors.request.use(
     (config) => {
-      // Get token from localStorage
-      const authData = localStorage.getItem('auth-storage');
+      // Get token from sessionStorage or localStorage
+      const authData = sessionStorage.getItem('auth-storage') || localStorage.getItem('auth-storage');
       if (authData) {
         try {
           const parsed = JSON.parse(authData);
