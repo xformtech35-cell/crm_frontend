@@ -182,6 +182,7 @@ console.log("sdsdsdsdsd",quotationNumber )
 
     // 3. Refresh
     await loadLead();
+    await loadRevisions();
 
     setDocumentFiles([]);
     setIsEditing(false);
@@ -927,16 +928,6 @@ const EditForm = ({
   let currentRevDocs = [];
   if (matchingRevision && matchingRevision.documents && matchingRevision.documents.length > 0) {
     currentRevDocs = [matchingRevision.documents[matchingRevision.documents.length - 1]];
-  } else if (selectedRevCode === "R0") {
-    const leadDocs = [
-      lead.uploadDocument,
-      lead.uploadDocument1,
-      lead.uploadDocument2,
-      lead.uploadDocument3
-    ].filter(Boolean).map((url, i) => {
-      return { id: `doc-r0-${i}`, fileName: cleanFileName(url), fileUrl: url };
-    });
-    currentRevDocs = leadDocs.length > 0 ? [leadDocs[leadDocs.length - 1]] : [];
   }
 
   const hasExistingDocs = currentRevDocs.length > 0 && !replaceMode;

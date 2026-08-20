@@ -253,12 +253,6 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   let currentRevDocs = [];
   if (matchingRevision && matchingRevision.documents && matchingRevision.documents.length > 0) {
     currentRevDocs = [matchingRevision.documents[matchingRevision.documents.length - 1]];
-  } else if (selectedRevCode === "R0" && filesFromLead.length > 0) {
-    currentRevDocs = [filesFromLead[filesFromLead.length - 1]].map(f => ({
-      id: f.id,
-      fileName: f.name,
-      fileUrl: f.path
-    }));
   }
 
   const hasExistingDocs = currentRevDocs.length > 0 && !replaceMode;
@@ -749,7 +743,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
     }];
     setPendingFiles(preview);
 
-    if (!initial?.leadId) return;
+    const targetQuotNo = form.quotationNumber || initial?.quotationNumber || (matchingRevision?.quotationNo);
 
     try {
       setUploading(true);
@@ -759,10 +753,16 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
         setUploadProgress((prev) => Math.min(prev + 15, 90));
       }, 150);
 
-      await update(initial.leadId, { ...initial }, { uploadDocument: file });
+      if (targetQuotNo) {
+        await negotiationApi.uploadQuotationDocuments(targetQuotNo, [file]);
+      } else if (initial?.leadId) {
+        await update(initial.leadId, { ...initial }, { uploadDocument: file });
+      }
 
       clearInterval(progressInterval);
       setUploadProgress(100);
+      setReplaceMode(false);
+      await loadRevisions();
 
       setTimeout(() => {
         setUploading(false);
