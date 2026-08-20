@@ -561,12 +561,93 @@ export default function LeadListPage() {
   const [groupFilter, setGroupFilter] = useState("");
   const [leadStatusFilter, setLeadStatusFilter] = useState("");
   const [quotationStatusFilter, setQuotationStatusFilter] = useState("");
+  const [enquiryTypeFilter, setEnquiryTypeFilter] = useState("");
+  const [leadNameFilter, setLeadNameFilter] = useState("");
+  const [leadRefFilter, setLeadRefFilter] = useState("");
+  const [createdByFilter, setCreatedByFilter] = useState("");
+  const [updatedByFilter, setUpdatedByFilter] = useState("");
 
   const [activeHeaderDropdown, setActiveHeaderDropdown] = useState(null);
   const [groupSearch, setGroupSearch] = useState("");
   const [leadStatusSearch, setLeadStatusSearch] = useState("");
   const [quotationSearch, setQuotationSearch] = useState("");
+  const [enquiryTypeSearch, setEnquiryTypeSearch] = useState("");
+  const [leadNameSearch, setLeadNameSearch] = useState("");
+  const [leadRefSearch, setLeadRefSearch] = useState("");
+  const [createdBySearch, setCreatedBySearch] = useState("");
+  const [updatedBySearch, setUpdatedBySearch] = useState("");
   const [sourceSearch, setSourceSearch] = useState("");
+
+  const uniqueLeadNames = useMemo(() => {
+    const set = new Set();
+    (allLeads || []).forEach(l => {
+      const name = (l.leadOrganisationName || `${l.leadFirstName || ""} ${l.leadLastName || ""}`).trim();
+      if (name) set.add(name);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [allLeads]);
+
+  const uniqueLeadRefs = useMemo(() => {
+    const set = new Set();
+    (allLeads || []).forEach(l => {
+      const ref = (l.leadRef || "").trim();
+      if (ref) set.add(ref);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [allLeads]);
+
+  const uniqueCreatedBys = useMemo(() => {
+    const set = new Set();
+    (allLeads || []).forEach(l => {
+      const cb = (l.createdBy || "").trim();
+      if (cb) set.add(cb);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [allLeads]);
+
+  const uniqueUpdatedBys = useMemo(() => {
+    const set = new Set();
+    (allLeads || []).forEach(l => {
+      const ub = (l.updatedBy || l.createdBy || "").trim();
+      if (ub) set.add(ub);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [allLeads]);
+
+  const uniqueGroupNames = useMemo(() => {
+    const set = new Set();
+    (leadGroups || []).forEach(g => {
+      if (g?.groupName) set.add(g.groupName.trim());
+    });
+    (allLeads || []).forEach(l => {
+      const g = (l.leadGroup || "").trim();
+      if (g) set.add(g);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [leadGroups, allLeads]);
+
+  const uniqueLeadStatuses = useMemo(() => {
+    const set = new Set();
+    (leadStatuses || []).forEach(s => {
+      if (s?.statusName) set.add(s.statusName.trim());
+    });
+    (allLeads || []).forEach(l => {
+      const s = (l.leadOutcomeStatus || l.leadStatus || "").trim();
+      if (s) set.add(s);
+      else set.add("None");
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [leadStatuses, allLeads]);
+
+  const uniqueQuotationStatuses = useMemo(() => {
+    const set = new Set();
+    (allLeads || []).forEach(l => {
+      const s = (l.enquiryStatus || "").trim();
+      if (s) set.add(s);
+      else set.add("None");
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [allLeads]);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -627,7 +708,16 @@ export default function LeadListPage() {
     setLoading(true);
     try {
       const leads = await getAll();
-      setAllLeads(leads ?? []);
+      const normalizedLeads = (leads ?? []).map((l) => {
+        const isDisqualified = l.leadStatus === "Disqualified" || l.enquiryType === "Disqualified" || l.leadOutcomeStatus === "Disqualified";
+        const status = isDisqualified ? "Disqualified" : "Qualified";
+        return {
+          ...l,
+          leadStatus: status,
+          enquiryType: status,
+        };
+      });
+      setAllLeads(normalizedLeads);
       getAllScores()
         .then((s) => setScores(s ?? []))
         .catch(() => {});
@@ -860,18 +950,56 @@ export default function LeadListPage() {
       activeStatus !== "All" ||
       groupFilter !== "" ||
       leadStatusFilter !== "" ||
-      quotationStatusFilter !== "",
-    [searchQuery, sourceFilter, gradeFilter, dateFrom, dateTo, activeStatus, groupFilter, leadStatusFilter, quotationStatusFilter]
+      quotationStatusFilter !== "" ||
+      enquiryTypeFilter !== "" ||
+      leadNameFilter !== "" ||
+      leadRefFilter !== "" ||
+      createdByFilter !== "" ||
+      updatedByFilter !== "",
+    [
+      searchQuery,
+      sourceFilter,
+      gradeFilter,
+      dateFrom,
+      dateTo,
+      activeStatus,
+      groupFilter,
+      leadStatusFilter,
+      quotationStatusFilter,
+      enquiryTypeFilter,
+      leadNameFilter,
+      leadRefFilter,
+      createdByFilter,
+      updatedByFilter,
+    ]
   );
 
   const filteredLeads = useMemo(() => {
-    let list = allLeads;
+    // Exclude IndiaMART and TradeIndia leads (managed in dedicated sidebar modules under Negotiations)
+    let list = (allLeads || []).filter((l) => {
+      const src = (l?.leadSource || "").trim().toLowerCase();
+      return !src.includes("indiamart") && !src.includes("tradeindia");
+    });
 
     // 1. Main Status Tab Filter
     if (activeStatus !== "All") {
-      list = list.filter(
-        (l) => l.leadStatus === activeStatus || l.leadOutcomeStatus === activeStatus
-      );
+      list = list.filter((l) => {
+        const isDisqualified =
+          l.leadStatus === "Disqualified" ||
+          l.enquiryType === "Disqualified" ||
+          l.leadOutcomeStatus === "Disqualified";
+
+        if (activeStatus === "Qualified") {
+          return !isDisqualified;
+        }
+        if (activeStatus === "Disqualified") {
+          return isDisqualified;
+        }
+        return (
+          l.leadStatus === activeStatus ||
+          l.leadOutcomeStatus === activeStatus
+        );
+      });
     }
 
     // 2. Search Query Filter (Searches contact person, company, email, mobile, ref, quotation no, description)
@@ -953,7 +1081,66 @@ export default function LeadListPage() {
       });
     }
 
-    // 8. Date Range Filter (Checks Enquiry Date / Lead Date / Created Date)
+    // 8. Enquiry Type Column Filter (Exact Qualified vs Disqualified Match)
+    if (enquiryTypeFilter) {
+      const etf = enquiryTypeFilter.trim().toLowerCase();
+      list = list.filter((l) => {
+        const isDisqualified =
+          l.leadStatus === "Disqualified" ||
+          l.enquiryType === "Disqualified" ||
+          l.leadOutcomeStatus === "Disqualified";
+        const displayType = isDisqualified ? "disqualified" : "qualified";
+        return displayType === etf;
+      });
+    }
+
+    // 9. Lead Name Column Filter
+    if (leadNameFilter) {
+      const lnf = leadNameFilter.trim().toLowerCase();
+      list = list.filter((l) => {
+        const org = (l.leadOrganisationName || "").trim().toLowerCase();
+        const first = (l.leadFirstName || "").trim().toLowerCase();
+        const last = (l.leadLastName || "").trim().toLowerCase();
+        const combined = `${first} ${last}`.trim();
+        const disp = (org || combined || "Lead").toLowerCase();
+        return (
+          disp === lnf ||
+          org === lnf ||
+          combined === lnf ||
+          disp.includes(lnf) ||
+          lnf.includes(disp)
+        );
+      });
+    }
+
+    // 10. Lead Ref Column Filter
+    if (leadRefFilter) {
+      const lrf = leadRefFilter.trim().toLowerCase();
+      list = list.filter((l) => {
+        const ref = (l.leadRef || "").trim().toLowerCase();
+        return ref === lrf || ref.includes(lrf) || lrf.includes(ref);
+      });
+    }
+
+    // 11. Created By Column Filter
+    if (createdByFilter) {
+      const cbf = createdByFilter.trim().toLowerCase();
+      list = list.filter((l) => {
+        const cb = (l.createdBy || "").trim().toLowerCase();
+        return cb === cbf || cb.includes(cbf) || cbf.includes(cb);
+      });
+    }
+
+    // 12. Updated By Column Filter
+    if (updatedByFilter) {
+      const ubf = updatedByFilter.trim().toLowerCase();
+      list = list.filter((l) => {
+        const ub = (l.updatedBy || l.createdBy || "").trim().toLowerCase();
+        return ub === ubf || ub.includes(ubf) || ubf.includes(ub);
+      });
+    }
+
+    // 13. Date Range Filter (Checks Enquiry Date / Lead Date / Created Date)
     if (dateFrom) {
       list = list.filter((l) => {
         const rawDate = l.inquiryDate || l.leadCreatedDate || l.quotationDate;
@@ -973,22 +1160,73 @@ export default function LeadListPage() {
     }
 
     return [...list].sort((a, b) => {
-      let va = "",
-        vb = "";
+      let res = 0;
       if (sortKey === "leadFirstName") {
-        va = `${a.leadFirstName || ""} ${a.leadLastName || ""}`.toLowerCase();
-        vb = `${b.leadFirstName || ""} ${b.leadLastName || ""}`.toLowerCase();
-      } else if (sortKey === "leadOutcomeStatus") {
-        va = a.leadOutcomeStatus || "";
-        vb = b.leadOutcomeStatus || "";
+        const va = (a.leadOrganisationName || `${a.leadFirstName || ""} ${a.leadLastName || ""}`).toLowerCase();
+        const vb = (b.leadOrganisationName || `${b.leadFirstName || ""} ${b.leadLastName || ""}`).toLowerCase();
+        res = va.localeCompare(vb);
+      } else if (sortKey === "leadRef") {
+        const va = (a.leadRef || "").toLowerCase();
+        const vb = (b.leadRef || "").toLowerCase();
+        res = va.localeCompare(vb);
       } else if (sortKey === "leadGroup") {
-        va = a.leadGroup || "";
-        vb = b.leadGroup || "";
+        const va = (a.leadGroup || "").toLowerCase();
+        const vb = (b.leadGroup || "").toLowerCase();
+        res = va.localeCompare(vb);
+      } else if (sortKey === "leadOutcomeStatus") {
+        const va = (a.leadOutcomeStatus || a.leadStatus || "").toLowerCase();
+        const vb = (b.leadOutcomeStatus || b.leadStatus || "").toLowerCase();
+        res = va.localeCompare(vb);
+      } else if (sortKey === "enquiryStatus") {
+        const va = (a.enquiryStatus || "").toLowerCase();
+        const vb = (b.enquiryStatus || "").toLowerCase();
+        res = va.localeCompare(vb);
+      } else if (sortKey === "quotationNumber") {
+        const va = (a.quotationNumber || "").toLowerCase();
+        const vb = (b.quotationNumber || "").toLowerCase();
+        res = va.localeCompare(vb);
+      } else if (sortKey === "inquiryDate") {
+        const va = a.inquiryDate || a.leadCreatedDate || "";
+        const vb = b.inquiryDate || b.leadCreatedDate || "";
+        res = String(va).localeCompare(String(vb));
+      } else if (sortKey === "quotationDate") {
+        const va = a.quotationDate || "";
+        const vb = b.quotationDate || "";
+        res = String(va).localeCompare(String(vb));
+      } else if (sortKey === "quotationSentDate") {
+        const va = a.quotationSentDate || "";
+        const vb = b.quotationSentDate || "";
+        res = String(va).localeCompare(String(vb));
+      } else if (sortKey === "quotationAmount") {
+        const va = Number(a.quotationAmount || 0);
+        const vb = Number(b.quotationAmount || 0);
+        res = va - vb;
+      } else if (sortKey === "leadRating") {
+        const va = Number(a.leadRating || 0);
+        const vb = Number(b.leadRating || 0);
+        res = va - vb;
+      } else if (sortKey === "enquiryType") {
+        const va = (a.enquiryType || a.leadStatus || "").toLowerCase();
+        const vb = (b.enquiryType || b.leadStatus || "").toLowerCase();
+        res = va.localeCompare(vb);
+      } else if (sortKey === "followUpRemark") {
+        const va = (a.followUpRemark || "").toLowerCase();
+        const vb = (b.followUpRemark || "").toLowerCase();
+        res = va.localeCompare(vb);
+      } else if (sortKey === "createdBy") {
+        const va = (a.createdBy || "").toLowerCase();
+        const vb = (b.createdBy || "").toLowerCase();
+        res = va.localeCompare(vb);
+      } else if (sortKey === "updatedBy") {
+        const va = (a.updatedBy || a.createdBy || "").toLowerCase();
+        const vb = (b.updatedBy || b.createdBy || "").toLowerCase();
+        res = va.localeCompare(vb);
       } else {
-        va = a.inquiryDate || a.leadCreatedDate || "";
-        vb = b.inquiryDate || b.leadCreatedDate || "";
+        const va = a.inquiryDate || a.leadCreatedDate || "";
+        const vb = b.inquiryDate || b.leadCreatedDate || "";
+        res = String(va).localeCompare(String(vb));
       }
-      return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortDir === "asc" ? res : -res;
     });
   }, [
     allLeads,
@@ -1003,6 +1241,11 @@ export default function LeadListPage() {
     groupFilter,
     leadStatusFilter,
     quotationStatusFilter,
+    enquiryTypeFilter,
+    leadNameFilter,
+    leadRefFilter,
+    createdByFilter,
+    updatedByFilter,
   ]);
 
   const totalCount = filteredLeads.length;
@@ -1179,9 +1422,14 @@ export default function LeadListPage() {
     setActiveStatus("All");
     setSortKey("leadCreatedDate");
     setSortDir("desc");
-    setGroupFilter("");           // ← ADD THIS
-  setLeadStatusFilter("");      // ← ADD THIS
-  setQuotationStatusFilter(""); // ← ADD THIS
+    setGroupFilter("");
+    setLeadStatusFilter("");
+    setQuotationStatusFilter("");
+    setEnquiryTypeFilter("");
+    setLeadNameFilter("");
+    setLeadRefFilter("");
+    setCreatedByFilter("");
+    setUpdatedByFilter("");
   }
 
   // chart
@@ -3211,352 +3459,893 @@ export default function LeadListPage() {
                     width: "max-content",
                   }}
                 >
-                  <thead className="sticky top-0 z-20 bg-gray-50">
-                    <tr className="bg-gray-50 border-b border-gray-100">
-                      <th className="sticky top-0 bg-gray-50 z-20 w-10 pl-4 py-2.5">
+                  <thead className="sticky top-0 z-30 bg-slate-50 border-b border-slate-200/80 shadow-xs">
+                    <tr className="bg-slate-50/90 backdrop-blur-sm text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                      {/* SELECT ALL CHECKBOX */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-10 pl-4 py-3 text-left">
                         <input
                           type="checkbox"
                           checked={allPageSelected}
                           onChange={toggleSelectAll}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                         />
                       </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        <button
-                          className="flex items-center gap-1 hover:text-gray-700 transition-colors"
-                          onClick={() => toggleSort("leadFirstName")}
-                        >
-                          LEAD NAME{" "}
-                          <Icon
-                            name={sortIcon("leadFirstName")}
-                            className="w-3.5 h-3.5"
-                          />
-                        </button>
+
+                      {/* 1. LEAD NAME (Filter + Sort) */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[200px] whitespace-nowrap py-3 px-3 text-left relative">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "leadFirstName" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("leadFirstName")}
+                          >
+                            <span>LEAD NAME</span>
+                            <Icon
+                              name={sortIcon("leadFirstName")}
+                              className={`w-3.5 h-3.5 ${sortKey === "leadFirstName" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
+                              leadNameFilter 
+                                ? 'bg-blue-100 text-blue-700 font-bold' 
+                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveHeaderDropdown(activeHeaderDropdown === 'leadName' ? null : 'leadName');
+                            }}
+                            title="Filter Lead Name"
+                          >
+                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                          </button>
+
+                          {leadNameFilter && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setLeadNameFilter(""); setCurrentPage(1); }}
+                                className="hover:text-blue-900"
+                              >
+                                <Icon name="mdi:close" className="w-3 h-3" />
+                              </button>
+                            </span>
+                          )}
+                        </div>
+
+                        {activeHeaderDropdown === 'leadName' && (
+                          <div 
+                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-64 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="relative mb-2">
+                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="text"
+                                placeholder="Search Lead Name..."
+                                value={leadNameSearch}
+                                onChange={(e) => setLeadNameSearch(e.target.value)}
+                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                autoFocus
+                              />
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                              <button
+                                type="button"
+                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                  !leadNameFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                }`}
+                                onClick={() => { setLeadNameFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadNameSearch(""); }}
+                              >
+                                <span>All Lead Names</span>
+                                {!leadNameFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                              </button>
+
+                              {uniqueLeadNames
+                                .filter(name => name.toLowerCase().includes(leadNameSearch.toLowerCase()))
+                                .map((name) => (
+                                  <button
+                                    key={name}
+                                    type="button"
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                      leadNameFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                    onClick={() => {
+                                      setLeadNameFilter(name);
+                                      setCurrentPage(1);
+                                      setActiveHeaderDropdown(null);
+                                      setLeadNameSearch("");
+                                    }}
+                                  >
+                                    <span className="truncate">{name}</span>
+                                    {leadNameFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
                       </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[100px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        <button
-                          className="flex items-center gap-1 hover:text-gray-700 transition-colors"
-                          onClick={() => toggleSort("leadRef")}
-                        >
-                          REF{" "}
-                          <Icon
-                            name={sortIcon("leadRef")}
-                            className="w-3.5 h-3.5"
-                          />
-                        </button>
+
+                      {/* 2. REF (Filter + Sort) */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[130px] whitespace-nowrap py-3 px-3 text-left relative">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "leadRef" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("leadRef")}
+                          >
+                            <span>REF</span>
+                            <Icon
+                              name={sortIcon("leadRef")}
+                              className={`w-3.5 h-3.5 ${sortKey === "leadRef" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
+                              leadRefFilter 
+                                ? 'bg-blue-100 text-blue-700 font-bold' 
+                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveHeaderDropdown(activeHeaderDropdown === 'leadRef' ? null : 'leadRef');
+                            }}
+                            title="Filter Ref"
+                          >
+                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                          </button>
+
+                          {leadRefFilter && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setLeadRefFilter(""); setCurrentPage(1); }}
+                                className="hover:text-blue-900"
+                              >
+                                <Icon name="mdi:close" className="w-3 h-3" />
+                              </button>
+                            </span>
+                          )}
+                        </div>
+
+                        {activeHeaderDropdown === 'leadRef' && (
+                          <div 
+                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-52 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="relative mb-2">
+                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="text"
+                                placeholder="Search Ref..."
+                                value={leadRefSearch}
+                                onChange={(e) => setLeadRefSearch(e.target.value)}
+                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                autoFocus
+                              />
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                              <button
+                                type="button"
+                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                  !leadRefFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                }`}
+                                onClick={() => { setLeadRefFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadRefSearch(""); }}
+                              >
+                                <span>All Refs</span>
+                                {!leadRefFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                              </button>
+
+                              {uniqueLeadRefs
+                                .filter(ref => ref.toLowerCase().includes(leadRefSearch.toLowerCase()))
+                                .map((ref) => (
+                                  <button
+                                    key={ref}
+                                    type="button"
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                      leadRefFilter === ref ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                    onClick={() => {
+                                      setLeadRefFilter(ref);
+                                      setCurrentPage(1);
+                                      setActiveHeaderDropdown(null);
+                                      setLeadRefSearch("");
+                                    }}
+                                  >
+                                    <span className="truncate">{ref}</span>
+                                    {leadRefFilter === ref && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
                       </th>
 
-{/* GROUP Column with Searchable Dropdown Filter */}
-<th className="sticky top-0 bg-gray-50 z-30 w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
-  <div className="flex flex-col items-start gap-1">
-    <div className="flex items-center gap-1.5">
-      <button
-        type="button"
-        className={`header-filter-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all ${
-          groupFilter 
-            ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm' 
-            : 'bg-white text-gray-800 border-gray-200 hover:border-gray-300'
-        }`}
-        onClick={(e) => {
-          e.stopPropagation();
-          setActiveHeaderDropdown(activeHeaderDropdown === 'group' ? null : 'group');
-        }}
-      >
-        <span>GROUP</span>
-        <Icon name="mdi:chevron-down" className={`w-3.5 h-3.5 transition-transform ${activeHeaderDropdown === 'group' ? 'rotate-180 text-blue-600' : 'text-gray-400'}`} />
-      </button>
+                      {/* 3. GROUP (Filter + Sort) */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[190px] whitespace-nowrap py-3 px-3 text-left relative">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "leadGroup" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("leadGroup")}
+                          >
+                            <span>GROUP</span>
+                            <Icon
+                              name={sortIcon("leadGroup")}
+                              className={`w-3.5 h-3.5 ${sortKey === "leadGroup" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
 
-      {groupFilter && (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold">
-          {groupFilter}
-          <button
-            onClick={(e) => { e.stopPropagation(); setGroupFilter(""); setCurrentPage(1); }}
-            className="hover:text-blue-900"
-          >
-            <Icon name="mdi:close" className="w-3 h-3" />
-          </button>
-        </span>
-      )}
-    </div>
+                          <button
+                            type="button"
+                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
+                              groupFilter 
+                                ? 'bg-blue-100 text-blue-700 font-bold' 
+                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveHeaderDropdown(activeHeaderDropdown === 'group' ? null : 'group');
+                            }}
+                            title="Filter Group"
+                          >
+                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                          </button>
 
-    {activeHeaderDropdown === 'group' && (
-      <div 
-        className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-gray-700 animate-in fade-in zoom-in-95 duration-100"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="relative mb-2">
-          <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search groups..."
-            value={groupSearch}
-            onChange={(e) => setGroupSearch(e.target.value)}
-            className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
-            autoFocus
-          />
-        </div>
+                          {groupFilter && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setGroupFilter(""); setCurrentPage(1); }}
+                                className="hover:text-blue-900"
+                              >
+                                <Icon name="mdi:close" className="w-3 h-3" />
+                              </button>
+                            </span>
+                          )}
+                        </div>
 
-        <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
-          <button
-            type="button"
-            className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-              !groupFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
-            }`}
-            onClick={() => { setGroupFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setGroupSearch(""); }}
-          >
-            <span>All Groups</span>
-            {!groupFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
-          </button>
+                        {activeHeaderDropdown === 'group' && (
+                          <div 
+                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="relative mb-2">
+                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="text"
+                                placeholder="Search groups..."
+                                value={groupSearch}
+                                onChange={(e) => setGroupSearch(e.target.value)}
+                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                autoFocus
+                              />
+                            </div>
 
-          {leadGroups
-            .filter(g => (g.groupName || "").toLowerCase().includes(groupSearch.toLowerCase()))
-            .map((group) => (
-              <button
-                key={group.id || group.groupName}
-                type="button"
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                  groupFilter === group.groupName ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
-                }`}
-                onClick={() => {
-                  setGroupFilter(group.groupName);
-                  setCurrentPage(1);
-                  setActiveHeaderDropdown(null);
-                  setGroupSearch("");
-                }}
-              >
-                <span className="truncate">{group.groupName}</span>
-                {groupFilter === group.groupName && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
-              </button>
-            ))}
-        </div>
-      </div>
-    )}
-  </div>
-</th>
+                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                              <button
+                                type="button"
+                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                  !groupFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                }`}
+                                onClick={() => { setGroupFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setGroupSearch(""); }}
+                              >
+                                <span>All Groups</span>
+                                {!groupFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                              </button>
 
-{/* LEAD STATUS Column with Searchable Dropdown Filter */}
-<th className="sticky top-0 bg-gray-50 z-30 w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
-  <div className="flex flex-col items-start gap-1">
-    <div className="flex items-center gap-1.5">
-      <button
-        type="button"
-        className={`header-filter-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all ${
-          leadStatusFilter 
-            ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm' 
-            : 'bg-white text-gray-800 border-gray-200 hover:border-gray-300'
-        }`}
-        onClick={(e) => {
-          e.stopPropagation();
-          setActiveHeaderDropdown(activeHeaderDropdown === 'leadStatus' ? null : 'leadStatus');
-        }}
-      >
-        <span>LEAD STATUS</span>
-        <Icon name="mdi:chevron-down" className={`w-3.5 h-3.5 transition-transform ${activeHeaderDropdown === 'leadStatus' ? 'rotate-180 text-blue-600' : 'text-gray-400'}`} />
-      </button>
-
-      {leadStatusFilter && (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold">
-          {leadStatusFilter}
-          <button
-            onClick={(e) => { e.stopPropagation(); setLeadStatusFilter(""); setCurrentPage(1); }}
-            className="hover:text-blue-900"
-          >
-            <Icon name="mdi:close" className="w-3 h-3" />
-          </button>
-        </span>
-      )}
-    </div>
-
-    {activeHeaderDropdown === 'leadStatus' && (
-      <div 
-        className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-gray-700 animate-in fade-in zoom-in-95 duration-100"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="relative mb-2">
-          <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search lead status..."
-            value={leadStatusSearch}
-            onChange={(e) => setLeadStatusSearch(e.target.value)}
-            className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
-            autoFocus
-          />
-        </div>
-
-        <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
-          <button
-            type="button"
-            className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-              !leadStatusFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
-            }`}
-            onClick={() => { setLeadStatusFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadStatusSearch(""); }}
-          >
-            <span>All Statuses</span>
-            {!leadStatusFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
-          </button>
-
-          {(leadStatuses.length > 0 ? leadStatuses.map(s => s.statusName || s.name || s) : ["Negotiation", "Open", "Won", "Closed", "Qualified", "Disqualified", "New Lead", "Working", "QuotationSent"])
-            .filter(name => String(name).toLowerCase().includes(leadStatusSearch.toLowerCase()))
-            .map((name) => (
-              <button
-                key={name}
-                type="button"
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                  leadStatusFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
-                }`}
-                onClick={() => {
-                  setLeadStatusFilter(name);
-                  setCurrentPage(1);
-                  setActiveHeaderDropdown(null);
-                  setLeadStatusSearch("");
-                }}
-              >
-                <span className="truncate">{name}</span>
-                {leadStatusFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
-              </button>
-            ))}
-        </div>
-      </div>
-    )}
-  </div>
-</th>
-
-{/* QUOTATION STATUS Column with Searchable Dropdown Filter */}
-<th className="sticky top-0 bg-gray-50 z-30 w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide relative">
-  <div className="flex flex-col items-start gap-1">
-    <div className="flex items-center gap-1.5">
-      <button
-        type="button"
-        className={`header-filter-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all ${
-          quotationStatusFilter 
-            ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm' 
-            : 'bg-white text-gray-800 border-gray-200 hover:border-gray-300'
-        }`}
-        onClick={(e) => {
-          e.stopPropagation();
-          setActiveHeaderDropdown(activeHeaderDropdown === 'quotation' ? null : 'quotation');
-        }}
-      >
-        <span>QUOTATION STATUS</span>
-        <Icon name="mdi:chevron-down" className={`w-3.5 h-3.5 transition-transform ${activeHeaderDropdown === 'quotation' ? 'rotate-180 text-blue-600' : 'text-gray-400'}`} />
-      </button>
-
-      {quotationStatusFilter && (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold">
-          {quotationStatusFilter}
-          <button
-            onClick={(e) => { e.stopPropagation(); setQuotationStatusFilter(""); setCurrentPage(1); }}
-            className="hover:text-blue-900"
-          >
-            <Icon name="mdi:close" className="w-3 h-3" />
-          </button>
-        </span>
-      )}
-    </div>
-
-    {activeHeaderDropdown === 'quotation' && (
-      <div 
-        className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-gray-700 animate-in fade-in zoom-in-95 duration-100"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="relative mb-2">
-          <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search quotation status..."
-            value={quotationSearch}
-            onChange={(e) => setQuotationSearch(e.target.value)}
-            className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
-            autoFocus
-          />
-        </div>
-
-        <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
-          <button
-            type="button"
-            className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-              !quotationStatusFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
-            }`}
-            onClick={() => { setQuotationStatusFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setQuotationSearch(""); }}
-          >
-            <span>All Quotation Statuses</span>
-            {!quotationStatusFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
-          </button>
-
-          {["Pending", "Sent", "Working", "Unassigned"]
-            .filter(name => name.toLowerCase().includes(quotationSearch.toLowerCase()))
-            .map((name) => (
-              <button
-                key={name}
-                type="button"
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                  quotationStatusFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
-                }`}
-                onClick={() => {
-                  setQuotationStatusFilter(name);
-                  setCurrentPage(1);
-                  setActiveHeaderDropdown(null);
-                  setQuotationSearch("");
-                }}
-              >
-                <span className="truncate">{name}</span>
-                {quotationStatusFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
-              </button>
-            ))}
-        </div>
-      </div>
-    )}
-  </div>
-</th>
-
-
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[250px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        ENQUIRY DESCRIPTION
+                              {uniqueGroupNames
+                                .filter(g => String(g).toLowerCase().includes(groupSearch.toLowerCase()))
+                                .map((group) => (
+                                  <button
+                                    key={group}
+                                    type="button"
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                      groupFilter === group ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                    onClick={() => {
+                                      setGroupFilter(group);
+                                      setCurrentPage(1);
+                                      setActiveHeaderDropdown(null);
+                                      setGroupSearch("");
+                                    }}
+                                  >
+                                    <span className="truncate">{group}</span>
+                                    {groupFilter === group && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
                       </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[180px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+
+                      {/* 4. LEAD STATUS (Filter + Sort) */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[190px] whitespace-nowrap py-3 px-3 text-left relative">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "leadOutcomeStatus" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("leadOutcomeStatus")}
+                          >
+                            <span>LEAD STATUS</span>
+                            <Icon
+                              name={sortIcon("leadOutcomeStatus")}
+                              className={`w-3.5 h-3.5 ${sortKey === "leadOutcomeStatus" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
+                              leadStatusFilter 
+                                ? 'bg-blue-100 text-blue-700 font-bold' 
+                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveHeaderDropdown(activeHeaderDropdown === 'leadStatus' ? null : 'leadStatus');
+                            }}
+                            title="Filter Status"
+                          >
+                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                          </button>
+
+                          {leadStatusFilter && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setLeadStatusFilter(""); setCurrentPage(1); }}
+                                className="hover:text-blue-900"
+                              >
+                                <Icon name="mdi:close" className="w-3 h-3" />
+                              </button>
+                            </span>
+                          )}
+                        </div>
+
+                        {activeHeaderDropdown === 'leadStatus' && (
+                          <div 
+                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="relative mb-2">
+                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="text"
+                                placeholder="Search lead status..."
+                                value={leadStatusSearch}
+                                onChange={(e) => setLeadStatusSearch(e.target.value)}
+                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                autoFocus
+                              />
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                              <button
+                                type="button"
+                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                  !leadStatusFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                }`}
+                                onClick={() => { setLeadStatusFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadStatusSearch(""); }}
+                              >
+                                <span>All Statuses</span>
+                                {!leadStatusFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                              </button>
+
+                              {uniqueLeadStatuses
+                                .filter(name => String(name).toLowerCase().includes(leadStatusSearch.toLowerCase()))
+                                .map((name) => (
+                                  <button
+                                    key={name}
+                                    type="button"
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                      leadStatusFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                    onClick={() => {
+                                      setLeadStatusFilter(name);
+                                      setCurrentPage(1);
+                                      setActiveHeaderDropdown(null);
+                                      setLeadStatusSearch("");
+                                    }}
+                                  >
+                                    <span className="truncate">{name}</span>
+                                    {leadStatusFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </th>
+
+                      {/* 5. QUOTATION STATUS (Filter + Sort) */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[190px] whitespace-nowrap py-3 px-3 text-left relative">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "enquiryStatus" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("enquiryStatus")}
+                          >
+                            <span>QUOTATION STATUS</span>
+                            <Icon
+                              name={sortIcon("enquiryStatus")}
+                              className={`w-3.5 h-3.5 ${sortKey === "enquiryStatus" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
+                              quotationStatusFilter 
+                                ? 'bg-blue-100 text-blue-700 font-bold' 
+                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveHeaderDropdown(activeHeaderDropdown === 'quotation' ? null : 'quotation');
+                            }}
+                            title="Filter Quotation Status"
+                          >
+                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                          </button>
+
+                          {quotationStatusFilter && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setQuotationStatusFilter(""); setCurrentPage(1); }}
+                                className="hover:text-blue-900"
+                              >
+                                <Icon name="mdi:close" className="w-3 h-3" />
+                              </button>
+                            </span>
+                          )}
+                        </div>
+
+                        {activeHeaderDropdown === 'quotation' && (
+                          <div 
+                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="relative mb-2">
+                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="text"
+                                placeholder="Search quotation status..."
+                                value={quotationSearch}
+                                onChange={(e) => setQuotationSearch(e.target.value)}
+                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                autoFocus
+                              />
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                              <button
+                                type="button"
+                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                  !quotationStatusFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                }`}
+                                onClick={() => { setQuotationStatusFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setQuotationSearch(""); }}
+                              >
+                                <span>All Quotation Statuses</span>
+                                {!quotationStatusFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                              </button>
+
+                              {uniqueQuotationStatuses
+                                .filter(name => String(name).toLowerCase().includes(quotationSearch.toLowerCase()))
+                                .map((name) => (
+                                  <button
+                                    key={name}
+                                    type="button"
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                      quotationStatusFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                    onClick={() => {
+                                      setQuotationStatusFilter(name);
+                                      setCurrentPage(1);
+                                      setActiveHeaderDropdown(null);
+                                      setQuotationSearch("");
+                                    }}
+                                  >
+                                    <span className="truncate">{name}</span>
+                                    {quotationStatusFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </th>
+
+                      {/* 6. ENQUIRY DESCRIPTION */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[240px] whitespace-nowrap py-3 px-3 text-left">
+                        <span>ENQUIRY DESCRIPTION</span>
+                      </th>
+
+                      {/* 7. QUOTATION NO. */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[180px] whitespace-nowrap py-3 px-3 text-left">
                         <button
-                          className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                          type="button"
+                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "quotationNumber" ? "text-blue-600 font-extrabold" : ""}`}
                           onClick={() => toggleSort("quotationNumber")}
                         >
-                          QUOTATION NO.{" "}
+                          <span>QUOTATION NO.</span>
                           <Icon
                             name={sortIcon("quotationNumber")}
-                            className="w-3.5 h-3.5"
+                            className={`w-3.5 h-3.5 ${sortKey === "quotationNumber" ? "text-blue-600" : "text-slate-400"}`}
                           />
                         </button>
                       </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        ENQUIRY DATE
-                      </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        QUOTATION WORKING DATE
-                      </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        SENT QUOTATION  DATE
-                      </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[90px] whitespace-nowrap py-2.5 px-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        AMOUNT
-                      </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[120px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        GRADE
-                      </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[150px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        ENQUIRY TYPE
-                      </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[250px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        REMARKS
-                      </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[160px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        CREATED BY
-                      </th>
-                      <th className="sticky top-0 bg-gray-50 z-20 w-[160px] whitespace-nowrap py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        UPDATED BY
-                      </th>
-                      <th className="sticky top-0 right-0 z-40 w-[120px] bg-gray-50 py-2.5 pl-3 pr-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide shadow-[-8px_0_12px_rgba(15,23,42,0.04)]">
-                        ACTIONS
+
+                      {/* 8. ENQUIRY DATE */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[140px] whitespace-nowrap py-3 px-3 text-left">
+                        <button
+                          type="button"
+                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "inquiryDate" ? "text-blue-600 font-extrabold" : ""}`}
+                          onClick={() => toggleSort("inquiryDate")}
+                        >
+                          <span>ENQUIRY DATE</span>
+                          <Icon
+                            name={sortIcon("inquiryDate")}
+                            className={`w-3.5 h-3.5 ${sortKey === "inquiryDate" ? "text-blue-600" : "text-slate-400"}`}
+                          />
+                        </button>
                       </th>
 
+                      {/* 9. QUOTATION WORKING DATE */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[170px] whitespace-nowrap py-3 px-3 text-left">
+                        <button
+                          type="button"
+                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "quotationDate" ? "text-blue-600 font-extrabold" : ""}`}
+                          onClick={() => toggleSort("quotationDate")}
+                        >
+                          <span>QUOTATION WORKING DATE</span>
+                          <Icon
+                            name={sortIcon("quotationDate")}
+                            className={`w-3.5 h-3.5 ${sortKey === "quotationDate" ? "text-blue-600" : "text-slate-400"}`}
+                          />
+                        </button>
+                      </th>
+
+                      {/* 10. SENT QUOTATION DATE */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[170px] whitespace-nowrap py-3 px-3 text-left">
+                        <button
+                          type="button"
+                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "quotationSentDate" ? "text-blue-600 font-extrabold" : ""}`}
+                          onClick={() => toggleSort("quotationSentDate")}
+                        >
+                          <span>SENT QUOTATION DATE</span>
+                          <Icon
+                            name={sortIcon("quotationSentDate")}
+                            className={`w-3.5 h-3.5 ${sortKey === "quotationSentDate" ? "text-blue-600" : "text-slate-400"}`}
+                          />
+                        </button>
+                      </th>
+
+                      {/* 11. AMOUNT */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[120px] whitespace-nowrap py-3 px-3 text-right">
+                        <button
+                          type="button"
+                          className={`inline-flex items-center justify-end gap-1.5 hover:text-blue-600 transition-colors ml-auto ${sortKey === "quotationAmount" ? "text-blue-600 font-extrabold" : ""}`}
+                          onClick={() => toggleSort("quotationAmount")}
+                        >
+                          <span>AMOUNT</span>
+                          <Icon
+                            name={sortIcon("quotationAmount")}
+                            className={`w-3.5 h-3.5 ${sortKey === "quotationAmount" ? "text-blue-600" : "text-slate-400"}`}
+                          />
+                        </button>
+                      </th>
+
+                      {/* 12. GRADE */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[120px] whitespace-nowrap py-3 px-3 text-left">
+                        <button
+                          type="button"
+                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "leadRating" ? "text-blue-600 font-extrabold" : ""}`}
+                          onClick={() => toggleSort("leadRating")}
+                        >
+                          <span>GRADE</span>
+                          <Icon
+                            name={sortIcon("leadRating")}
+                            className={`w-3.5 h-3.5 ${sortKey === "leadRating" ? "text-blue-600" : "text-slate-400"}`}
+                          />
+                        </button>
+                      </th>
+
+                      {/* 13. ENQUIRY TYPE (Filter + Sort) */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[170px] whitespace-nowrap py-3 px-3 text-left relative">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "enquiryType" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("enquiryType")}
+                          >
+                            <span>ENQUIRY TYPE</span>
+                            <Icon
+                              name={sortIcon("enquiryType")}
+                              className={`w-3.5 h-3.5 ${sortKey === "enquiryType" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
+                              enquiryTypeFilter 
+                                ? 'bg-blue-100 text-blue-700 font-bold' 
+                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveHeaderDropdown(activeHeaderDropdown === 'enquiryType' ? null : 'enquiryType');
+                            }}
+                            title="Filter Enquiry Type"
+                          >
+                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                          </button>
+
+                          {enquiryTypeFilter && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setEnquiryTypeFilter(""); setCurrentPage(1); }}
+                                className="hover:text-blue-900"
+                              >
+                                <Icon name="mdi:close" className="w-3 h-3" />
+                              </button>
+                            </span>
+                          )}
+                        </div>
+
+                        {activeHeaderDropdown === 'enquiryType' && (
+                          <div 
+                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-52 p-2 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="space-y-0.5 text-xs">
+                              <button
+                                type="button"
+                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                  !enquiryTypeFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                }`}
+                                onClick={() => { setEnquiryTypeFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); }}
+                              >
+                                <span>All Types</span>
+                                {!enquiryTypeFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                              </button>
+
+                              {["Qualified", "Disqualified"].map((type) => (
+                                <button
+                                  key={type}
+                                  type="button"
+                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                    enquiryTypeFilter === type ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                  }`}
+                                  onClick={() => {
+                                    setEnquiryTypeFilter(type);
+                                    setCurrentPage(1);
+                                    setActiveHeaderDropdown(null);
+                                  }}
+                                >
+                                  <span className="truncate">{type}</span>
+                                  {enquiryTypeFilter === type && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </th>
+
+                      {/* 14. REMARKS */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[200px] whitespace-nowrap py-3 px-3 text-left">
+                        <button
+                          type="button"
+                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "followUpRemark" ? "text-blue-600 font-extrabold" : ""}`}
+                          onClick={() => toggleSort("followUpRemark")}
+                        >
+                          <span>REMARKS</span>
+                          <Icon
+                            name={sortIcon("followUpRemark")}
+                            className={`w-3.5 h-3.5 ${sortKey === "followUpRemark" ? "text-blue-600" : "text-slate-400"}`}
+                          />
+                        </button>
+                      </th>
+
+                      {/* 15. CREATED BY (Filter + Sort) */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[170px] whitespace-nowrap py-3 px-3 text-left relative">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "createdBy" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("createdBy")}
+                          >
+                            <span>CREATED BY</span>
+                            <Icon
+                              name={sortIcon("createdBy")}
+                              className={`w-3.5 h-3.5 ${sortKey === "createdBy" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
+                              createdByFilter 
+                                ? 'bg-blue-100 text-blue-700 font-bold' 
+                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveHeaderDropdown(activeHeaderDropdown === 'createdBy' ? null : 'createdBy');
+                            }}
+                            title="Filter Created By"
+                          >
+                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                          </button>
+
+                          {createdByFilter && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setCreatedByFilter(""); setCurrentPage(1); }}
+                                className="hover:text-blue-900"
+                              >
+                                <Icon name="mdi:close" className="w-3 h-3" />
+                              </button>
+                            </span>
+                          )}
+                        </div>
+
+                        {activeHeaderDropdown === 'createdBy' && (
+                          <div 
+                            className="header-filter-popover absolute right-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="relative mb-2">
+                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="text"
+                                placeholder="Search Created By..."
+                                value={createdBySearch}
+                                onChange={(e) => setCreatedBySearch(e.target.value)}
+                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                autoFocus
+                              />
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                              <button
+                                type="button"
+                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                  !createdByFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                }`}
+                                onClick={() => { setCreatedByFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setCreatedBySearch(""); }}
+                              >
+                                <span>All Users</span>
+                                {!createdByFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                              </button>
+
+                              {uniqueCreatedBys
+                                .filter(cb => cb.toLowerCase().includes(createdBySearch.toLowerCase()))
+                                .map((cb) => (
+                                  <button
+                                    key={cb}
+                                    type="button"
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                      createdByFilter === cb ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                    onClick={() => {
+                                      setCreatedByFilter(cb);
+                                      setCurrentPage(1);
+                                      setActiveHeaderDropdown(null);
+                                      setCreatedBySearch("");
+                                    }}
+                                  >
+                                    <span className="truncate">{cb}</span>
+                                    {createdByFilter === cb && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </th>
+
+                      {/* 16. UPDATED BY (Filter + Sort) */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[170px] whitespace-nowrap py-3 px-3 text-left relative">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "updatedBy" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("updatedBy")}
+                          >
+                            <span>UPDATED BY</span>
+                            <Icon
+                              name={sortIcon("updatedBy")}
+                              className={`w-3.5 h-3.5 ${sortKey === "updatedBy" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
+                              updatedByFilter 
+                                ? 'bg-blue-100 text-blue-700 font-bold' 
+                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveHeaderDropdown(activeHeaderDropdown === 'updatedBy' ? null : 'updatedBy');
+                            }}
+                            title="Filter Updated By"
+                          >
+                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                          </button>
+
+                          {updatedByFilter && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setUpdatedByFilter(""); setCurrentPage(1); }}
+                                className="hover:text-blue-900"
+                              >
+                                <Icon name="mdi:close" className="w-3 h-3" />
+                              </button>
+                            </span>
+                          )}
+                        </div>
+
+                        {activeHeaderDropdown === 'updatedBy' && (
+                          <div 
+                            className="header-filter-popover absolute right-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="relative mb-2">
+                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="text"
+                                placeholder="Search Updated By..."
+                                value={updatedBySearch}
+                                onChange={(e) => setUpdatedBySearch(e.target.value)}
+                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                autoFocus
+                              />
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                              <button
+                                type="button"
+                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                  !updatedByFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                }`}
+                                onClick={() => { setUpdatedByFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setUpdatedBySearch(""); }}
+                              >
+                                <span>All Users</span>
+                                {!updatedByFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                              </button>
+
+                              {uniqueUpdatedBys
+                                .filter(ub => ub.toLowerCase().includes(updatedBySearch.toLowerCase()))
+                                .map((ub) => (
+                                  <button
+                                    key={ub}
+                                    type="button"
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
+                                      updatedByFilter === ub ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                    onClick={() => {
+                                      setUpdatedByFilter(ub);
+                                      setCurrentPage(1);
+                                      setActiveHeaderDropdown(null);
+                                      setUpdatedBySearch("");
+                                    }}
+                                  >
+                                    <span className="truncate">{ub}</span>
+                                    {updatedByFilter === ub && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </th>
+
+                      {/* ACTIONS */}
+                      <th className="sticky top-0 right-0 z-40 w-[110px] bg-slate-50 py-3 pl-3 pr-4 text-right shadow-[-8px_0_12px_rgba(15,23,42,0.04)]">
+                        <span>ACTIONS</span>
+                      </th>
                     </tr>
                   </thead>
 
@@ -3984,7 +4773,7 @@ export default function LeadListPage() {
                             onClick={(e) => e.stopPropagation()}
                           >
                             <select
-                              value={lead.leadStatus}
+                              value={lead.leadStatus === "Disqualified" || lead.enquiryType === "Disqualified" ? "Disqualified" : "Qualified"}
                               disabled={loading}
                               onChange={(e) =>
                                 handleStatusChange(lead.leadId, e.target.value)
@@ -4014,32 +4803,12 @@ export default function LeadListPage() {
                                 w-full
                                 max-w-[135px]
                                 bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M6%208l4%204%204-4%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")]
-                                ${STATUS_BG?.[lead.leadStatus] || "bg-gray-100 text-gray-600 ring-1 ring-gray-200"}
+                                ${lead.leadStatus === "Disqualified" || lead.enquiryType === "Disqualified" ? "bg-red-50 text-red-700 ring-1 ring-red-200" : "bg-purple-50 text-purple-700 ring-1 ring-purple-200"}
                                 ${loading ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"}
                               `}
                             >
-                              {(() => {
-                                const mainStatuses = [
-                                  "Qualified",
-                                  "Disqualified",
-                                ];
-                                const currentStatus = lead.leadStatus;
-                                const options = mainStatuses.includes(
-                                  currentStatus,
-                                )
-                                  ? [...mainStatuses]
-                                  : [...mainStatuses, currentStatus];
-
-                                return options.map((s) => (
-                                  <option
-                                    key={s}
-                                    value={s}
-                                    className="bg-white text-gray-700 font-normal"
-                                  >
-                                    {s}
-                                  </option>
-                                ));
-                              })()}
+                              <option value="Qualified" className="bg-white text-purple-700 font-semibold">Qualified</option>
+                              <option value="Disqualified" className="bg-white text-red-700 font-semibold">Disqualified</option>
                             </select>
                           </td>
                           <td

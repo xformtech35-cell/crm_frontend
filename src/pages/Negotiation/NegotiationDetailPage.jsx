@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useNegotiation } from "../../hooks/useNegotiation";
 import { useLead } from "../../hooks/useLead";
+import { cleanFileName } from "../../utils/format";
 
 export default function NegotiationDetailPage() {
   const leadApi = useLead();
@@ -94,13 +95,39 @@ export default function NegotiationDetailPage() {
     setEditedLead((prev) => {
       const updated = { ...prev, [name]: value };
       if (name === "quotationRevision" && value) {
-        const currentQuotNo = prev.quotationNumber || "";
-        if (currentQuotNo) {
-          // Replace trailing /R\d+ or append /R...
-          if (/\/R\d+$/i.test(currentQuotNo)) {
-            updated.quotationNumber = currentQuotNo.replace(/\/R\d+$/i, `/${value}`);
+        const selectedRevCode = value.toUpperCase();
+        const baseQuotNo = (lead?.quotationNumber || "").replace(/\/R\d+$/i, "");
+        
+        const matchingRev = (revisions || []).find(r => 
+          (r.revisionNo || r.quotationRevision || "R0").toUpperCase() === selectedRevCode
+        );
+
+        if (matchingRev) {
+          if (matchingRev.quotationNo) {
+            updated.quotationNumber = matchingRev.quotationNo;
+          } else if (selectedRevCode === "R0") {
+            updated.quotationNumber = baseQuotNo;
           } else {
-            updated.quotationNumber = `${currentQuotNo}/${value}`;
+            updated.quotationNumber = `${baseQuotNo}/${selectedRevCode}`;
+          }
+
+          if (matchingRev.quotationAmount != null && Number(matchingRev.quotationAmount) > 0) {
+            updated.quotationAmount = matchingRev.quotationAmount;
+          }
+          if (matchingRev.remarks) {
+            updated.followUpRemark = matchingRev.remarks;
+          }
+          if (matchingRev.enquiryDescription) {
+            updated.enquiryDescription = matchingRev.enquiryDescription;
+          }
+          if (matchingRev.quotationDate) {
+            updated.quotationDate = matchingRev.quotationDate;
+          }
+        } else {
+          if (selectedRevCode === "R0") {
+            updated.quotationNumber = baseQuotNo;
+          } else {
+            updated.quotationNumber = `${baseQuotNo}/${selectedRevCode}`;
           }
         }
       }
@@ -215,12 +242,36 @@ const handleFileChange = (e) => {
     }
   };
 
-  const handleDeleteDocument = async () => {
+  const handleDeleteDocument = async (docIdOrQuotationNo) => {
     if (!window.confirm('Are you sure you want to delete this document?')) return;
 
     try {
-      await negotiationApi.deleteDocument(id);
+      if (typeof docIdOrQuotationNo === 'number' || (typeof docIdOrQuotationNo === 'string' && /^\d+$/.test(docIdOrQuotationNo))) {
+        await negotiationApi.deleteDocumentById(docIdOrQuotationNo);
+      } else if (typeof docIdOrQuotationNo === 'string' && docIdOrQuotationNo.includes('/')) {
+        await negotiationApi.deleteDocumentsByQuotationNo(docIdOrQuotationNo);
+      } else {
+        await negotiationApi.deleteDocument(id);
+      }
+
+      // Also clear document fields on lead object to prevent fallback caching
+      if (lead?.leadId) {
+        try {
+          await leadApi.update(lead.leadId, {
+            ...lead,
+            uploadDocument: null,
+            uploadDocument1: null,
+            uploadDocument2: null,
+            uploadDocument3: null
+          });
+        } catch (e) {
+          console.warn("Could not clear lead doc fields:", e);
+        }
+      }
+
       setDocumentExists(false);
+      await loadLead();
+      await loadRevisions();
       await checkDocumentExists();
     } catch (err) {
       console.error('Delete error:', err);
@@ -543,16 +594,14 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
       }
     }
 
-    return [...map.values()].sort((a, b) => new Date(b.updatedDate || 0) - new Date(a.updatedDate || 0));
-  }, [safeRevisions, lead]);
-
-  const chronologicalRevisions = React.useMemo(() => {
-    return [...displayRevisions].sort((a, b) => {
+    return [...map.values()].sort((a, b) => {
       const numA = parseInt((a.revisionNo || "R0").replace(/\D/g, ""), 10) || 0;
       const numB = parseInt((b.revisionNo || "R0").replace(/\D/g, ""), 10) || 0;
       return numA - numB;
     });
-  }, [displayRevisions]);
+  }, [safeRevisions, lead]);
+
+  const chronologicalRevisions = displayRevisions;
 
   if (loading) {
     return (
@@ -585,7 +634,7 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
     );
   }
 
-  const latestRevision = displayRevisions.length > 0 ? displayRevisions[0] : revisions[0];
+  const latestRevision = displayRevisions.find(r => r.isCurrent) || displayRevisions[displayRevisions.length - 1] || revisions[0];
 
   const activeSelectedRev = selectedRevId 
     ? displayRevisions.find(r => r.id === selectedRevId) || latestRevision
@@ -738,17 +787,17 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
             {/* Attached Documents for Selected Tab */}
             {activeSelectedRev.documents && activeSelectedRev.documents.length > 0 && (
               <div className="pt-2 border-t border-gray-200">
-                <span className="font-bold text-gray-500 block text-[10px] uppercase tracking-wider mb-2">Attached Quotation Files ({activeSelectedRev.documents.length})</span>
+                <span className="font-bold text-gray-500 block text-[10px] uppercase tracking-wider mb-2">Attached Quotation File (1)</span>
                 <div className="space-y-2">
-                  {activeSelectedRev.documents.map((doc) => (
+                  {[activeSelectedRev.documents[activeSelectedRev.documents.length - 1]].map((doc) => (
                     <div key={doc.id || doc.fileName} className="flex items-center justify-between rounded-lg border bg-white px-3 py-2 text-xs shadow-sm">
                       <div className="flex items-center gap-2 truncate">
                         <Icon icon="mdi:file-pdf-box" className="text-red-500 text-lg flex-shrink-0" />
-                        <span className="truncate font-semibold text-gray-800 max-w-[240px]">{doc.fileName}</span>
+                        <span className="truncate font-semibold text-gray-800 max-w-[280px]" title={cleanFileName(doc.fileName)}>{cleanFileName(doc.fileName)}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         {negotiationApi?.handleViewDocument && (
-                          <button type="button" onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName)} className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700 transition">View</button>
+                          <button type="button" onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName, doc.fileName)} className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700 transition">View</button>
                         )}
                         {negotiationApi?.handleDownloadRevisionDocument && (
                           <button type="button" onClick={() => negotiationApi.handleDownloadRevisionDocument(doc.fileUrl || doc.fileName, doc.fileName)} className="px-2.5 py-1 bg-emerald-600 text-white rounded text-xs font-semibold hover:bg-emerald-700 transition">Download</button>
@@ -766,10 +815,10 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
       {showRevisions && viewMode === "vertical" && (
         <div className="p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto bg-gray-50/30 space-y-4 sm:space-y-6">
           {displayRevisions.map((rev, idx) => {
-            const isLatest = idx === 0;
+            const isLatest = rev.isCurrent || rev.id === latestRevision.id;
             return (
               <div key={rev.id} className="relative flex gap-4 sm:gap-6 pl-4 pb-2 last:pb-0">
-                {idx < revisions.length - 1 && (
+                {idx < displayRevisions.length - 1 && (
                   <span className="absolute left-[21px] sm:left-[25px] top-6 bottom-0 w-0.5 bg-blue-100" aria-hidden="true" />
                 )}
                 <div className="relative z-10 flex h-4 w-4 sm:h-5 sm:w-5 flex-none items-center justify-center rounded-full bg-white mt-1">
@@ -812,11 +861,11 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
                   {/* Attached Documents */}
                   {rev.documents && rev.documents.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-gray-100">
-                      <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-1.5">Files ({rev.documents.length})</span>
+                      <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-1.5">Attached Quotation File (1)</span>
                       <div className="space-y-1.5">
-                        {rev.documents.map((doc) => (
+                        {[rev.documents[rev.documents.length - 1]].map((doc) => (
                           <div key={doc.id || doc.fileName} className="flex items-center justify-between rounded-lg border bg-gray-50 px-2.5 py-1.5 text-xs">
-                            <span className="truncate font-medium text-gray-700 max-w-[180px]">{doc.fileName}</span>
+                            <span className="truncate font-medium text-gray-700 max-w-[200px]" title={cleanFileName(doc.fileName)}>{cleanFileName(doc.fileName)}</span>
                             <div className="flex items-center gap-1">
                               {negotiationApi?.handleViewDocument && (
                                 <button type="button" onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName)} className="px-2 py-0.5 bg-blue-600 text-white rounded text-[10px] font-medium hover:bg-blue-700">View</button>
@@ -877,7 +926,7 @@ const EditForm = ({
   
   let currentRevDocs = [];
   if (matchingRevision && matchingRevision.documents && matchingRevision.documents.length > 0) {
-    currentRevDocs = matchingRevision.documents;
+    currentRevDocs = [matchingRevision.documents[matchingRevision.documents.length - 1]];
   } else if (selectedRevCode === "R0") {
     const leadDocs = [
       lead.uploadDocument,
@@ -885,11 +934,9 @@ const EditForm = ({
       lead.uploadDocument2,
       lead.uploadDocument3
     ].filter(Boolean).map((url, i) => {
-      let name = url.substring(url.lastIndexOf('/') + 1);
-      if (name.includes('_')) name = name.substring(name.indexOf('_') + 1);
-      return { id: `doc-r0-${i}`, fileName: name, fileUrl: url };
+      return { id: `doc-r0-${i}`, fileName: cleanFileName(url), fileUrl: url };
     });
-    currentRevDocs = leadDocs;
+    currentRevDocs = leadDocs.length > 0 ? [leadDocs[leadDocs.length - 1]] : [];
   }
 
   const hasExistingDocs = currentRevDocs.length > 0 && !replaceMode;
@@ -985,13 +1032,13 @@ const EditForm = ({
                   <div key={doc.id || doc.fileName} className="flex flex-wrap items-center justify-between gap-3 bg-blue-50/50 p-3 rounded-lg border border-blue-100">
                     <div className="flex items-center gap-2 min-w-0">
                       <Icon icon="mdi:file-pdf-box" className="text-red-500 text-2xl flex-shrink-0" />
-                      <span className="text-xs font-semibold text-gray-800 truncate max-w-[220px]">{doc.fileName}</span>
+                      <span className="text-xs font-semibold text-gray-800 truncate max-w-[220px]" title={cleanFileName(doc.fileName)}>{cleanFileName(doc.fileName)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {negotiationApi?.handleViewDocument && (
                         <button 
                           type="button" 
-                          onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName)} 
+                          onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName, doc.fileName)} 
                           className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
                         >
                           <Icon icon="mdi:eye" /> View
@@ -1009,9 +1056,9 @@ const EditForm = ({
                       <button 
                         type="button" 
                         onClick={() => {
-                          if (window.confirm(`Remove or replace document for ${selectedRevCode}?`)) {
-                            setReplaceMode(true);
-                            if (onDocumentDelete) onDocumentDelete();
+                          setReplaceMode(true);
+                          if (onDocumentDelete) {
+                            onDocumentDelete(doc.id || doc.quotationNo || selectedRevCode);
                           }
                         }} 
                         className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
@@ -1049,7 +1096,7 @@ const EditForm = ({
                     <div className="mt-3 space-y-1">
                       {documentFile.map((file, index) => (
                         <div key={index} className="text-xs text-blue-700 font-bold bg-blue-50 p-2 rounded border border-blue-100 flex items-center justify-center gap-2">
-                          <Icon icon="mdi:file-document-check" className="text-base" /> {file.name}
+                          <Icon icon="mdi:file-document-check" className="text-base" /> Selected: {cleanFileName(file.name)}
                         </div>
                       ))}
                     </div>

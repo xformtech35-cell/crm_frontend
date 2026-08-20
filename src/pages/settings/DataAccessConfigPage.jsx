@@ -16,6 +16,8 @@ const MODULES = [
   // SALES
   { id: 'LEADS', name: 'Leads', category: 'SALES', icon: 'mdi:account-arrow-right-outline', desc: 'Inbound and sales leads' },
   { id: 'NEGOTIATIONS', name: 'Negotiations', category: 'SALES', icon: 'mdi:handshake-outline', desc: 'Quotation revisions & negotiation deals' },
+  { id: 'INDIAMART', name: 'IndiaMART Leads', category: 'SALES', icon: 'mdi:storefront-outline', desc: 'IndiaMART marketplace leads & inquiries' },
+  { id: 'TRADEINDIA', name: 'TradeIndia Leads', category: 'SALES', icon: 'mdi:swap-horizontal-bold', desc: 'TradeIndia B2B leads & inquiries' },
   { id: 'LEAD_STATUS', name: 'Lead Masters', category: 'SALES', icon: 'mdi:tag-outline', desc: 'Lead status, source, and group masters' },
   { id: 'CONTACTS', name: 'Contacts', category: 'SALES', icon: 'mdi:contacts-outline', desc: 'People & organization contacts' },
   { id: 'ORGANIZATIONS', name: 'Organizations', category: 'SALES', icon: 'mdi:office-building-outline', desc: 'Companies & organization accounts' },

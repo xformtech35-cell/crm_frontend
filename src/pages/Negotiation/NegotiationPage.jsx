@@ -5,11 +5,12 @@ import { useNegotiation } from "../../hooks/useNegotiation";
 import { useLead } from "../../hooks/useLead";
 import { useLeadStatus } from "../../hooks/useMaster";
 import Icon from "../../components/Icon";
-import { formatDate, formatCurrency } from "../../utils/format";
+import { formatDate, formatCurrency, cleanFileName } from "../../utils/format";
 import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
+import { useAuthStore } from "../../stores/auth";
 
 export default function NegotiationPage() {
+  const { user } = useAuthStore();
   const negotiationApi = useNegotiation();
   const leadApi = useLead();
   const statusMaster = useLeadStatus();
@@ -100,13 +101,9 @@ export default function NegotiationPage() {
           selectedDeal.uploadDocument2,
           selectedDeal.uploadDocument3
         ].filter(Boolean).map((url, i) => {
-          let name = url.substring(url.lastIndexOf('/') + 1);
-          if (name.includes('_')) {
-            name = name.substring(name.indexOf('_') + 1);
-          }
           return {
             id: `doc-r0-${i}`,
-            fileName: name,
+            fileName: cleanFileName(url),
             fileUrl: url,
             fileType: url.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'
           };
@@ -153,38 +150,47 @@ export default function NegotiationPage() {
     { label: "Remarks", key: "followUpRemark" },
   ];
 
-  // ─── Load negotiations ────────────────────────────────────
+  const [activeTab, setActiveTab] = useState("deals");
+  const [allRevisions, setAllRevisions] = useState([]);
+
   useEffect(() => {
     loadDeals();
+    loadAllRevisions();
     const handleCurrencyChange = () => {
       loadDeals();
+      loadAllRevisions();
     };
     window.addEventListener("app-currency-changed", handleCurrencyChange);
     return () =>
       window.removeEventListener("app-currency-changed", handleCurrencyChange);
-  }, []);
+  }, [user]);
+
+  const loadAllRevisions = async () => {
+    try {
+      const currentUser = user || useAuthStore.getState().user;
+      const userId = currentUser?.userid || currentUser?.id || currentUser?.userId;
+      if (!userId) return;
+
+      const response = await negotiationApi.getAllRevisions(userId);
+      setAllRevisions(response?.data || response || []);
+    } catch (e) {
+      console.error("All Revisions Error:", e);
+      setAllRevisions([]);
+    }
+  };
 
   const loadDeals = async () => {
     try {
       setLoading(true);
 
-      const authData = localStorage.getItem("auth-storage");
-      if (!authData) {
+      const currentUser = user || useAuthStore.getState().user;
+      const userId = currentUser?.userid || currentUser?.id || currentUser?.userId;
+
+      if (!userId) {
         setDeals([]);
         setLoading(false);
         return;
       }
-
-      const parsed = JSON.parse(authData);
-      const token = parsed?.state?.token;
-      if (!token) {
-        setDeals([]);
-        setLoading(false);
-        return;
-      }
-
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      const userId = payload.userId;
 
       const response = await negotiationApi.getByUser(userId);
       setDeals(response?.data || response || []);
@@ -259,30 +265,66 @@ export default function NegotiationPage() {
   };
 
   const filteredDeals = deals.filter((deal) => {
-    if ((deal.leadOutcomeStatus || "").toLowerCase() !== "negotiation") {
+    const status = (deal.negotiationStatus || deal.leadOutcomeStatus || deal.leadStatus || "").toLowerCase();
+    const isNeg = status === "negotiation" ||
+                  (deal.negotiationStatus || "").toLowerCase() === "negotiation" ||
+                  (deal.leadOutcomeStatus || "").toLowerCase() === "negotiation" ||
+                  (deal.leadStatus || "").toLowerCase() === "negotiation";
+
+    if (!isNeg) {
       return false;
     }
+
     const term = search.toLowerCase();
     const matchesSearch =
+      !term ||
       String(deal.id).includes(term) ||
       deal.negotiationName?.toLowerCase().includes(term) ||
       deal.negotiationTitle?.toLowerCase().includes(term) ||
       deal.quotationNo?.toLowerCase().includes(term) ||
       deal.quotationRevision?.toLowerCase().includes(term) ||
       deal.negotiationStatus?.toLowerCase().includes(term) ||
-      deal.leadOutcomeStatus?.toLowerCase().includes(term);
+      deal.leadOutcomeStatus?.toLowerCase().includes(term) ||
+      deal.leadStatus?.toLowerCase().includes(term);
 
     let matchesDate = true;
-    if (deal.quotationDate) {
-      const qDate = deal.quotationDate.split("T")[0];
-      if (dateFrom && qDate < dateFrom) matchesDate = false;
-      if (dateTo && qDate > dateTo) matchesDate = false;
-    } else {
-      if (dateFrom || dateTo) matchesDate = false;
+    if (dateFrom || dateTo) {
+      const qDateStr = deal.quotationDate || deal.inquiryDate || deal.createdDate || deal.updatedDate;
+      if (qDateStr) {
+        const qDate = qDateStr.split("T")[0];
+        if (dateFrom && qDate < dateFrom) matchesDate = false;
+        if (dateTo && qDate > dateTo) matchesDate = false;
+      }
     }
 
     return matchesSearch && matchesDate;
   });
+
+  const filteredRevisions = React.useMemo(() => {
+    return allRevisions.filter((rev) => {
+      const term = search.toLowerCase();
+      const matchesSearch =
+        !term ||
+        String(rev.id).includes(term) ||
+        rev.negotiationName?.toLowerCase().includes(term) ||
+        rev.quotationNo?.toLowerCase().includes(term) ||
+        rev.revisionNo?.toLowerCase().includes(term) ||
+        rev.enquiryDescription?.toLowerCase().includes(term) ||
+        rev.negotiationStatus?.toLowerCase().includes(term);
+
+      let matchesDate = true;
+      if (dateFrom || dateTo) {
+        const qDateStr = rev.quotationDate || rev.updatedDate;
+        if (qDateStr) {
+          const qDate = String(qDateStr).split("T")[0];
+          if (dateFrom && qDate < dateFrom) matchesDate = false;
+          if (dateTo && qDate > dateTo) matchesDate = false;
+        }
+      }
+
+      return matchesSearch && matchesDate;
+    });
+  }, [allRevisions, search, dateFrom, dateTo]);
 
   const allPageSelected =
     filteredDeals.length > 0 &&
@@ -502,6 +544,22 @@ export default function NegotiationPage() {
   };
 
   // ─── Revision History ──────────────────────────────────────
+  const openAllCompanyRevisionHistory = async () => {
+    try {
+      const currentUser = user || useAuthStore.getState().user;
+      const userId = currentUser?.userid || currentUser?.id || currentUser?.userId;
+      if (!userId) return;
+
+      setSelectedDeal(null);
+      const res = await negotiationApi.getAllRevisions(userId);
+      const data = res?.data || res || [];
+      setRevisions(data);
+      setShowRevisionModal(true);
+    } catch (error) {
+      console.error("Revision Error:", error);
+    }
+  };
+
   const openRevisionHistory = async (deal) => {
     try {
       let fullDeal = { ...deal };
@@ -721,8 +779,46 @@ export default function NegotiationPage() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 ml-auto">
+            {/* View Mode Toggle: Current Deals vs Revision History */}
+            <div className="flex items-center p-1 bg-slate-100/90 rounded-xl border border-slate-200/80 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setActiveTab("deals")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeTab === "deals"
+                    ? "bg-white text-slate-800 shadow-sm border border-slate-200/60"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Icon name="mdi:handshake-outline" className="w-4 h-4 text-blue-600" />
+                <span>Current Deals</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">
+                  {filteredDeals.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("revisions");
+                  loadAllRevisions();
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeTab === "revisions"
+                    ? "bg-white text-purple-700 shadow-sm border border-purple-200/60"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Icon name="mdi:history" className="w-4 h-4 text-purple-600" />
+                <span>Revision History</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-purple-50 text-purple-700 text-[10px] font-bold">
+                  {filteredRevisions.length}
+                </span>
+              </button>
+            </div>
+
             <button
-              onClick={() => exportToExcel(filteredDeals, "Negotiations")}
+              onClick={() => exportToExcel(activeTab === "revisions" ? filteredRevisions : filteredDeals, activeTab === "revisions" ? "RevisionHistory" : "Negotiations")}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-all shadow-sm hover:shadow whitespace-nowrap"
             >
               <Icon
@@ -730,11 +826,9 @@ export default function NegotiationPage() {
                 className="w-4 h-4"
               />
               <span>Export</span>
-              {filteredDeals.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold">
-                  {filteredDeals.length}
-                </span>
-              )}
+              <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold">
+                {activeTab === "revisions" ? filteredRevisions.length : filteredDeals.length}
+              </span>
             </button>
 
             <Link
@@ -810,9 +904,92 @@ export default function NegotiationPage() {
                       name="mdi:loading"
                       className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto mb-2"
                     />
-                    Loading negotiations...
+                    Loading {activeTab === "revisions" ? "revision history..." : "negotiations..."}
                   </td>
                 </tr>
+              ) : activeTab === "revisions" ? (
+                filteredRevisions.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan="11"
+                      className="text-center py-6 sm:py-8 text-gray-400"
+                    >
+                      No revision history found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRevisions.map((rev, idx) => (
+                    <tr
+                      key={rev.id}
+                      className={`transition-colors duration-100 ${
+                        idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                      } ${selectedIds.has(rev.id) ? "bg-purple-50/60" : "hover:bg-purple-50/40"}`}
+                    >
+                      <td
+                        className="pl-2 sm:pl-4 py-1.5 sm:py-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(rev.id)}
+                          onChange={() => toggleSelect(rev.id)}
+                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        />
+                      </td>
+                      <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 font-medium text-gray-500">
+                        {idx + 1}
+                      </td>
+                      <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 max-w-[250px]">
+                        <div
+                          className="block w-[250px] overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-gray-900"
+                          title={rev.negotiationName || ""}
+                        >
+                          {rev.negotiationName || <span className="text-gray-300">—</span>}
+                        </div>
+                      </td>
+                      <td className="px-2 sm:px-3 py-1.5 sm:py-2.5">
+                        <span className="font-mono text-[10px] sm:text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                          {rev.quotationNo || "—"}
+                        </span>
+                      </td>
+                      <td className="px-2 sm:px-3 py-1.5 sm:py-2.5">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          {rev.revisionNo || "R0"}
+                        </span>
+                      </td>
+                      <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 max-w-[200px]">
+                        <div
+                          className="block w-[200px] overflow-hidden text-ellipsis whitespace-nowrap text-gray-600"
+                          title={rev.enquiryDescription || ""}
+                        >
+                          {rev.enquiryDescription || <span className="text-gray-300">—</span>}
+                        </div>
+                      </td>
+                      <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 font-semibold text-gray-900">
+                        {rev.quotationAmount ? formatCurrency(rev.quotationAmount, "IN") : "₹0"}
+                      </td>
+                      <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 text-gray-500">
+                        {formatDate(rev.quotationDate || rev.updatedDate) || "—"}
+                      </td>
+                      <td className="px-2 sm:px-3 py-1.5 sm:py-2.5">
+                        <span className={getRevStatusClass(rev.negotiationStatus || "Negotiation")}>
+                          {rev.negotiationStatus || "Negotiation"}
+                        </span>
+                      </td>
+                      <td className="sticky right-0 z-20 bg-white py-1.5 sm:py-2 pl-2 sm:pl-3 pr-2 sm:pr-4 text-right shadow-[-8px_0_12px_rgba(15,23,42,0.04)]">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => openRevisionHistory({ id: rev.negotiationId, negotiationName: rev.negotiationName })}
+                            title="View Revision Details"
+                            className="p-1 sm:p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          >
+                            <Icon name="mdi:eye-outline" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )
               ) : filteredDeals.length === 0 ? (
                 <tr>
                   <td
@@ -1057,7 +1234,7 @@ export default function NegotiationPage() {
                     <span className="font-semibold text-gray-700">
                       {selectedDeal?.negotiationName ||
                         selectedDeal?.negotiationTitle ||
-                        "N/A"}
+                        "All Company Negotiations"}
                     </span>
                   </p>
                 </div>
@@ -1084,28 +1261,30 @@ export default function NegotiationPage() {
                         Quotation Reference
                       </span>
                       <span className="font-mono font-bold text-slate-800 text-sm sm:text-base truncate block">
-                        {selectedDeal?.quotationNo || "N/A"}
+                        {selectedDeal?.quotationNo || "All Quotation Revisions"}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3">
                       <div className="text-right">
                         <span className="text-[8px] sm:text-[10px] uppercase font-semibold tracking-wider text-slate-400 block">
-                          Revisiosdn
+                          Revision
                         </span>
                         <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-md text-xs sm:text-sm font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                          {selectedDeal?.quotationRevision || "R0"}
+                          {selectedDeal?.quotationRevision || `${revisions.length} Total`}
                         </span>
                       </div>
                       <div className="hidden xs:block w-px h-8 bg-slate-200" />
                       <div className="hidden xs:block text-right">
                         <span className="text-[8px] sm:text-[10px] uppercase font-semibold tracking-wider text-slate-400 block">
-                          Amountss
+                          Amount
                         </span>
                         <span className="font-bold text-slate-800 text-sm sm:text-base">
-                          {formatCurrency(
-                            selectedDeal?.quotationAmount || 0,
-                            selectedDeal?.leadCountry,
-                          )}
+                          {selectedDeal
+                            ? formatCurrency(
+                                selectedDeal.quotationAmount || 0,
+                                selectedDeal.leadCountry,
+                              )
+                            : `${revisions.length} Proposals`}
                         </span>
                       </div>
                     </div>
@@ -1159,7 +1338,7 @@ export default function NegotiationPage() {
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-[10px] sm:text-xs font-bold text-gray-900">
-                              Revision {rev?.revisionNo}
+                              {rev?.negotiationName ? `${rev.negotiationName} — ` : ""}Revision {rev?.revisionNo || rev?.quotationRevision}
                             </span>
                             {isLatest ? (
                               <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
@@ -1250,12 +1429,12 @@ export default function NegotiationPage() {
                         {/* Files */}
                         <div className="mt-3">
                           <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-2">
-                            Files ({rev.documentCount || (rev.documents ? rev.documents.length : 0)})
+                            Attached Quotation File (1)
                           </span>
 
                           {rev.documents && rev.documents.length > 0 ? (
                             <div className="space-y-2">
-                              {rev.documents.map((doc) => (
+                              {[rev.documents[rev.documents.length - 1]].map((doc) => (
                                 <div
                                   key={doc.id || doc.fileName}
                                   className="flex items-center justify-between rounded-lg border bg-gray-50 px-3 py-2"
@@ -1277,8 +1456,8 @@ export default function NegotiationPage() {
                                     />
 
                                     <div className="overflow-hidden">
-                                      <p className="truncate text-xs font-medium">
-                                        {doc.fileName}
+                                      <p className="truncate text-xs font-medium" title={cleanFileName(doc.fileName)}>
+                                        {cleanFileName(doc.fileName)}
                                       </p>
                                       {doc.fileSize && (
                                         <p className="text-[10px] text-gray-400">

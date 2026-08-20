@@ -11,6 +11,9 @@ import { getMemberId, getTeamId, getTeamLabel, groupMembersByTeam } from '../../
 import { getCurrencyConfig, convertToBase, convertFromBase } from '../../utils/currency'
 import { Country, State, City } from "country-state-city";
 import { useLead } from '../../hooks/useLead'
+import { useOrganization } from '../../hooks/useOrganization'
+import { useNegotiation } from '../../hooks/useNegotiation'
+import { cleanFileName } from '../../utils/format'
 
 const EMPTY = {
   leadFirstName: '',
@@ -147,7 +150,9 @@ function parseQuotationParts(qNum, orgName, inquiryDateVal) {
 }
 
 export default function LeadForm({ initial, loading, onSubmit, quotation, onUploadFiles }) {
-    const { update} = useLead();
+  const leadApi = useLead();
+  const orgApi = useOrganization();
+  const { update } = leadApi;
   
   const sourceHook = useLeadSource();
   const groupHook = useLeadGroup();
@@ -192,6 +197,10 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const [showStateDropdown, setShowStateDropdown] = useState(false);
   const [showCityDropdown, setShowCityDropdown] = useState(false);
 
+  // Existing Companies / Lead Names autocomplete state
+  const [existingCompanies, setExistingCompanies] = useState([]);
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+
   const currencyConfig = getCurrencyConfig(form.leadCountry);
 
   const [countryCode, setCountryCode] = useState("");
@@ -212,10 +221,113 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   ].filter(Boolean).map((path, idx) => ({
     id: `${idx}-${path}`,
     path,
-    name: path.split('/').pop() || `Document ${idx + 1}`,
+    name: cleanFileName(path),
     uploadedAt: initial.leadCreatedDate || new Date().toISOString(),
     size: "Unknown"
   })) : [];
+
+  // Revision & Document Sync Logic (Same as Negotiation Edit)
+  const negotiationApi = useNegotiation();
+  const [revisions, setRevisions] = useState([]);
+  const [replaceMode, setReplaceMode] = useState(false);
+
+  useEffect(() => {
+    if (initial?.leadId) {
+      loadRevisions();
+    }
+  }, [initial?.leadId]);
+
+  const loadRevisions = async () => {
+    if (!initial?.leadId) return;
+    try {
+      const data = await negotiationApi.getRevisionsByLeadId(initial.leadId);
+      setRevisions(data || []);
+    } catch (err) {
+      console.error("Failed to load lead revisions:", err);
+    }
+  };
+
+  const selectedRevCode = (form.quotationRevision || "R0").toUpperCase();
+  const matchingRevision = (revisions || []).find(r => (r.revisionNo || "R0").toUpperCase() === selectedRevCode);
+  
+  let currentRevDocs = [];
+  if (matchingRevision && matchingRevision.documents && matchingRevision.documents.length > 0) {
+    currentRevDocs = [matchingRevision.documents[matchingRevision.documents.length - 1]];
+  } else if (selectedRevCode === "R0" && filesFromLead.length > 0) {
+    currentRevDocs = [filesFromLead[filesFromLead.length - 1]].map(f => ({
+      id: f.id,
+      fileName: f.name,
+      fileUrl: f.path
+    }));
+  }
+
+  const hasExistingDocs = currentRevDocs.length > 0 && !replaceMode;
+
+  const handleRevisionChange = (e) => {
+    const selectedVal = e.target.value;
+    const revCode = (selectedVal || "R0").toUpperCase();
+    setReplaceMode(false);
+    
+    setForm((prev) => {
+      const updated = { ...prev, quotationRevision: selectedVal };
+      const baseQuotNo = (prev.quotationNumber || "").replace(/\/R\d+$/i, "");
+
+      const matchingRev = (revisions || []).find(r => 
+        (r.revisionNo || r.quotationRevision || "R0").toUpperCase() === revCode
+      );
+
+      if (matchingRev) {
+        if (matchingRev.quotationNo) {
+          updated.quotationNumber = matchingRev.quotationNo;
+        } else if (revCode === "R0") {
+          updated.quotationNumber = baseQuotNo;
+        } else {
+          updated.quotationNumber = `${baseQuotNo}/${revCode}`;
+        }
+
+        if (matchingRev.quotationAmount != null && Number(matchingRev.quotationAmount) > 0) {
+          updated.quotationAmount = matchingRev.quotationAmount;
+        }
+        if (matchingRev.remarks) {
+          updated.followUpRemark = matchingRev.remarks;
+        }
+        if (matchingRev.enquiryDescription) {
+          updated.enquiryDescription = matchingRev.enquiryDescription;
+        }
+        if (matchingRev.quotationDate) {
+          updated.quotationDate = matchingRev.quotationDate;
+        }
+      } else {
+        if (revCode === "R0") {
+          updated.quotationNumber = baseQuotNo;
+        } else {
+          updated.quotationNumber = `${baseQuotNo}/${revCode}`;
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleDeleteRevisionDocument = async (docIdOrQuotNo) => {
+    if (!window.confirm(`Delete or replace document for ${selectedRevCode}?`)) return;
+    try {
+      const docId = typeof docIdOrQuotNo === 'object' ? docIdOrQuotNo?.id : docIdOrQuotNo;
+      if (docId && (typeof docId === 'number' || /^\d+$/.test(String(docId)))) {
+        await negotiationApi.deleteDocumentById(Number(docId));
+      }
+
+      const currentQuotNo = form.quotationNumber || (matchingRevision?.quotationNo);
+      if (currentQuotNo && currentQuotNo.includes('/')) {
+        await negotiationApi.deleteDocumentsByQuotationNo(currentQuotNo);
+      }
+
+      setReplaceMode(true);
+      await loadRevisions();
+    } catch (err) {
+      console.error("Failed to delete revision document:", err);
+      setReplaceMode(true);
+    }
+  };
 
   // Format date helper
   const formatDate = (dateStr) => {
@@ -272,7 +384,122 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
       }
     }
   };
-const apiiii = import.meta.env.VITE_API_BASE
+  // Filter companies based on leadOrganisationName search term
+  const filteredCompanies = useMemo(() => {
+    const term = (form.leadOrganisationName || '').trim().toLowerCase();
+    if (!term) return existingCompanies;
+    return existingCompanies.filter(c => 
+      c.name.toLowerCase().includes(term)
+    );
+  }, [existingCompanies, form.leadOrganisationName]);
+
+  // Load existing companies from leads and organizations
+  const loadExistingCompanies = async () => {
+    try {
+      const [leadsRes, orgsRes] = await Promise.all([
+        leadApi.getAll().catch(() => []),
+        orgApi.getAll().catch(() => []),
+      ]);
+
+      const leadsList = Array.isArray(leadsRes) ? leadsRes : (leadsRes?.data || []);
+      const orgsList = Array.isArray(orgsRes) ? orgsRes : (orgsRes?.data || []);
+
+      const companyMap = new Map();
+
+      // Extract unique company names from existing leads
+      leadsList.forEach(lead => {
+        const name = (lead.leadOrganisationName || lead.organisationName || lead.companyName || '').trim();
+        if (name && !companyMap.has(name.toLowerCase())) {
+          const contactPerson = lead.companyContactPersonName || 
+            ([lead.leadFirstName, lead.leadLastName].filter(Boolean).join(' ')) || '';
+          companyMap.set(name.toLowerCase(), {
+            name: name,
+            source: 'Lead',
+            details: {
+              companyContactPersonName: contactPerson,
+              leadMobileNo: lead.leadMobileNo || lead.leadPhoneNo || '',
+              leadEmail: lead.leadEmail || '',
+              leadCountry: lead.leadCountry || '',
+              leadState: lead.leadState || '',
+              leadCity: lead.leadCity || '',
+              leadAddress: lead.leadAddress || '',
+              leadSource: lead.leadSource || '',
+              leadGroup: lead.leadGroup || '',
+            }
+          });
+        }
+      });
+
+      // Extract unique company names from organizations master
+      orgsList.forEach(org => {
+        const name = (org.organizationName || org.orgName || '').trim();
+        if (name && !companyMap.has(name.toLowerCase())) {
+          companyMap.set(name.toLowerCase(), {
+            name: name,
+            source: 'Organization',
+            details: {
+              companyContactPersonName: '',
+              leadMobileNo: org.organizationMoblieNo || '',
+              leadEmail: org.organizationEmail || '',
+              leadCountry: org.organizationCountry || '',
+              leadState: org.organizationState || '',
+              leadCity: org.organizationCity || '',
+              leadAddress: org.organizationAddress || '',
+            }
+          });
+        }
+      });
+
+      setExistingCompanies(Array.from(companyMap.values()));
+    } catch (error) {
+      console.error("Failed to load existing companies:", error);
+    }
+  };
+
+  const handleCompanySelect = (company) => {
+    const selectedName = typeof company === 'string' ? company : company.name;
+    
+    if (typeof company === 'object' && company?.details) {
+      const d = company.details;
+      setForm(prev => ({
+        ...prev,
+        leadOrganisationName: selectedName,
+        companyContactPersonName: prev.companyContactPersonName || d.companyContactPersonName || '',
+        leadMobileNo: prev.leadMobileNo || d.leadMobileNo || '',
+        leadEmail: prev.leadEmail || d.leadEmail || '',
+        leadCountry: prev.leadCountry || d.leadCountry || '',
+        leadState: prev.leadState || d.leadState || '',
+        leadCity: prev.leadCity || d.leadCity || '',
+        leadAddress: prev.leadAddress || d.leadAddress || '',
+        leadSource: d.leadSource || prev.leadSource,
+        leadGroup: d.leadGroup || prev.leadGroup,
+      }));
+
+      if (d.leadSource) {
+        setSourceSearchTerm(d.leadSource);
+      }
+      if (d.leadGroup) {
+        setGroupSearchTerm(d.leadGroup);
+      }
+      if (d.leadCountry) {
+        const country = Country.getAllCountries().find(c => c.name === d.leadCountry);
+        if (country) {
+          setCountryCode(country.isoCode);
+          setCountrySearchTerm(d.leadCountry);
+        }
+      }
+      if (d.leadState) {
+        setStateSearchTerm(d.leadState);
+      }
+      if (d.leadCity) {
+        setCitySearchTerm(d.leadCity);
+      }
+    } else {
+      set('leadOrganisationName', selectedName);
+    }
+    setShowCompanyDropdown(false);
+  };
+
   // Load masters (Lead Sources & Groups)
   const loadMasters = async () => {
     try {
@@ -290,6 +517,7 @@ const apiiii = import.meta.env.VITE_API_BASE
   useEffect(() => {
     fetchLastSerialNumber();
     loadMasters();
+    loadExistingCompanies();
   }, []);
 
   // Sync country and state codes from initial data
@@ -505,29 +733,23 @@ const apiiii = import.meta.env.VITE_API_BASE
     });
   }
 
-  // Handle file upload
+  // Handle file upload (Single document per revision)
   async function uploadFiles(files) {
     if (!files?.length) return;
-    const fileList = Array.from(files);
+    const file = files[0];
+    const isImg = file.type.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name);
 
-    const previews = fileList.map((file) => {
-      const isImg = file.type.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name);
-      return {
-        file,
-        name: file.name,
-        size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
-        type: file.type,
-        isImage: isImg,
-        previewUrl: isImg ? URL.createObjectURL(file) : null,
-      };
-    });
-    setPendingFiles(previews);
+    const preview = [{
+      file,
+      name: cleanFileName(file.name),
+      size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
+      type: file.type,
+      isImage: isImg,
+      previewUrl: isImg ? URL.createObjectURL(file) : null,
+    }];
+    setPendingFiles(preview);
 
     if (!initial?.leadId) return;
-
-    const slots = ["uploadDocument", "uploadDocument1", "uploadDocument2", "uploadDocument3"];
-    const fileMap = {};
-    fileList.slice(0, 4).forEach((file, index) => { fileMap[slots[index]] = file; });
 
     try {
       setUploading(true);
@@ -537,7 +759,7 @@ const apiiii = import.meta.env.VITE_API_BASE
         setUploadProgress((prev) => Math.min(prev + 15, 90));
       }, 150);
 
-      await update(initial.leadId, { ...initial }, fileMap);
+      await update(initial.leadId, { ...initial }, { uploadDocument: file });
 
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -576,7 +798,7 @@ const apiiii = import.meta.env.VITE_API_BASE
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-2 relative">
             <label className={labelCls}>
               Company Name <span className="text-red-500">*</span>
             </label>
@@ -588,12 +810,80 @@ const apiiii = import.meta.env.VITE_API_BASE
               <input
                 type="text"
                 value={form.leadOrganisationName}
-                onChange={(e) => set('leadOrganisationName', e.target.value)}
-                placeholder="Enter Company Name"
+                onChange={(e) => {
+                  set('leadOrganisationName', e.target.value);
+                  setShowCompanyDropdown(true);
+                }}
+                onFocus={() => setShowCompanyDropdown(true)}
+                onBlur={() => {
+                  setTimeout(() => setShowCompanyDropdown(false), 200);
+                }}
+                placeholder="Enter or search Company Name..."
                 required
                 className={`${inputCls} pl-9`}
               />
+              {showCompanyDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredCompanies.length > 0 ? (
+                    filteredCompanies.map((company, idx) => (
+                      <div
+                        key={idx}
+                        className="px-3 py-2.5 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-50 last:border-0 flex items-center justify-between"
+                        onMouseDown={() => handleCompanySelect(company)}
+                      >
+                        <div>
+                          <div className="font-semibold text-gray-800 flex items-center gap-1.5">
+                            <Icon name="mdi:office-building" className="w-4 h-4 text-blue-500" />
+                            {company.name}
+                          </div>
+                          {(company.details?.companyContactPersonName || company.details?.leadMobileNo || company.details?.leadCity) && (
+                            <div className="text-xs text-gray-400 mt-0.5 pl-5">
+                              {[
+                                company.details?.companyContactPersonName,
+                                company.details?.leadMobileNo,
+                                company.details?.leadCity
+                              ].filter(Boolean).join(' • ')}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-medium px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                          Existing Company
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-gray-500 flex items-center justify-between">
+                      <span>No matching existing companies</span>
+                      <span className="text-xs text-blue-600 font-medium">New Company Will Be Created</span>
+                    </div>
+                  )}
+                  {form.leadOrganisationName?.trim() && !filteredCompanies.some(c => c.name.toLowerCase() === form.leadOrganisationName.trim().toLowerCase()) && (
+                    <div
+                      className="px-3 py-2.5 hover:bg-emerald-50 cursor-pointer text-sm text-emerald-700 font-medium border-t border-gray-100 flex items-center gap-2"
+                      onMouseDown={() => handleCompanySelect(form.leadOrganisationName.trim())}
+                    >
+                      <Icon name="mdi:plus-circle" className="w-4 h-4 text-emerald-600" />
+                      Add as new company: "{form.leadOrganisationName}"
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+            {form.leadOrganisationName && !showCompanyDropdown && (
+              <div className="text-[11px] mt-1 flex items-center justify-between">
+                <span>
+                  {existingCompanies.some(c => c.name.toLowerCase() === form.leadOrganisationName.trim().toLowerCase()) ? (
+                    <span className="text-blue-600 font-medium flex items-center gap-1">
+                      <Icon name="mdi:check-circle-outline" className="w-3.5 h-3.5 inline" /> Existing company selected
+                    </span>
+                  ) : (
+                    <span className="text-emerald-600 font-medium flex items-center gap-1">
+                      <Icon name="mdi:plus-circle-outline" className="w-3.5 h-3.5 inline" /> New company will be added
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
           </div>
 <div>
   <label className={labelCls}>Contact Phone</label>
@@ -1084,10 +1374,12 @@ const apiiii = import.meta.env.VITE_API_BASE
           <div className="sm:col-span-2">
             <label className={labelCls}>Enquiry Type</label>
             <select
-              value={form.enquiryType}
+              value={form.enquiryType || "Qualified"}
+              onChange={(e) => handleEnquiryTypeChange(e.target.value)}
               className={selectCls}
             >
               <option value="Qualified">Qualified</option>
+              <option value="Disqualified">Disqualified</option>
             </select>
           </div>
         </div>
@@ -1121,53 +1413,51 @@ const apiiii = import.meta.env.VITE_API_BASE
               <label className={labelCls}>Quotation Revision</label>
               <select
                 value={form.quotationRevision || ''}
-                onChange={(e) => {
-                  const newRevision = e.target.value;
-                  set('quotationRevision', newRevision);
-
-                  // Auto-update quotation number with the selected revision
-                  const parts = [qPrefix, form.leadRefQuotation, qYear, qSerial].filter(Boolean).join('/');
-                  const finalQ = newRevision ? `${parts}/${newRevision}` : parts;
-                  set('quotationNumber', finalQ);
-                }}
+                onChange={handleRevisionChange}
                 className={selectCls}
               >
-                <option value="">R0</option>
-                <option value="R1">R1</option>
-                <option value="R2">R2</option>
-                <option value="R3">R3</option>
-                <option value="R4">R4</option>
-                <option value="R5">R5</option>
-                <option value="R6">R6</option>
-                <option value="R7">R7</option>
-                <option value="R8">R8</option>
-                <option value="R9">R9</option>
-                <option value="R10">R10</option>
+                {Array.from({ length: 11 }, (_, i) => (
+                  <option key={i} value={i === 0 ? '' : `R${i}`}>
+                    Revision R{i}
+                  </option>
+                ))}
               </select>
             </div>
 
-            <div className="sm:col-span-2 bg-slate-50/80 p-3 rounded-lg border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsManualQuotation(false);
-                    const parsed = parseQuotationParts(form.quotationNumber, form.leadOrganisationName, form.inquiryDate);
-                    const p = qPrefix || parsed.prefix || 'UWS';
-                    const y = qYear || parsed.year || getFinancialYear(form.inquiryDate);
-                    const s = qSerial || parsed.serial || '001';
-                    const parts = [p, form.leadRefQuotation, y, s].filter(Boolean).join('/');
-                    const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
-                    set('quotationNumber', finalQ);
-                  }}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-semibold cursor-pointer underline flex items-center gap-1"
-                >
-                  <Icon name="mdi:refresh" className="w-3.5 h-3.5" />
-                  Reset to Auto-Generated Format
-                </button>
-              </div>
+            <div>
+              <label className={labelCls}>Quotation Working Date</label>
+              <input
+                type="date"
+                value={form.quotationDate}
+                onChange={(e) => set('quotationDate', e.target.value)}
+                className={inputCls}
+              />
+            </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="col-span-full bg-slate-50/80 p-3 rounded-lg border border-slate-200 space-y-3">
+              {isManualQuotation && (
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsManualQuotation(false);
+                      const parsed = parseQuotationParts(form.quotationNumber, form.leadOrganisationName, form.inquiryDate);
+                      const p = qPrefix || parsed.prefix || 'UWS';
+                      const y = qYear || parsed.year || getFinancialYear(form.inquiryDate);
+                      const s = qSerial || parsed.serial || '001';
+                      const parts = [p, form.leadRefQuotation, y, s].filter(Boolean).join('/');
+                      const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
+                      set('quotationNumber', finalQ);
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-semibold cursor-pointer underline flex items-center gap-1"
+                  >
+                    <Icon name="mdi:refresh" className="w-3.5 h-3.5" />
+                    Reset to Auto-Generated Format
+                  </button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="text-[10px] text-gray-500 font-medium">
                     Prefix
@@ -1193,17 +1483,14 @@ const apiiii = import.meta.env.VITE_API_BASE
                   <label className="text-[10px] text-gray-500 font-medium">SP for Quotation</label>
                   <input
                     type="text"
-                    value={form.leadRefQuotation || ''}
+                    value={form.leadRefQuotation}
                     onChange={(e) => {
                       const value = e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 5);
                       set("leadRefQuotation", value);
                       setIsManualQuotation(false);
-                      const parts = [qPrefix || 'UWS', value, qYear || getFinancialYear(form.inquiryDate), qSerial].filter(Boolean).join('/');
-                      const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
-                      set('quotationNumber', finalQ);
                     }}
                     placeholder="e.g. RRW"
-                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white uppercase font-medium text-slate-800"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white uppercase"
                   />
                 </div>
 
@@ -1271,7 +1558,7 @@ const apiiii = import.meta.env.VITE_API_BASE
               </div>
             </div>
 
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-2 md:col-span-1">
               <label className={labelCls}>Quotation Number</label>
               <input
                 type="text"
@@ -1284,7 +1571,7 @@ const apiiii = import.meta.env.VITE_API_BASE
                   // 2-Way Dynamic Sync: parse input quotation number and update helper inputs above
                   const parsed = parseQuotationParts(newVal, form.leadOrganisationName, form.inquiryDate);
                   if (parsed.prefix) setQPrefix(parsed.prefix);
-                  if (parsed.ref !== undefined) set('leadRefQuotation', parsed.ref);
+                  if (parsed.ref !== undefined) set("leadRefQuotation", parsed.ref);
                   if (parsed.year) setQYear(parsed.year);
                   if (parsed.serial) setQSerial(parsed.serial);
                   if (parsed.revision !== undefined) set('quotationRevision', parsed.revision);
@@ -1293,18 +1580,8 @@ const apiiii = import.meta.env.VITE_API_BASE
                 className={`${inputCls} font-mono font-medium`}
               />
               <p className="text-[10px] text-gray-400 mt-1">
-                {isManualQuotation ? "⚠️ Edited manually. Click reset link above to lock back to the format helper." : "ℹ️ Live formatted from the generation helper."}
+                {isManualQuotation ? "⚠️ Edited manually." : "ℹ️ Live formatted from helper."}
               </p>
-            </div>
-
-            <div>
-              <label className={labelCls}>Quotation Working Date</label>
-              <input
-                type="date"
-                value={form.quotationDate}
-                onChange={(e) => set('quotationDate', e.target.value)}
-                className={inputCls}
-              />
             </div>
 
             <div>
@@ -1329,159 +1606,94 @@ const apiiii = import.meta.env.VITE_API_BASE
               />
             </div>
 
-            {/* ─── DOCUMENTS SECTION ─── */}
-            <div className="sm:col-span-2 space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
-                <div className="w-6 h-6 rounded-md bg-cyan-100 flex items-center justify-center">
-                  <Icon name="mdi:file-multiple-outline" className="w-3.5 h-3.5 text-cyan-600" />
-                </div>
-                <p className="text-sm font-bold text-slate-800">Documents</p>
-              </div>
-
-              {/* Upload zone */}
-              <div
-                className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center bg-gray-50/50 hover:border-blue-300 hover:bg-blue-50/20 transition-all cursor-pointer"
-                onDrop={(e) => { e.preventDefault(); uploadFiles(e.dataTransfer?.files); }}
-                onDragOver={(e) => e.preventDefault()}
-                onClick={() => uploadInput.current?.click()}
-              >
-                <Icon name={uploading ? "mdi:loading" : "mdi:cloud-upload-outline"} className={`h-10 w-10 text-gray-400 mx-auto mb-3 ${uploading ? "animate-spin" : ""}`} />
-                <p className="text-sm font-medium text-gray-700">{uploading ? "Uploading..." : "Drag & drop files here"}</p>
-                <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, Images, Documents (up to 4 files)</p>
-                <button type="button" className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 shadow-sm">
-                  <Icon name="mdi:plus" className="h-4 w-4" /> Choose Files
-                </button>
-                <input ref={uploadInput} type="file" className="hidden" multiple onChange={(e) => uploadFiles(e.target.files)} />
-                {uploading && (
-                  <div className="mt-4">
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1.5">{uploadProgress}% uploaded</p>
-                  </div>
+            {/* Dynamic Quotation File Card for Selected Revision Level (Exact match with Negotiation Edit) */}
+            <div className="col-span-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mt-2 mb-2">
+              <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Icon name="mdi:file-document-outline" className="text-blue-500 text-lg" />
+                  Quotation File for {selectedRevCode}
+                </h3>
+                {hasExistingDocs && (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-semibold flex items-center gap-1">
+                    <Icon name="mdi:check-circle" className="text-green-600" /> Document Attached
+                  </span>
                 )}
               </div>
-
-              {/* Selected / Pending Files Ready To Upload */}
-              {pendingFiles.length > 0 && (
-                <div className="space-y-2 mt-3 p-3 bg-blue-50/60 rounded-xl border border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <Icon name="mdi:file-clock-outline" className="w-4 h-4 text-blue-600" />
-                      Selected Files Ready To Upload ({pendingFiles.length}):
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setPendingFiles([])}
-                      className="text-[11px] text-red-600 hover:text-red-700 font-semibold"
-                    >
-                      Clear Selected
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {pendingFiles.map((pf, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-blue-100 shadow-2xs">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {pf.isImage && pf.previewUrl ? (
-                            <img
-                              src={pf.previewUrl}
-                              alt={pf.name}
-                              className="w-10 h-10 rounded-md object-cover border border-gray-200 shrink-0 shadow-2xs cursor-pointer hover:opacity-90"
-                              onClick={() => setPreviewModalDoc({ title: pf.name, url: pf.previewUrl, isImage: true })}
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-md bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
-                              {pf.name.split('.').pop()?.toUpperCase() || 'DOC'}
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-gray-800 truncate" title={pf.name}>{pf.name}</p>
-                            <p className="text-[10px] text-gray-400 font-medium">{pf.size}</p>
-                          </div>
+              <div className="p-6">
+                {hasExistingDocs ? (
+                  <div className="space-y-3">
+                    <p className="text-xs text-gray-500 font-medium">Existing attached documents for {selectedRevCode}:</p>
+                    {currentRevDocs.map((doc) => (
+                      <div key={doc.id || doc.fileName} className="flex flex-wrap items-center justify-between gap-3 bg-blue-50/50 p-3 rounded-lg border border-blue-100">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <Icon name="mdi:file-pdf-box" className="text-red-500 text-2xl flex-shrink-0" />
+                          <span className="text-xs font-bold text-gray-800 truncate max-w-[280px] sm:max-w-[360px]" title={cleanFileName(doc.fileName)}>
+                            {cleanFileName(doc.fileName)}
+                          </span>
                         </div>
-                        {pf.isImage && pf.previewUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewModalDoc({ title: pf.name, url: pf.previewUrl, isImage: true })}
-                            className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded text-xs font-semibold shrink-0"
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button 
+                            type="button" 
+                            onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName, doc.fileName)} 
+                            className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
                           >
-                            Preview
+                            <Icon name="mdi:eye" /> View
                           </button>
-                        )}
+                          <button 
+                            type="button" 
+                            onClick={() => negotiationApi.handleDownloadRevisionDocument(doc.fileUrl || doc.fileName, doc.fileName)} 
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
+                          >
+                            <Icon name="mdi:download" /> Download
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => handleDeleteRevisionDocument(doc.id || doc.quotationNo || selectedRevCode)} 
+                            className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
+                          >
+                            <Icon name="mdi:delete" /> Delete / Replace
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* List of Existing / Uploaded Documents with Image Thumbnails */}
-              {filesFromLead.length > 0 && (
-                <div className="space-y-2 mt-4 pt-3 border-t border-gray-100">
-                  <p className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <Icon name="mdi:paperclip" className="w-4 h-4 text-blue-600" />
-                    Uploaded Documents ({filesFromLead.length}):
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {filesFromLead.map((file, idx) => {
-                      const cleanPath = file.path.startsWith('/') ? file.path.substring(1) : file.path;
-                      const fileUrl = file.path.startsWith('http') ? file.path : `/api/view/${cleanPath}`;
-                      const ext = file.name.split('.').pop()?.toLowerCase();
-                      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
-                      const isPdf = ext === 'pdf';
-
-                      return (
-                        <div key={file.id || idx} className="flex flex-col justify-between p-3 bg-white rounded-xl border border-gray-200 shadow-2xs hover:border-blue-300 transition-all gap-2.5">
-                          <div className="flex items-center gap-3 min-w-0">
-                            {isImage ? (
-                              <div
-                                className="w-12 h-12 rounded-lg border border-gray-200 overflow-hidden shrink-0 shadow-2xs cursor-pointer hover:opacity-90 bg-gray-50 flex items-center justify-center"
-                                onClick={() => setPreviewModalDoc({ title: file.name, url: fileUrl, isImage: true })}
-                                title="Click to view image preview"
-                              >
-                                <img src={fileUrl} alt={file.name} className="w-full h-full object-cover" />
-                              </div>
-                            ) : (
-                              <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 border ${isPdf ? "bg-red-50 border-red-100 text-red-600" : "bg-blue-50 border-blue-100 text-blue-600"}`}>
-                                <Icon name={isPdf ? "mdi:file-pdf-box" : "mdi:file-document-outline"} className="w-6 h-6" />
-                              </div>
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-bold text-gray-800 truncate" title={file.name}>
-                                {file.name}
-                              </p>
-                              <p className="text-[10px] text-gray-400 font-medium">Uploaded {formatDate(file.uploadedAt)}</p>
+                ) : (
+                  <div>
+                    {replaceMode && (
+                      <div className="mb-3 flex items-center justify-between bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-xs text-amber-800">
+                        <span>Replacing file for <strong>{selectedRevCode}</strong>. Upload a new PDF below:</span>
+                        <button type="button" onClick={() => setReplaceMode(false)} className="text-blue-600 underline font-semibold">Cancel Replace</button>
+                      </div>
+                    )}
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors bg-gray-50/50 cursor-pointer"
+                      onDrop={(e) => { e.preventDefault(); uploadFiles(e.dataTransfer?.files); }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onClick={() => uploadInput.current?.click()}
+                    >
+                      <Icon name={uploading ? "mdi:loading" : "mdi:cloud-upload-outline"} className={`text-4xl text-gray-400 mx-auto mb-2 ${uploading ? "animate-spin" : ""}`} />
+                      <p className="text-sm font-semibold text-gray-700 mb-1">Attach Revised Quotation PDF for {selectedRevCode}</p>
+                      <p className="text-xs text-gray-500 mb-3">Drop revised PDF here or click to browse</p>
+                      <button type="button" className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm">
+                        Choose PDF / File
+                      </button>
+                      <input ref={uploadInput} type="file" className="hidden" multiple onChange={(e) => uploadFiles(e.target.files)} />
+                      {pendingFiles.length > 0 && (
+                        <div className="mt-3 space-y-1">
+                          {pendingFiles.map((pf, idx) => (
+                            <div key={idx} className="text-xs text-blue-700 font-bold bg-blue-50 p-2 rounded border border-blue-100 flex items-center justify-center gap-2">
+                              <Icon name="mdi:file-document-check" className="text-base" /> Selected: {cleanFileName(pf.name)}
                             </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0 pt-2 border-t border-gray-50">
-                            <button
-                              type="button"
-                              onClick={() => setPreviewModalDoc({ title: file.name, url: fileUrl, isImage, isPdf })}
-                              className="flex-1 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
-                              title="Preview Document"
-                            >
-                              <Icon name="mdi:eye-outline" className="w-3.5 h-3.5" /> Preview
-                            </button>
-                            <a
-                              href={fileUrl}
-                              download={file.name}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
-                              title="Download Document"
-                            >
-                              <Icon name="mdi:download-outline" className="w-3.5 h-3.5" /> Download
-                            </a>
-                          </div>
+                          ))}
                         </div>
-                      );
-                    })}
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-            <div className="sm:col-span-2">
+            <div className="col-span-full">
               <label className={labelCls}>Follow Up Remark</label>
               <textarea
                 value={form.followUpRemark}

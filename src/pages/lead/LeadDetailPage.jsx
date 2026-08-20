@@ -7,7 +7,7 @@ import { useOpportunity } from "../../hooks/useOpportunity";
 import { useOrganization } from "../../hooks/useOrganization";
 import { useContact } from "../../hooks/useContact";
 import { LEAD_STATUSES } from "../../utils/constants";
-import { formatDate, formatDateTime, formatCurrency } from "../../utils/format";
+import { formatDate, formatDateTime, formatCurrency, cleanFileName } from "../../utils/format";
 import { getCurrencyConfig } from "../../utils/currency";
 import AppConfirmDialog from "../../components/common/AppConfirmDialog";
 import Icon from "../../components/Icon";
@@ -247,7 +247,7 @@ export default function LeadDetailPage() {
         docs.push({
           id: `${field}-${path}`,
           path: path,
-          name: path.split('/').pop() || `Document ${idx + 1}`,
+          name: cleanFileName(path),
           uploadedAt: lead.leadCreatedDate || new Date().toISOString(),
           size: "Unknown",
           field: field
@@ -601,11 +601,8 @@ export default function LeadDetailPage() {
 
   async function uploadFiles(files) {
     if (!files?.length || !lead) return;
-    const fileList = Array.from(files);
-    setSelectedFiles(fileList);
-    const slots = ["uploadDocument", "uploadDocument1", "uploadDocument2", "uploadDocument3"];
-    const fileMap = {};
-    Array.from(files).slice(0, 4).forEach((file, index) => { fileMap[slots[index]] = file; });
+    const file = files[0];
+    setSelectedFiles([file]);
     try {
       setUploading(true);
       setUploadProgress(0);
@@ -615,21 +612,20 @@ export default function LeadDetailPage() {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      await update(lead.leadId, { ...lead }, fileMap);
+      await update(lead.leadId, { ...lead }, { uploadDocument: file });
       
       clearInterval(progressInterval);
       setUploadProgress(100);
-      
-      await loadAll();
-      showToastMsg("success", "Files uploaded successfully");
       
       setTimeout(() => {
         setUploading(false);
         setUploadProgress(0);
       }, 500);
-    } catch (error) { 
-      console.error(error); 
-      showToastMsg("error", "Upload failed");
+      showToastMsg("success", "Document uploaded successfully.");
+      await loadAll();
+    } catch (err) {
+      console.error(err);
+      showToastMsg("error", "Failed to upload document.");
       setUploading(false);
       setUploadProgress(0);
     }
@@ -1335,7 +1331,7 @@ export default function LeadDetailPage() {
                             />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-800 truncate">{doc.name}</p>
+                            <p className="text-sm font-medium text-gray-800 truncate" title={cleanFileName(doc.name)}>{cleanFileName(doc.name)}</p>
                             <p className="text-xs text-gray-400">{doc.uploadedAt ? formatDateDisplay(doc.uploadedAt) : "Unknown date"}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">

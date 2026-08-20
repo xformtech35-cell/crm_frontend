@@ -78,3 +78,33 @@ export function getInitials(name) {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
+
+/**
+ * Format document filename for display by stripping directory paths and UUID/hash prefixes.
+ */
+export function cleanFileName(filename) {
+  if (!filename) return 'Document';
+  let name = String(filename).split('/').pop().split('\\').pop();
+  
+  // If the filename has a short hex or full UUID prefix followed by underscore (e.g. "a1b2c3d4_MyFile.pdf")
+  if (/^[a-f0-9]{8,36}_/i.test(name)) {
+    name = name.substring(name.indexOf('_') + 1);
+  } else if (/^\d{10,13}_/.test(name)) {
+    name = name.substring(name.indexOf('_') + 1);
+  }
+
+  const ext = name.includes('.') ? '.' + name.split('.').pop() : '';
+  const baseWithoutExt = name.includes('.') ? name.substring(0, name.lastIndexOf('.')) : name;
+
+  // Check if base name is purely a UUID or hex string or fragment (e.g. "7517-41a1-aa47-22347eb3eb29")
+  const isRawUuid = 
+    /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(baseWithoutExt) ||
+    /^[a-f0-9-]{20,40}$/i.test(baseWithoutExt) ||
+    /^[a-f0-9]{32,64}$/i.test(baseWithoutExt);
+
+  if (isRawUuid || !baseWithoutExt || baseWithoutExt.trim() === '') {
+    return `Quotation Document${ext}`;
+  }
+
+  return name;
+}

@@ -15,6 +15,8 @@ const pageTitles = {
   "/home": "Dashboard",
   "/lead": "Leads",
   "/negotiation": "Negotiations",
+  "/indiamart": "IndiaMART Leads",
+  "/tradeindia": "TradeIndia Leads",
   "/opportunity": "Opportunities",
   "/contact": "Contacts",
   "/organization": "Organizations",
@@ -527,6 +529,18 @@ export default function DefaultLayout() {
             label: "Negotiations",
             icon: "mdi:handshake-outline",
             permissions: ["negotiations.view", "negotiation.view", "leads.view"],
+          },
+          {
+            to: "/indiamart",
+            label: "IndiaMART Leads",
+            icon: "mdi:storefront-outline",
+            permissions: ["indiamart.view", "leads.view"],
+          },
+          {
+            to: "/tradeindia",
+            label: "TradeIndia Leads",
+            icon: "mdi:swap-horizontal-bold",
+            permissions: ["tradeindia.view", "leads.view"],
           },
           {
             to: "/leadsource",

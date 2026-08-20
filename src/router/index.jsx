@@ -52,6 +52,8 @@ import LeadStatus from "../pages/Masters/LeadStatus.jsx";
 import NegotiationPage from "../pages/Negotiation/NegotiationPage.jsx";
 import NegotiationDetailPage from "../pages/Negotiation/NegotiationDetailPage.jsx";
 import QuotationDetailPage from "../pages/Negotiation/QuotationDetailPage.jsx";
+import IndiaMARTLeadsPage from "../pages/lead/IndiaMARTLeadsPage.jsx";
+import TradeIndiaLeadsPage from "../pages/lead/TradeIndiaLeadsPage.jsx";
 import ProfilePage from "../pages/profile/ProfilePage";
 
 
@@ -85,6 +87,8 @@ export default function AppRouter() {
         <Route path="/lead/:id" element={<ProtectedRoute requiredPermission="leads.view"><LeadDetailPage /></ProtectedRoute>} />
         <Route path="/negotiation" element={<ProtectedRoute requiredPermission={["negotiations.view", "leads.view"]}><NegotiationPage /></ProtectedRoute>} />
         <Route path="/negotiation/:id" element={<ProtectedRoute requiredPermission={["negotiations.view", "leads.view"]}><NegotiationDetailPage /></ProtectedRoute>} />
+        <Route path="/indiamart" element={<ProtectedRoute requiredPermission={["indiamart.view", "leads.view"]}><IndiaMARTLeadsPage /></ProtectedRoute>} />
+        <Route path="/tradeindia" element={<ProtectedRoute requiredPermission={["tradeindia.view", "leads.view"]}><TradeIndiaLeadsPage /></ProtectedRoute>} />
         <Route path="/quotation/:id" element={<ProtectedRoute requiredPermission="leads.view"><QuotationDetailPage /></ProtectedRoute>} />
         <Route path="/contact" element={<ProtectedRoute requiredPermission="contacts.view"><ContactPage /></ProtectedRoute>} />
         <Route path="/contact/:id" element={<ProtectedRoute requiredPermission="contacts.view"><ContactDetailPage /></ProtectedRoute>} />

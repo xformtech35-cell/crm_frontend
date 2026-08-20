@@ -1,5 +1,6 @@
 import { useApi } from "./useApi";
 import { getApiBaseUrl } from '../utils/api';
+import { cleanFileName } from '../utils/format';
 
 export function useNegotiation() {
   const api = useApi();
@@ -39,6 +40,9 @@ export function useNegotiation() {
   const getByUser = (userId) =>
     api.get(`/negotiations/user/${userId}`);
 
+  const getAllRevisions = (userId) =>
+    api.get(`/negotiations/user/${userId}/revisions/all`);
+
   // ========== DOCUMENT APIs ==========
   const viewQuotationDocument = (fileName) =>
   api.get(
@@ -48,21 +52,37 @@ export function useNegotiation() {
     }
   );
 
-const handleViewDocument = async (fileName) => {
+const handleViewDocument = async (fileName, originalName) => {
   try {
     let cleanPath = fileName;
+    if (!cleanPath) return;
     if (cleanPath.startsWith("/")) cleanPath = cleanPath.substring(1);
     if (cleanPath.startsWith("api/view/")) cleanPath = cleanPath.substring(9);
     if (cleanPath.startsWith("view/")) cleanPath = cleanPath.substring(5);
 
     const response = await viewQuotationDocument(cleanPath);
+    const contentType = response.headers["content-type"] || "";
+    const isPdf = contentType.includes("pdf") || cleanPath.toLowerCase().endsWith(".pdf");
+    const downloadName = cleanFileName(originalName || fileName);
+
     const blob = new Blob([response?.data], {
-      type: response.headers["content-type"] || "application/pdf",
+      type: contentType || (isPdf ? "application/pdf" : "application/octet-stream"),
     });
 
-    const fileURL = URL.createObjectURL(blob);
-    window.open(fileURL, "_blank");
-    setTimeout(() => URL.revokeObjectURL(fileURL), 10000);
+    if (isPdf) {
+      const fileURL = URL.createObjectURL(blob);
+      window.open(fileURL, "_blank");
+      setTimeout(() => URL.revokeObjectURL(fileURL), 10000);
+    } else {
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = downloadName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }
   } catch (err) {
     console.error("View Document Error:", err);
   }
@@ -71,11 +91,14 @@ const handleViewDocument = async (fileName) => {
 const handleDownloadRevisionDocument = async (fileUrlOrName, fileName) => {
   try {
     let cleanPath = fileUrlOrName || fileName;
+    if (!cleanPath) return;
     if (cleanPath.startsWith("/")) cleanPath = cleanPath.substring(1);
     if (cleanPath.startsWith("api/view/")) cleanPath = cleanPath.substring(9);
     if (cleanPath.startsWith("view/")) cleanPath = cleanPath.substring(5);
 
     const response = await viewQuotationDocument(cleanPath);
+    const downloadName = cleanFileName(fileName || cleanPath);
+
     const blob = new Blob([response?.data], {
       type: response.headers["content-type"] || "application/octet-stream",
     });
@@ -83,7 +106,7 @@ const handleDownloadRevisionDocument = async (fileUrlOrName, fileName) => {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = fileName || "quotation-document";
+    link.download = downloadName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -206,7 +229,7 @@ const uploadQuotationDocuments = async (quotationNo, files) => {
   };
 
   /**
-   * Delete a document
+   * Delete a document by negotiation ID
    */
   const deleteDocument = async (id) => {
     try {
@@ -214,6 +237,32 @@ const uploadQuotationDocuments = async (quotationNo, files) => {
       return response;
     } catch (error) {
       console.error('Delete document error:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * Delete a document by document ID
+   */
+  const deleteDocumentById = async (documentId) => {
+    try {
+      const response = await api.del(`/documents/id/${documentId}`);
+      return response;
+    } catch (error) {
+      console.error('Delete document by ID error:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * Delete all documents for a quotation number
+   */
+  const deleteDocumentsByQuotationNo = async (quotationNo) => {
+    try {
+      const response = await api.del(`/documents?quotationNo=${encodeURIComponent(quotationNo)}`);
+      return response;
+    } catch (error) {
+      console.error('Delete documents by quotationNo error:', error);
       throw error;
     }
   };
@@ -266,6 +315,7 @@ const uploadQuotationDocuments = async (quotationNo, files) => {
     getAll,
     getMyNegotiations,
     getByUser,
+    getAllRevisions,
     getById,
     getByLeadId,
     getRevisions,
@@ -283,6 +333,8 @@ const uploadQuotationDocuments = async (quotationNo, files) => {
     getFullDocumentUrl,
     checkDocument,
     deleteDocument,
+    deleteDocumentById,
+    deleteDocumentsByQuotationNo,
     viewDocument,
     downloadDocument,
     uploadQuotationDocuments,

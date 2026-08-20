@@ -66,6 +66,24 @@ const groupedPermissions = [
         ]
       },
       {
+        name: "IndiaMART Leads",
+        viewPermission: { key: "indiamart.view", label: "View IndiaMART Leads" },
+        actions: [
+          { key: "indiamart.create", label: "Create / Sync" },
+          { key: "indiamart.edit", label: "Edit" },
+          { key: "indiamart.delete", label: "Delete" }
+        ]
+      },
+      {
+        name: "TradeIndia Leads",
+        viewPermission: { key: "tradeindia.view", label: "View TradeIndia Leads" },
+        actions: [
+          { key: "tradeindia.create", label: "Create / Sync" },
+          { key: "tradeindia.edit", label: "Edit" },
+          { key: "tradeindia.delete", label: "Delete" }
+        ]
+      },
+      {
         name: "Lead Masters (Status, Source, Group)",
         viewPermission: { key: "leads.view", label: "View Lead Masters" },
         actions: [
