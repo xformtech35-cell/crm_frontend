@@ -32,12 +32,7 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('country-state-city')) return 'vendor-location';
-            if (id.includes('jspdf') || id.includes('pdf')) return 'vendor-pdf';
             if (id.includes('exceljs') || id.includes('xlsx')) return 'vendor-excel';
-            if (id.includes('chart') || id.includes('recharts')) return 'vendor-charts';
-            if (id.includes('@iconify') || id.includes('lucide')) return 'vendor-icons';
-            if (id.includes('react') || id.includes('zustand') || id.includes('axios')) return 'vendor-react';
-            return 'vendor-libs';
           }
         }
       }
