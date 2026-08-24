@@ -1127,15 +1127,25 @@ export default function DefaultLayout() {
                           >
                             <div className="flex items-center gap-2">
                               <span className={`w-2 h-2 rounded-full ${!selectedTeamMemberId ? 'bg-purple-600' : 'bg-slate-300'}`} />
-                              <span>Global (All Team Members)</span>
+                              <span>{isAdmin ? 'Global (All Team Members)' : 'All Team Members (Department Scope)'}</span>
                             </div>
                             {!selectedTeamMemberId && <Icon name="mdi:check" className="w-4 h-4 text-purple-600" />}
                           </button>
 
+                          {teamMemberList.length > 0 && (
+                            <div className="px-3.5 py-1 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-white/5 border-y border-slate-100 dark:border-white/10 my-1 flex items-center justify-between">
+                              <span>Department Team Members</span>
+                              <span className="text-[9px] bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 px-1.5 py-0.5 rounded-full">
+                                {teamMemberList.length}
+                              </span>
+                            </div>
+                          )}
+
                           {teamMemberList.map((tm) => {
                             const id = tm.userid || tm.teamMemberId;
                             const isSelected = selectedTeamMemberId === id;
-                            const name = tm.teamMemberName || tm.teamMemberEmail;
+                            const name = tm.teamMemberName || tm.username || tm.teamMemberEmail;
+                            const roleName = tm.team_member_role === '75' ? 'Team Lead' : (tm.team_member_role === '76' ? 'Sales Exec' : (tm.role || 'Member'));
                             return (
                               <button
                                 key={id}
@@ -1155,7 +1165,12 @@ export default function DefaultLayout() {
                                   <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-purple-600' : 'bg-slate-300'}`} />
                                   <span className="truncate">{name}</span>
                                 </div>
-                                {isSelected && <Icon name="mdi:check" className="w-4 h-4 text-purple-600 shrink-0" />}
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300 font-medium">
+                                    {roleName}
+                                  </span>
+                                  {isSelected && <Icon name="mdi:check" className="w-4 h-4 text-purple-600 shrink-0" />}
+                                </div>
                               </button>
                             );
                           })}
