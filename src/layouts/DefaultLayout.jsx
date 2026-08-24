@@ -109,10 +109,21 @@ export default function DefaultLayout() {
         } else if (Array.isArray(res?.data?.data)) {
           list = res.data.data;
         }
+        if (!isAdmin) {
+          list = list.filter((tm) => {
+            const tmEmail = (tm.team_member_email || tm.teamMemberEmail || tm.userEmail || '').toLowerCase();
+            const tmRole = (tm.team_member_role || tm.teamMemberRole || tm.role || '').toUpperCase();
+            const tmUserId = tm.userid || tm.userId || tm.user_id_fk;
+            if (tmEmail === 'admin@uwsenviro.com' || tmRole === 'COMPANY ADMIN' || tmUserId === 72) {
+              return false;
+            }
+            return true;
+          });
+        }
         setTeamMemberList(list);
       }).catch((err) => console.error("Error fetching team members for View Context:", err));
     }
-  }, [canViewTeamContext]);
+  }, [canViewTeamContext, isAdmin]);
 
 
 
