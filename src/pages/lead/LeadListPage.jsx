@@ -678,7 +678,7 @@ export default function LeadListPage() {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
-  const [sortKey, setSortKey] = useState("leadCreatedDate");
+  const [sortKey, setSortKey] = useState("inquiryDate");
   const [sortDir, setSortDir] = useState("desc");
   const [currentView, setCurrentView] = useState("table");
   const [pageSize, setPageSize] = useState(25);
@@ -1205,17 +1205,20 @@ export default function LeadListPage() {
         const vb = (b.quotationNumber || "").toLowerCase();
         res = va.localeCompare(vb);
       } else if (sortKey === "inquiryDate") {
-        const va = a.inquiryDate || a.leadCreatedDate || "";
-        const vb = b.inquiryDate || b.leadCreatedDate || "";
-        res = String(va).localeCompare(String(vb));
+        const parseDateMs = (val) => (val ? (isNaN(new Date(val).getTime()) ? 0 : new Date(val).getTime()) : 0);
+        const va = parseDateMs(a.inquiryDate) || parseDateMs(a.leadCreatedDate) || parseDateMs(a.createdAt);
+        const vb = parseDateMs(b.inquiryDate) || parseDateMs(b.leadCreatedDate) || parseDateMs(b.createdAt);
+        res = va - vb;
       } else if (sortKey === "quotationDate") {
-        const va = a.quotationDate || "";
-        const vb = b.quotationDate || "";
-        res = String(va).localeCompare(String(vb));
+        const parseDateMs = (val) => (val ? (isNaN(new Date(val).getTime()) ? 0 : new Date(val).getTime()) : 0);
+        const va = parseDateMs(a.quotationDate);
+        const vb = parseDateMs(b.quotationDate);
+        res = va - vb;
       } else if (sortKey === "quotationSentDate") {
-        const va = a.quotationSentDate || "";
-        const vb = b.quotationSentDate || "";
-        res = String(va).localeCompare(String(vb));
+        const parseDateMs = (val) => (val ? (isNaN(new Date(val).getTime()) ? 0 : new Date(val).getTime()) : 0);
+        const va = parseDateMs(a.quotationSentDate);
+        const vb = parseDateMs(b.quotationSentDate);
+        res = va - vb;
       } else if (sortKey === "quotationAmount") {
         const va = Number(a.quotationAmount || 0);
         const vb = Number(b.quotationAmount || 0);
@@ -1241,9 +1244,10 @@ export default function LeadListPage() {
         const vb = (b.updatedBy || b.createdBy || "").toLowerCase();
         res = va.localeCompare(vb);
       } else {
-        const va = a.inquiryDate || a.leadCreatedDate || "";
-        const vb = b.inquiryDate || b.leadCreatedDate || "";
-        res = String(va).localeCompare(String(vb));
+        const parseDateMs = (val) => (val ? (isNaN(new Date(val).getTime()) ? 0 : new Date(val).getTime()) : 0);
+        const va = parseDateMs(a.inquiryDate) || parseDateMs(a.leadCreatedDate) || parseDateMs(a.createdAt);
+        const vb = parseDateMs(b.inquiryDate) || parseDateMs(b.leadCreatedDate) || parseDateMs(b.createdAt);
+        res = va - vb;
       }
       return sortDir === "asc" ? res : -res;
     });
@@ -1457,7 +1461,7 @@ export default function LeadListPage() {
     setDateFrom("");
     setDateTo("");
     setActiveStatus("All");
-    setSortKey("leadCreatedDate");
+    setSortKey("inquiryDate");
     setSortDir("desc");
     setGroupFilter("");
     setLeadStatusFilter("");
