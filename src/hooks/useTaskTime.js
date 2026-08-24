@@ -3,11 +3,12 @@ import { useApi } from './useApi'
 
 export function useTaskTime() {
   const api = useApi()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [fetchLoading, setFetchLoading]   = useState(false)
+  const [error, setError]                 = useState(null)
 
   const startTimer = useCallback(async (taskId, note = '') => {
-    setLoading(true)
+    setActionLoading(true)
     setError(null)
     try {
       const data = await api.post('/task-time/start', { taskId, note })
@@ -16,12 +17,12 @@ export function useTaskTime() {
       setError(err?.response?.data?.message || err.message)
       throw err
     } finally {
-      setLoading(false)
+      setActionLoading(false)
     }
   }, [api])
 
   const stopTimer = useCallback(async (logId) => {
-    setLoading(true)
+    setActionLoading(true)
     setError(null)
     try {
       const data = await api.post(`/task-time/stop/${logId}`)
@@ -30,12 +31,12 @@ export function useTaskTime() {
       setError(err?.response?.data?.message || err.message)
       throw err
     } finally {
-      setLoading(false)
+      setActionLoading(false)
     }
   }, [api])
 
   const getLogsByTask = useCallback(async (taskId) => {
-    setLoading(true)
+    setFetchLoading(true)
     setError(null)
     try {
       const data = await api.get(`/task-time/task/${taskId}`)
@@ -44,9 +45,21 @@ export function useTaskTime() {
       setError(err?.response?.data?.message || err.message)
       throw err
     } finally {
-      setLoading(false)
+      setFetchLoading(false)
     }
   }, [api])
 
-  return { startTimer, stopTimer, getLogsByTask, loading, error }
+  const getActiveTimer = useCallback(async () => {
+    try {
+      const data = await api.get('/task-time/active')
+      return data || null
+    } catch (err) {
+      console.error(err)
+      return null
+    }
+  }, [api])
+
+  return { startTimer, stopTimer, getLogsByTask, getActiveTimer, actionLoading, fetchLoading, loading: actionLoading, error }
 }
+
+

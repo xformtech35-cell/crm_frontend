@@ -8,6 +8,7 @@ import Icon from "../../components/Icon";
 import { formatDate, formatCurrency, cleanFileName } from "../../utils/format";
 import ExcelJS from "exceljs";
 import { useAuthStore } from "../../stores/auth";
+import { RevisionHistorySection } from "./NegotiationDetailPage";
 
 export default function NegotiationPage() {
   const { user } = useAuthStore();
@@ -115,9 +116,14 @@ export default function NegotiationPage() {
       }
     }
 
-    return [...map.values()].sort(
-      (a, b) => safeGetTime(b.updatedDate) - safeGetTime(a.updatedDate),
-    );
+    return [...map.values()].sort((a, b) => {
+      const numA = parseInt((a.revisionNo || a.quotationRevision || "R0").replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt((b.revisionNo || b.quotationRevision || "R0").replace(/\D/g, ""), 10) || 0;
+      if (numA !== numB) {
+        return numB - numA;
+      }
+      return safeGetTime(b.updatedDate) - safeGetTime(a.updatedDate);
+    });
   }, [revisions, selectedDeal]);
 
   // Structured Field Sections
@@ -145,7 +151,7 @@ export default function NegotiationPage() {
     { label: "Lead Source", key: "leadSource" },
     { label: "Lead Group", key: "leadGroup" },
     { label: "Lead Industry", key: "leadIndustry" },
-    { label: "Lead Ref", key: "leadRef" },
+    { label: "Team Member", key: "leadRef" },
     { label: "Enquiry Description", key: "enquiryDescription" },
     { label: "Remarks", key: "followUpRemark" },
   ];
@@ -423,6 +429,8 @@ export default function NegotiationPage() {
         "Quotation No",
         "Revision",
         "Amount",
+        "Working Date",
+        "Sent Date",
         "Status",
         "Remarks",
       ];
@@ -461,6 +469,8 @@ export default function NegotiationPage() {
           deal.quotationNo || "",
           deal.quotationRevision || "R0",
           Number(deal.quotationAmount || 0),
+          formatDate(deal.quotationWorkingDate || deal.quotationDate || deal.updatedDate) || "",
+          formatDate(deal.quotationSentDate || deal.sentQuotationDate) || "",
           deal.leadOutcomeStatus || deal.negotiationStatus || "",
           deal.remarks || "",
         ];
@@ -517,7 +527,7 @@ export default function NegotiationPage() {
 
       worksheet.autoFilter = {
         from: "A5",
-        to: "G5",
+        to: "I5",
       };
 
       worksheet.views = [
@@ -875,18 +885,15 @@ export default function NegotiationPage() {
                 <th className="w-[80px] sm:w-[120px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
                   <span>Amount</span>
                 </th>
-                <th className="w-[90px] sm:w-[130px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
-                  <span className="hidden sm:inline">Date</span>
-                  <span className="inline sm:hidden">Date</span>
+                <th className="w-[90px] sm:w-[120px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
+                  <span>Working Date</span>
+                </th>
+                <th className="w-[90px] sm:w-[120px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
+                  <span>Sent Date</span>
                 </th>
                 <th className="w-[100px] sm:w-[130px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
                   <span>Status</span>
                 </th>
-                {/* Document Column */}
-                {/* <th className="w-[80px] sm:w-[100px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
-                  <span className="hidden sm:inline">Document</span>
-                  <span className="inline sm:hidden">Doc</span>
-                </th> */}
                 <th className="sticky right-0 z-20 w-[90px] sm:w-[120px] bg-gray-50 py-2 sm:py-2.5 pl-2 sm:pl-3 pr-2 sm:pr-4 text-right shadow-[-8px_0_12px_rgba(15,23,42,0.04)]">
                   <span className="hidden sm:inline">Actions</span>
                   <span className="inline sm:hidden">Act</span>
@@ -968,8 +975,11 @@ export default function NegotiationPage() {
                       <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 font-semibold text-gray-900">
                         {rev.quotationAmount ? formatCurrency(rev.quotationAmount, "IN") : "₹0"}
                       </td>
+                      <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 text-gray-600 font-medium">
+                        {formatDate(rev.quotationWorkingDate || rev.quotationDate || rev.updatedDate) || "—"}
+                      </td>
                       <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 text-gray-500">
-                        {formatDate(rev.quotationDate || rev.updatedDate) || "—"}
+                        {formatDate(rev.sentQuotationDate || rev.quotationSentDate) || <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-2 sm:px-3 py-1.5 sm:py-2.5">
                         <span className={getRevStatusClass(rev.negotiationStatus || "Negotiation")}>
@@ -1059,12 +1069,11 @@ export default function NegotiationPage() {
                         deal.leadCountry,
                       )}
                     </td>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 text-gray-600 text-[10px] sm:text-xs font-medium">
+                      {formatDate(deal.quotationWorkingDate || deal.quotationDate) || <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 text-gray-500 text-[10px] sm:text-xs">
-                      {deal.quotationDate ? (
-                        formatDate(deal.quotationDate)
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
+                      {formatDate(deal.quotationSentDate || deal.sentQuotationDate) || <span className="text-gray-300">—</span>}
                     </td>
                     <td
                       className="px-2 sm:px-3 py-1.5 sm:py-2.5"
@@ -1218,8 +1227,8 @@ export default function NegotiationPage() {
       {/* ─── Revision Modal ─── */}
       {showRevisionModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl border border-gray-100 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
-            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-slate-50/50">
+          <div className="bg-white rounded-xl w-full max-w-4xl lg:max-w-5xl shadow-2xl border border-gray-100 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-slate-50/50 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-2">
@@ -1247,7 +1256,7 @@ export default function NegotiationPage() {
               </div>
 
               {/* Professional Quotation Number Display */}
-              <div className="mt-3 px-4 sm:px-6 pb-2">
+              <div className="mt-3 px-2 sm:px-4">
                 <div className="bg-gradient-to-r from-slate-50 to-white p-3 sm:p-4 rounded-lg border border-slate-200/80 shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="hidden sm:flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 border border-blue-100">
@@ -1293,227 +1302,15 @@ export default function NegotiationPage() {
               </div>
             </div>
 
-            <div className="p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto bg-gray-50/30 space-y-4 sm:space-y-6">
-              {(() => {
-                return uniqueRevisions.map((rev, idx) => {
-                  const prevRev =
-                    idx < uniqueRevisions.length - 1
-                      ? uniqueRevisions[idx + 1]
-                      : null;
-
-                  const diff = prevRev
-                    ? Number(rev.quotationAmount || 0) -
-                      Number(prevRev.quotationAmount || 0)
-                    : null;
-
-                  const isLatest = idx === 0;
-
-                  return (
-                    <div
-                      key={rev.id}
-                      className="relative flex gap-4 sm:gap-6 pl-4 pb-2 last:pb-0"
-                    >
-                      {idx < revisions.length - 1 && (
-                        <span
-                          className="absolute left-[21px] sm:left-[25px] top-6 bottom-0 w-0.5 bg-blue-100"
-                          aria-hidden="true"
-                        />
-                      )}
-
-                      <div className="relative z-10 flex h-4 w-4 sm:h-5 sm:w-5 flex-none items-center justify-center rounded-full bg-white mt-1">
-                        {isLatest ? (
-                          <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-blue-600 ring-4 ring-blue-100" />
-                        ) : (
-                          <div className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-gray-300 ring-4 ring-gray-150" />
-                        )}
-                      </div>
-
-                      <div
-                        className={`flex-1 bg-white rounded-xl border p-3 sm:p-4 shadow-sm hover:shadow-md transition-all duration-200 ${
-                          isLatest
-                            ? "border-blue-200 ring-1 ring-blue-50"
-                            : "border-gray-200/60"
-                        }`}
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] sm:text-xs font-bold text-gray-900">
-                              {rev?.negotiationName ? `${rev.negotiationName} — ` : ""}Revision {rev?.revisionNo || rev?.quotationRevision}
-                            </span>
-                            {isLatest ? (
-                              <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                                Active
-                              </span>
-                            ) : (
-                              <span className="text-[8px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-200/60">
-                                Superseded
-                              </span>
-                            )}
-                          </div>
-
-                          <span className={getRevStatusClass(rev.negotiationStatus || "Negotiation")}>
-                            {rev.negotiationStatus || "Negotiation"}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 bg-gray-50/50 p-2 sm:p-2.5 rounded-lg border border-gray-100 mb-2 text-[10px] sm:text-xs">
-                          <div>
-                            <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
-                              Amount
-                            </span>
-                            <div className="flex flex-wrap items-baseline gap-1">
-                              <span className="font-bold text-gray-900 text-xs sm:text-sm">
-                                {formatCurrency(
-                                  rev.quotationAmount || 0,
-                                  selectedDeal?.leadCountry || "IN",
-                                )}
-                              </span>
-                              {diff !== null && diff !== 0 && (
-                                <span
-                                  className={`inline-flex items-center gap-0.5 text-[8px] sm:text-[10px] font-bold ${
-                                    diff > 0
-                                      ? "text-emerald-600"
-                                      : "text-rose-600"
-                                  }`}
-                                >
-                                  <Icon
-                                    name={
-                                      diff > 0
-                                        ? "mdi:arrow-up"
-                                        : "mdi:arrow-down"
-                                    }
-                                    className="w-2.5 h-2.5 sm:w-3 sm:h-3"
-                                  />
-                                  {formatCurrency(
-                                    Math.abs(diff),
-                                    selectedDeal?.leadCountry || "IN",
-                                  )}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div>
-                            <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">
-                              Date & Time
-                            </span>
-                            <span className="font-semibold text-gray-700 text-[10px] sm:text-xs">
-                              {rev.updatedDate
-                                ? new Date(
-                                    rev.updatedDate,
-                                  ).toLocaleDateString("en-IN", {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                  }) +
-                                  " · " +
-                                  new Date(
-                                    rev.updatedDate,
-                                  ).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })
-                                : "—"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="text-[10px] sm:text-xs text-gray-600 leading-relaxed bg-slate-50/20 p-2 rounded-lg border border-dashed border-gray-100">
-                          <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-0.5">
-                            Remarks
-                          </span>
-                          {rev.remarks || rev.followUpRemark || (
-                            <em className="text-gray-400">No remarks added.</em>
-                          )}
-                        </div>
-                        {/* Files */}
-                        <div className="mt-3">
-                          <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-2">
-                            Attached Quotation File (1)
-                          </span>
-
-                          {rev.documents && rev.documents.length > 0 ? (
-                            <div className="space-y-2">
-                              {[rev.documents[rev.documents.length - 1]].map((doc) => (
-                                <div
-                                  key={doc.id || doc.fileName}
-                                  className="flex items-center justify-between rounded-lg border bg-gray-50 px-3 py-2"
-                                >
-                                  <div className="flex items-center gap-2 overflow-hidden">
-                                    <Icon
-                                      name={
-                                        doc.fileType?.includes("pdf")
-                                          ? "mdi:file-pdf-box"
-                                          : doc.fileType?.includes("image")
-                                            ? "mdi:file-image"
-                                            : "mdi:file-outline"
-                                      }
-                                      className={`w-5 h-5 ${
-                                        doc.fileType?.includes("pdf")
-                                          ? "text-red-600"
-                                          : "text-blue-600"
-                                      }`}
-                                    />
-
-                                    <div className="overflow-hidden">
-                                      <p className="truncate text-xs font-medium" title={cleanFileName(doc.fileName)}>
-                                        {cleanFileName(doc.fileName)}
-                                      </p>
-                                      {doc.fileSize && (
-                                        <p className="text-[10px] text-gray-400">
-                                          {(doc.fileSize / 1024).toFixed(1)} KB
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        negotiationApi.handleViewDocument(
-                                          doc.fileUrl || doc.fileName,
-                                        )
-                                      }
-                                      className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[10px] text-white hover:bg-blue-700 transition"
-                                    >
-                                      <Icon
-                                        name="mdi:eye-outline"
-                                        className="w-3.5 h-3.5"
-                                      />
-                                      View
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        negotiationApi.handleDownloadRevisionDocument(
-                                          doc.fileUrl || doc.fileName,
-                                          doc.fileName
-                                        )
-                                      }
-                                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[10px] text-white hover:bg-emerald-700 transition"
-                                    >
-                                      <Icon
-                                        name="mdi:download-outline"
-                                        className="w-3.5 h-3.5"
-                                      />
-                                      Download
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-xs text-gray-400 italic">
-                              No documents attached.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <RevisionHistorySection
+                revisions={revisions}
+                loading={false}
+                showRevisions={true}
+                setShowRevisions={() => {}}
+                lead={selectedDeal}
+                negotiationApi={negotiationApi}
+              />
             </div>
           </div>
         </div>

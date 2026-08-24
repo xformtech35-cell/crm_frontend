@@ -253,8 +253,20 @@ export default function SuperAdminLayout() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [headerBadge, setHeaderBadge] = useState(null);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (!e.target.closest(".more-menu-container")) {
+        setMoreMenuOpen(false);
+      }
+    };
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, [moreMenuOpen]);
 
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("crm-theme") || "light";
@@ -485,7 +497,7 @@ export default function SuperAdminLayout() {
       <div className="flex-1 flex flex-col md:ml-72 min-w-0 overflow-hidden relative z-10">
         {/* Header */}
         <header
-          className="flex-shrink-0 border-b sticky top-0 z-30 transition-all duration-300"
+          className="flex-shrink-0 border-b sticky top-0 z-50 transition-all duration-300"
           style={{
             background: theme === "dark" ? "rgba(10, 12, 28, 0.45)" : "rgba(255, 255, 255, 0.85)",
             borderColor: theme === "dark" ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)",
@@ -545,19 +557,6 @@ export default function SuperAdminLayout() {
                   </select>
                 </div>
 
-                {/* Theme Toggle */}
-                <button
-                  onClick={toggleTheme}
-                  className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all ${
-                    theme === "dark"
-                      ? "border-white/5 text-slate-400 hover:text-white hover:bg-white/10 bg-white/5"
-                      : "border-gray-200 text-slate-500 hover:text-slate-800 hover:bg-gray-100 bg-white"
-                  }`}
-                  title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                >
-                  <Icon name={theme === "dark" ? "mdi:white-balance-sunny" : "mdi:weather-night"} className="w-4 h-4" />
-                </button>
-
                 {/* Notifications */}
                 <button
                   className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all ${
@@ -581,18 +580,96 @@ export default function SuperAdminLayout() {
                   <span className="text-[11px] font-bold tracking-wide uppercase">Super Admin</span>
                 </div>
 
-                {/* Logout */}
+                {/* Back Button */}
                 <button
-                  onClick={logout}
-                  className={`flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold transition-all ${
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  title="Go Back"
+                  className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold shadow-sm transition-all shrink-0 ${
                     theme === "dark"
-                      ? "border-red-500/20 text-red-400 hover:bg-red-500/10 bg-red-500/5"
-                      : "border-red-200 text-red-600 hover:bg-red-50 bg-white"
+                      ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                   }`}
                 >
-                  <Icon name="mdi:logout-variant" className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">Logout</span>
+                  <Icon name="mdi:arrow-left" className="w-4 h-4" />
+                  <span className="hidden sm:inline">Back</span>
                 </button>
+
+                {/* Refresh Button */}
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  title="Refresh Page"
+                  className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold shadow-sm transition-all shrink-0 ${
+                    theme === "dark"
+                      ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <Icon name="mdi:refresh" className="w-4 h-4" />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+
+                {/* More Options Dropdown (Theme Toggle & Logout) */}
+                <div className="relative more-menu-container flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setMoreMenuOpen((v) => !v)}
+                    title="More Options"
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl border shadow-sm transition-all flex-shrink-0 ${
+                      theme === "dark"
+                        ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <Icon name="mdi:dots-vertical" className="w-5 h-5" />
+                  </button>
+
+                  {moreMenuOpen && (
+                    <div
+                      className={`absolute right-0 top-full mt-2 w-48 rounded-xl border shadow-xl z-50 p-1.5 transition-all origin-top-right ${
+                        theme === "dark"
+                          ? "bg-[#0c0e1c] border-white/10 text-slate-200"
+                          : "bg-white border-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {/* Theme Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleTheme();
+                          setMoreMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors text-left ${
+                          theme === "dark"
+                            ? "hover:bg-white/10 text-slate-200"
+                            : "hover:bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        <Icon
+                          name={theme === "dark" ? "mdi:white-balance-sunny" : "mdi:weather-night"}
+                          className="w-4 h-4 text-amber-500 shrink-0"
+                        />
+                        <span>{theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}</span>
+                      </button>
+
+                      <div className={`my-1 border-t ${theme === "dark" ? "border-white/10" : "border-slate-100"}`} />
+
+                      {/* Logout Option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMoreMenuOpen(false);
+                          logout();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left"
+                      >
+                        <Icon name="mdi:logout-variant" className="w-4 h-4 text-red-500 shrink-0" />
+                        <span>Logout</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 {/* Avatar */}
                 <button

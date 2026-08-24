@@ -568,6 +568,21 @@ export default function LeadListPage() {
   const [updatedByFilter, setUpdatedByFilter] = useState("");
 
   const [activeHeaderDropdown, setActiveHeaderDropdown] = useState(null);
+  const [headerDropdownPos, setHeaderDropdownPos] = useState({ top: 0, left: 0 });
+
+  const handleToggleHeaderDropdown = (e, key) => {
+    e.stopPropagation();
+    if (activeHeaderDropdown === key) {
+      setActiveHeaderDropdown(null);
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setHeaderDropdownPos({
+        top: rect.bottom + 4,
+        left: Math.max(12, Math.min(rect.left, window.innerWidth - 270)),
+      });
+      setActiveHeaderDropdown(key);
+    }
+  };
   const [groupSearch, setGroupSearch] = useState("");
   const [leadStatusSearch, setLeadStatusSearch] = useState("");
   const [quotationSearch, setQuotationSearch] = useState("");
@@ -975,10 +990,14 @@ export default function LeadListPage() {
   );
 
   const filteredLeads = useMemo(() => {
-    // Exclude IndiaMART and TradeIndia leads (managed in dedicated sidebar modules under Negotiations)
+    // Exclude IndiaMART and TradeIndia leads UNLESS sendToMainLeads is true
     let list = (allLeads || []).filter((l) => {
       const src = (l?.leadSource || "").trim().toLowerCase();
-      return !src.includes("indiamart") && !src.includes("tradeindia");
+      const isMarketplace = src.includes("indiamart") || src.includes("tradeindia") || src.includes("india mart") || src.includes("trade india");
+      if (isMarketplace) {
+        return Boolean(l?.sendToMainLeads);
+      }
+      return true;
     });
 
     // 1. Main Status Tab Filter
@@ -1247,6 +1266,24 @@ export default function LeadListPage() {
     createdByFilter,
     updatedByFilter,
   ]);
+
+  const summaryStats = useMemo(() => {
+    const targetList = selectedIds.size > 0 
+      ? filteredLeads.filter(l => selectedIds.has(l.leadId))
+      : filteredLeads;
+
+    const totalLeads = targetList.length;
+    const totalAmount = targetList.reduce((sum, l) => sum + (Number(l.quotationAmount) || 0), 0);
+    const qualifiedCount = targetList.filter(l => l.leadStatus === "Qualified" || l.enquiryType === "Qualified").length;
+    const isSelectionActive = selectedIds.size > 0;
+
+    return {
+      totalLeads,
+      totalAmount,
+      qualifiedCount,
+      isSelectionActive,
+    };
+  }, [filteredLeads, selectedIds]);
 
   const totalCount = filteredLeads.length;
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -1972,9 +2009,10 @@ export default function LeadListPage() {
       );
 
       // Prepare data rows (identical to original)
-      const data = leadsToExport.map((lead) => ({
+      const data = leadsToExport.map((lead, index) => ({
+        "Sr. No.": index + 1,
         "Lead ID": lead.leadId || "",
-        Ref: lead.leadRef || "",
+        "Team Member": lead.leadRef || "",
         "Company Name": lead.leadOrganisationName || "",
         "Contact Phone": lead.leadMobileNo || "",
         Country: lead.leadCountry || "",
@@ -3245,23 +3283,6 @@ export default function LeadListPage() {
             )}
           </div>
 
-          {/* Date range picker */}
-          <div className="flex items-center gap-1">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-            />
-            <span className="text-gray-400 text-xs px-1">–</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-            />
-          </div>
-
           {/* Grade picker */}
           {/* Grade picker */}
           <div className="flex items-center gap-0.5 bg-white border border-gray-200 rounded-md p-0.5 flex-wrap">
@@ -3362,86 +3383,112 @@ export default function LeadListPage() {
             </div>
           ) : (
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              {/* Scroll Controls Header - Add this NEW section */}
-              {showScrollControls && (
-                <div className="flex items-center justify-between px-4 py-2 bg-gray-50/70 border-b border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={scrollToStart}
-                      className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
-                      title="Scroll to Start (Ctrl+Home)"
-                    >
-                      <Icon
-                        name="mdi:chevron-double-left"
-                        className="w-4 h-4"
-                      />
-                    </button>
-                    <button
-                      onClick={scrollLeft}
-                      className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
-                      title="Scroll Left (←)"
-                    >
-                      <Icon name="mdi:chevron-left" className="w-4 h-4" />
-                    </button>
-                    <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden hidden sm:block">
-                      <div
-                        className="h-full bg-blue-500 transition-all duration-150"
-                        style={{ width: `${scrollProgress}%` }}
-                      />
-                    </div>
-                    <button
-                      onClick={scrollRight}
-                      className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
-                      title="Scroll Right (→)"
-                    >
-                      <Icon name="mdi:chevron-right" className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={scrollToEnd}
-                      className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
-                      title="Scroll to End (Ctrl+End)"
-                    >
-                      <Icon
-                        name="mdi:chevron-double-right"
-                        className="w-4 h-4"
-                      />
-                    </button>
-                    <span className="text-xs text-gray-400 ml-1 hidden md:inline">
-                      ← → keys to scroll
+              {/* Scroll & Data Summary Header Bar */}
+              <div className="flex items-center justify-between px-4 py-2 bg-slate-50/90 border-b border-slate-200/80 gap-3 flex-wrap text-xs">
+                {/* Left: Scroll Navigation */}
+                <div className="flex items-center gap-2">
+                  {showScrollControls && (
+                    <>
+                      <button
+                        onClick={scrollToStart}
+                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                        title="Scroll to Start (Ctrl+Home)"
+                      >
+                        <Icon name="mdi:chevron-double-left" className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={scrollLeft}
+                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                        title="Scroll Left (←)"
+                      >
+                        <Icon name="mdi:chevron-left" className="w-4 h-4" />
+                      </button>
+                      <div className="w-28 h-1.5 bg-gray-200 rounded-full overflow-hidden hidden sm:block">
+                        <div
+                          className="h-full bg-blue-500 transition-all duration-150"
+                          style={{ width: `${scrollProgress}%` }}
+                        />
+                      </div>
+                      <button
+                        onClick={scrollRight}
+                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                        title="Scroll Right (→)"
+                      >
+                        <Icon name="mdi:chevron-right" className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={scrollToEnd}
+                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                        title="Scroll to End (Ctrl+End)"
+                      >
+                        <Icon name="mdi:chevron-double-right" className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                  <span className="text-xs text-gray-400 font-medium hidden md:inline">
+                    ← → keys to scroll
+                  </span>
+                </div>
+
+                {/* Center / Summary Section: Live Data Summarisation */}
+                <div className="flex items-center gap-3 bg-white border border-slate-200/90 rounded-xl px-3 py-1.5 shadow-2xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      {summaryStats.isSelectionActive ? "Selected:" : "Filtered:"}
+                    </span>
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
+                      {summaryStats.totalLeads} {summaryStats.totalLeads === 1 ? "Lead" : "Leads"}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        if (tableContainerRef.current) {
-                          tableContainerRef.current.scrollTo({
-                            top: 0,
-                            behavior: "smooth",
-                          });
-                        }
-                      }}
-                      className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
-                      title="Scroll to Top"
-                    >
-                      <Icon name="mdi:arrow-up" className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (tableContainerRef.current) {
-                          tableContainerRef.current.scrollTo({
-                            top: tableContainerRef.current.scrollHeight,
-                            behavior: "smooth",
-                          });
-                        }
-                      }}
-                      className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
-                      title="Scroll to Bottom"
-                    >
-                      <Icon name="mdi:arrow-down" className="w-4 h-4" />
-                    </button>
+
+                  <div className="h-3.5 w-px bg-slate-200" />
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-slate-500">Total Value:</span>
+                    <span className="text-xs font-black text-emerald-600">
+                      {formatCurrency(summaryStats.totalAmount)}
+                    </span>
+                  </div>
+
+                  <div className="h-3.5 w-px bg-slate-200" />
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-slate-500">Qualified:</span>
+                    <span className="text-xs font-extrabold text-purple-700">
+                      {summaryStats.qualifiedCount}
+                    </span>
                   </div>
                 </div>
-              )}
+
+                {/* Right: Vertical Scroll Controls */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (tableContainerRef.current) {
+                        tableContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+                      }
+                    }}
+                    className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                    title="Scroll to Top"
+                  >
+                    <Icon name="mdi:arrow-up" className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (tableContainerRef.current) {
+                        tableContainerRef.current.scrollTo({
+                          top: tableContainerRef.current.scrollHeight,
+                          behavior: "smooth",
+                        });
+                      }
+                    }}
+                    className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                    title="Scroll to Bottom"
+                  >
+                    <Icon name="mdi:arrow-down" className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
               <div
                 ref={tableContainerRef} // <-- ADD THIS
                 onScroll={handleTableScroll}
@@ -3471,6 +3518,11 @@ export default function LeadListPage() {
                         />
                       </th>
 
+                      {/* SR. NO. */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-14 py-3 px-2 text-center text-slate-500 font-bold">
+                        SR. NO.
+                      </th>
+
                       {/* 1. LEAD NAME (Filter + Sort) */}
                       <th className="sticky top-0 bg-slate-50 z-30 w-[200px] whitespace-nowrap py-3 px-3 text-left relative">
                         <div className="flex items-center gap-1.5">
@@ -3493,10 +3545,7 @@ export default function LeadListPage() {
                                 ? 'bg-blue-100 text-blue-700 font-bold' 
                                 : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                             }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveHeaderDropdown(activeHeaderDropdown === 'leadName' ? null : 'leadName');
-                            }}
+                            onClick={(e) => handleToggleHeaderDropdown(e, 'leadName')}
                             title="Filter Lead Name"
                           >
                             <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
@@ -3514,9 +3563,10 @@ export default function LeadListPage() {
                           )}
                         </div>
 
-                        {activeHeaderDropdown === 'leadName' && (
+                        {activeHeaderDropdown === 'leadName' && createPortal(
                           <div 
-                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-64 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-64 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="relative mb-2">
@@ -3564,19 +3614,20 @@ export default function LeadListPage() {
                                   </button>
                                 ))}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </th>
 
-                      {/* 2. REF (Filter + Sort) */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[130px] whitespace-nowrap py-3 px-3 text-left relative">
+                      {/* 2. TEAM MEMBER (Filter + Sort) */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[150px] whitespace-nowrap py-3 px-3 text-left relative">
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "leadRef" ? "text-blue-600 font-extrabold" : ""}`}
                             onClick={() => toggleSort("leadRef")}
                           >
-                            <span>REF</span>
+                            <span>TEAM MEMBER</span>
                             <Icon
                               name={sortIcon("leadRef")}
                               className={`w-3.5 h-3.5 ${sortKey === "leadRef" ? "text-blue-600" : "text-slate-400"}`}
@@ -3590,11 +3641,8 @@ export default function LeadListPage() {
                                 ? 'bg-blue-100 text-blue-700 font-bold' 
                                 : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                             }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveHeaderDropdown(activeHeaderDropdown === 'leadRef' ? null : 'leadRef');
-                            }}
-                            title="Filter Ref"
+                            onClick={(e) => handleToggleHeaderDropdown(e, 'leadRef')}
+                            title="Filter Team Member"
                           >
                             <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
                           </button>
@@ -3611,16 +3659,17 @@ export default function LeadListPage() {
                           )}
                         </div>
 
-                        {activeHeaderDropdown === 'leadRef' && (
+                        {activeHeaderDropdown === 'leadRef' && createPortal(
                           <div 
-                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-52 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="relative mb-2">
                               <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                               <input
                                 type="text"
-                                placeholder="Search Ref..."
+                                placeholder="Search Team Member..."
                                 value={leadRefSearch}
                                 onChange={(e) => setLeadRefSearch(e.target.value)}
                                 className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
@@ -3636,7 +3685,7 @@ export default function LeadListPage() {
                                 }`}
                                 onClick={() => { setLeadRefFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadRefSearch(""); }}
                               >
-                                <span>All Refs</span>
+                                <span>All Team Members</span>
                                 {!leadRefFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
                               </button>
 
@@ -3661,7 +3710,8 @@ export default function LeadListPage() {
                                   </button>
                                 ))}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </th>
 
@@ -3687,10 +3737,7 @@ export default function LeadListPage() {
                                 ? 'bg-blue-100 text-blue-700 font-bold' 
                                 : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                             }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveHeaderDropdown(activeHeaderDropdown === 'group' ? null : 'group');
-                            }}
+                            onClick={(e) => handleToggleHeaderDropdown(e, 'group')}
                             title="Filter Group"
                           >
                             <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
@@ -3708,9 +3755,10 @@ export default function LeadListPage() {
                           )}
                         </div>
 
-                        {activeHeaderDropdown === 'group' && (
+                        {activeHeaderDropdown === 'group' && createPortal(
                           <div 
-                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="relative mb-2">
@@ -3758,7 +3806,8 @@ export default function LeadListPage() {
                                   </button>
                                 ))}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </th>
 
@@ -3784,10 +3833,7 @@ export default function LeadListPage() {
                                 ? 'bg-blue-100 text-blue-700 font-bold' 
                                 : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                             }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveHeaderDropdown(activeHeaderDropdown === 'leadStatus' ? null : 'leadStatus');
-                            }}
+                            onClick={(e) => handleToggleHeaderDropdown(e, 'leadStatus')}
                             title="Filter Status"
                           >
                             <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
@@ -3805,9 +3851,10 @@ export default function LeadListPage() {
                           )}
                         </div>
 
-                        {activeHeaderDropdown === 'leadStatus' && (
+                        {activeHeaderDropdown === 'leadStatus' && createPortal(
                           <div 
-                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="relative mb-2">
@@ -3855,7 +3902,8 @@ export default function LeadListPage() {
                                   </button>
                                 ))}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </th>
 
@@ -3881,10 +3929,7 @@ export default function LeadListPage() {
                                 ? 'bg-blue-100 text-blue-700 font-bold' 
                                 : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                             }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveHeaderDropdown(activeHeaderDropdown === 'quotation' ? null : 'quotation');
-                            }}
+                            onClick={(e) => handleToggleHeaderDropdown(e, 'quotation')}
                             title="Filter Quotation Status"
                           >
                             <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
@@ -3902,9 +3947,10 @@ export default function LeadListPage() {
                           )}
                         </div>
 
-                        {activeHeaderDropdown === 'quotation' && (
+                        {activeHeaderDropdown === 'quotation' && createPortal(
                           <div 
-                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="relative mb-2">
@@ -3952,7 +3998,8 @@ export default function LeadListPage() {
                                   </button>
                                 ))}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </th>
 
@@ -3975,6 +4022,22 @@ export default function LeadListPage() {
                           />
                         </button>
                       </th>
+
+                      {/* 11. AMOUNT */}
+                      <th className="sticky top-0 bg-slate-50 z-30 w-[120px] whitespace-nowrap py-3 px-3 text-right">
+                        <button
+                          type="button"
+                          className={`inline-flex items-center justify-end gap-1.5 hover:text-blue-600 transition-colors ml-auto ${sortKey === "quotationAmount" ? "text-blue-600 font-extrabold" : ""}`}
+                          onClick={() => toggleSort("quotationAmount")}
+                        >
+                          <span>AMOUNT</span>
+                          <Icon
+                            name={sortIcon("quotationAmount")}
+                            className={`w-3.5 h-3.5 ${sortKey === "quotationAmount" ? "text-blue-600" : "text-slate-400"}`}
+                          />
+                        </button>
+                      </th>
+
 
                       {/* 8. ENQUIRY DATE */}
                       <th className="sticky top-0 bg-slate-50 z-30 w-[140px] whitespace-nowrap py-3 px-3 text-left">
@@ -4021,21 +4084,7 @@ export default function LeadListPage() {
                         </button>
                       </th>
 
-                      {/* 11. AMOUNT */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[120px] whitespace-nowrap py-3 px-3 text-right">
-                        <button
-                          type="button"
-                          className={`inline-flex items-center justify-end gap-1.5 hover:text-blue-600 transition-colors ml-auto ${sortKey === "quotationAmount" ? "text-blue-600 font-extrabold" : ""}`}
-                          onClick={() => toggleSort("quotationAmount")}
-                        >
-                          <span>AMOUNT</span>
-                          <Icon
-                            name={sortIcon("quotationAmount")}
-                            className={`w-3.5 h-3.5 ${sortKey === "quotationAmount" ? "text-blue-600" : "text-slate-400"}`}
-                          />
-                        </button>
-                      </th>
-
+                      
                       {/* 12. GRADE */}
                       <th className="sticky top-0 bg-slate-50 z-30 w-[120px] whitespace-nowrap py-3 px-3 text-left">
                         <button
@@ -4073,10 +4122,7 @@ export default function LeadListPage() {
                                 ? 'bg-blue-100 text-blue-700 font-bold' 
                                 : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                             }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveHeaderDropdown(activeHeaderDropdown === 'enquiryType' ? null : 'enquiryType');
-                            }}
+                            onClick={(e) => handleToggleHeaderDropdown(e, 'enquiryType')}
                             title="Filter Enquiry Type"
                           >
                             <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
@@ -4094,9 +4140,10 @@ export default function LeadListPage() {
                           )}
                         </div>
 
-                        {activeHeaderDropdown === 'enquiryType' && (
+                        {activeHeaderDropdown === 'enquiryType' && createPortal(
                           <div 
-                            className="header-filter-popover absolute left-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-52 p-2 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-52 p-2 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="space-y-0.5 text-xs">
@@ -4129,7 +4176,8 @@ export default function LeadListPage() {
                                 </button>
                               ))}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </th>
 
@@ -4170,10 +4218,7 @@ export default function LeadListPage() {
                                 ? 'bg-blue-100 text-blue-700 font-bold' 
                                 : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                             }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveHeaderDropdown(activeHeaderDropdown === 'createdBy' ? null : 'createdBy');
-                            }}
+                            onClick={(e) => handleToggleHeaderDropdown(e, 'createdBy')}
                             title="Filter Created By"
                           >
                             <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
@@ -4191,9 +4236,10 @@ export default function LeadListPage() {
                           )}
                         </div>
 
-                        {activeHeaderDropdown === 'createdBy' && (
+                        {activeHeaderDropdown === 'createdBy' && createPortal(
                           <div 
-                            className="header-filter-popover absolute right-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="relative mb-2">
@@ -4241,7 +4287,8 @@ export default function LeadListPage() {
                                   </button>
                                 ))}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </th>
 
@@ -4267,10 +4314,7 @@ export default function LeadListPage() {
                                 ? 'bg-blue-100 text-blue-700 font-bold' 
                                 : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                             }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveHeaderDropdown(activeHeaderDropdown === 'updatedBy' ? null : 'updatedBy');
-                            }}
+                            onClick={(e) => handleToggleHeaderDropdown(e, 'updatedBy')}
                             title="Filter Updated By"
                           >
                             <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
@@ -4288,9 +4332,10 @@ export default function LeadListPage() {
                           )}
                         </div>
 
-                        {activeHeaderDropdown === 'updatedBy' && (
+                        {activeHeaderDropdown === 'updatedBy' && createPortal(
                           <div 
-                            className="header-filter-popover absolute right-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="relative mb-2">
@@ -4338,7 +4383,8 @@ export default function LeadListPage() {
                                   </button>
                                 ))}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </th>
 
@@ -4370,6 +4416,9 @@ export default function LeadListPage() {
                               onChange={() => toggleSelect(lead.leadId)}
                               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
+                          </td>
+                          <td className="px-2 py-2 text-xs font-bold text-gray-500 text-center whitespace-nowrap">
+                            {(currentPage - 1) * pageSize + idx + 1}
                           </td>
                           <td className="px-3 py-2 max-w-[200px]">
                             <div className="flex items-center gap-2.5">
@@ -4671,16 +4720,28 @@ export default function LeadListPage() {
                           <td
                             className="px-3 py-2 text-xs font-medium text-gray-700 truncate"
                             title={
-                              lead.quotationNumber || "No quotation number"
+                              lead.quotationNumber || ""
                             }
                           >
                             {lead.quotationNumber &&
                             lead.quotationNumber !== "000" &&
                             lead.quotationNumber !== "0" &&
-                            lead.quotationNumber !== "—" ? (
+                            lead.quotationNumber !== "—" &&
+                            lead.quotationNumber !== "-" ? (
                               <span className="font-mono text-xs">
                                 {lead.quotationNumber}
                               </span>
+                            ) : (
+                              ""
+                            )}
+                          </td>
+
+                          <td className="px-3 py-2 text-xs font-bold text-gray-900 text-right">
+                            {lead.quotationAmount != null ? (
+                              formatCurrency(
+                                lead.quotationAmount,
+                                lead.leadCountry,
+                              )
                             ) : (
                               <span className="text-gray-300">—</span>
                             )}
@@ -4709,16 +4770,7 @@ export default function LeadListPage() {
                               <span className="text-gray-300">—</span>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-xs font-bold text-gray-900 text-right">
-                            {lead.quotationAmount != null ? (
-                              formatCurrency(
-                                lead.quotationAmount,
-                                lead.leadCountry,
-                              )
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
+                          
 
                           {/* <td className="px-3 py-2">
                               {score ? (

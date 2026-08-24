@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import {useSearchParams} from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import Icon from '../Icon'
 import { LEAD_SOURCES, INDUSTRIES, COUNTRIES, LEAD_GROUPS } from '../../utils/constants'
 import { useTeamMember } from '../../hooks/useTeamMember'
@@ -81,7 +81,8 @@ function populate(data) {
     enquiryType: data.enquiryType ?? 'Qualified',
     companyContactPersonName: data.companyContactPersonName ?? '',
     quotationNumber: data.quotationNumber ?? '',
-    quotationDate: data.quotationDate ?? '',
+    quotationDate: data.quotationDate ?? data.quotationWorkingDate ?? '',
+    quotationWorkingDate: data.quotationWorkingDate ?? data.quotationDate ?? '',
     quotationSentDate: data.quotationSentDate ?? '',
     quotationAmount: data.quotationAmount != null && data.quotationAmount !== '' ? convertFromBase(data.quotationAmount, data.leadCountry) : '',
     followUpRemark: data.followUpRemark ?? '',
@@ -104,7 +105,7 @@ function getFinancialYear(dateStr) {
   return `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
 }
 
-function parseQuotationParts(qNum, orgName, inquiryDateVal) {
+function parseQuotationParts(qNum, inquiryDateVal) {
   const parts = {
     prefix: 'UWS',
     ref: '',
@@ -112,11 +113,6 @@ function parseQuotationParts(qNum, orgName, inquiryDateVal) {
     serial: '',
     revision: '',
   };
-
-  if (orgName) {
-    const orgPrefix = orgName.split(/\s+/).map(w => w[0]).join('').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-    if (orgPrefix) parts.prefix = orgPrefix;
-  }
 
   if (!qNum) return parts;
 
@@ -132,7 +128,11 @@ function parseQuotationParts(qNum, orgName, inquiryDateVal) {
 
   if (tokens.length === 0) return parts;
 
-  parts.prefix = tokens[0];
+  if (tokens[0].toUpperCase() === 'UETPL') {
+    parts.prefix = 'UETPL';
+  } else {
+    parts.prefix = 'UWS';
+  }
 
   const yearIdx = tokens.findIndex(t => t.includes('-') && /\d/.test(t));
   if (yearIdx === 1) {
@@ -153,7 +153,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const leadApi = useLead();
   const orgApi = useOrganization();
   const { update } = leadApi;
-  
+
   const sourceHook = useLeadSource();
   const groupHook = useLeadGroup();
   const statusHook = useLeadStatus();
@@ -168,7 +168,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const [leadGroups, setLeadGroups] = useState([]);
   const [leadStatuses, setLeadStatuses] = useState([]);
   const [form, setForm] = useState(() => populate(initial));
-  const [qPrefix, setQPrefix] = useState('');
+  const [qPrefix, setQPrefix] = useState('UWS');
   const [qSerial, setQSerial] = useState('');
   const [previousSerialNo, setPreviousSerialNo] = useState('');
   const [qYear, setQYear] = useState('');
@@ -230,6 +230,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const negotiationApi = useNegotiation();
   const [revisions, setRevisions] = useState([]);
   const [replaceMode, setReplaceMode] = useState(false);
+  const [selectedTeamFilter, setSelectedTeamFilter] = useState('');
 
   useEffect(() => {
     if (initial?.leadId) {
@@ -249,10 +250,30 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
 
   const selectedRevCode = (form.quotationRevision || "R0").toUpperCase();
   const matchingRevision = (revisions || []).find(r => (r.revisionNo || "R0").toUpperCase() === selectedRevCode);
-  
+
   let currentRevDocs = [];
   if (matchingRevision && matchingRevision.documents && matchingRevision.documents.length > 0) {
     currentRevDocs = [matchingRevision.documents[matchingRevision.documents.length - 1]];
+  } else if (selectedRevCode === "R0" && initial) {
+    const leadDocs = [
+      initial.uploadDocument,
+      initial.uploadDocument1,
+      initial.uploadDocument2,
+      initial.uploadDocument3
+    ].filter(Boolean);
+    if (leadDocs.length > 0) {
+      const url = leadDocs[leadDocs.length - 1];
+      let name = url.substring(url.lastIndexOf('/') + 1);
+      if (name.includes('_')) {
+        name = name.substring(name.indexOf('_') + 1);
+      }
+      currentRevDocs = [{
+        id: `doc-r0-lead`,
+        fileName: name,
+        fileUrl: url,
+        quotationNo: form.quotationNumber
+      }];
+    }
   }
 
   const hasExistingDocs = currentRevDocs.length > 0 && !replaceMode;
@@ -261,12 +282,12 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
     const selectedVal = e.target.value;
     const revCode = (selectedVal || "R0").toUpperCase();
     setReplaceMode(false);
-    
+
     setForm((prev) => {
       const updated = { ...prev, quotationRevision: selectedVal };
       const baseQuotNo = (prev.quotationNumber || "").replace(/\/R\d+$/i, "");
 
-      const matchingRev = (revisions || []).find(r => 
+      const matchingRev = (revisions || []).find(r =>
         (r.revisionNo || r.quotationRevision || "R0").toUpperCase() === revCode
       );
 
@@ -315,8 +336,23 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
         await negotiationApi.deleteDocumentsByQuotationNo(currentQuotNo);
       }
 
+      if (initial?.leadId) {
+        try {
+          await leadApi.update(initial.leadId, {
+            ...initial,
+            uploadDocument: null,
+            uploadDocument1: null,
+            uploadDocument2: null,
+            uploadDocument3: null
+          });
+        } catch (e) {
+          console.warn("Could not clear lead doc fields:", e);
+        }
+      }
+
       setReplaceMode(true);
       await loadRevisions();
+      window.dispatchEvent(new CustomEvent("crm-data-updated"));
     } catch (err) {
       console.error("Failed to delete revision document:", err);
       setReplaceMode(true);
@@ -332,11 +368,11 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   };
 
   // Filter sources and groups based on search term
-  const filteredSources = leadSources.filter(source => 
+  const filteredSources = leadSources.filter(source =>
     source.sourceName?.toLowerCase().includes(sourceSearchTerm.toLowerCase())
   );
 
-  const filteredGroups = leadGroups.filter(group => 
+  const filteredGroups = leadGroups.filter(group =>
     group.groupName?.toLowerCase().includes(groupSearchTerm.toLowerCase())
   );
 
@@ -382,7 +418,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const filteredCompanies = useMemo(() => {
     const term = (form.leadOrganisationName || '').trim().toLowerCase();
     if (!term) return existingCompanies;
-    return existingCompanies.filter(c => 
+    return existingCompanies.filter(c =>
       c.name.toLowerCase().includes(term)
     );
   }, [existingCompanies, form.leadOrganisationName]);
@@ -404,7 +440,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
       leadsList.forEach(lead => {
         const name = (lead.leadOrganisationName || lead.organisationName || lead.companyName || '').trim();
         if (name && !companyMap.has(name.toLowerCase())) {
-          const contactPerson = lead.companyContactPersonName || 
+          const contactPerson = lead.companyContactPersonName ||
             ([lead.leadFirstName, lead.leadLastName].filter(Boolean).join(' ')) || '';
           companyMap.set(name.toLowerCase(), {
             name: name,
@@ -452,7 +488,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
 
   const handleCompanySelect = (company) => {
     const selectedName = typeof company === 'string' ? company : company.name;
-    
+
     if (typeof company === 'object' && company?.details) {
       const d = company.details;
       setForm(prev => ({
@@ -537,7 +573,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
 
   useEffect(() => {
     if (initial?.quotationNumber) {
-      const qParts = parseQuotationParts(initial.quotationNumber, initial.leadOrganisationName, initial.inquiryDate);
+      const qParts = parseQuotationParts(initial.quotationNumber, initial.inquiryDate);
       if (qParts.prefix) setQPrefix(qParts.prefix);
       if (qParts.serial) setQSerial(qParts.serial);
       if (qParts.year) setQYear(qParts.year);
@@ -547,9 +583,10 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
     }
   }, [initial?.quotationNumber, initial?.id]);
 
-  // Auto-generate quotation number from helper fields
+  // Auto-generate quotation number from helper fields only if lead already has a quotation number being edited or explicit manual override
   useEffect(() => {
     if (isManualQuotation) return;
+    if (!initial?.id && !initial?.quotationNumber) return;
     const parts = [qPrefix || 'UWS', form.leadRefQuotation, qYear || getFinancialYear(form.inquiryDate), qSerial].filter(Boolean).join('/');
     const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
     setForm(f => {
@@ -558,7 +595,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
       }
       return f;
     });
-  }, [qPrefix, form.leadRefQuotation, qYear, qSerial, form.quotationRevision, isManualQuotation, form.inquiryDate]);
+  }, [qPrefix, form.leadRefQuotation, qYear, qSerial, form.quotationRevision, isManualQuotation, form.inquiryDate, initial?.id, initial?.quotationNumber]);
 
   // Default Prefix from company name
   useEffect(() => {
@@ -601,7 +638,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const groupedData = useMemo(() => {
     return groupMembersByTeam(teams, teamMembers, assignments);
   }, [teams, teamMembers, assignments]);
-  
+
   // Sync form when initial changes
   useEffect(() => {
     setForm(populate(initial));
@@ -724,6 +761,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
       ...form,
       noOfEmployee: form.noOfEmployee ? Number(form.noOfEmployee) : undefined,
       quotationAmount: baseQuotationAmount,
+      quotationWorkingDate: form.quotationDate || form.quotationWorkingDate || undefined,
     });
   }
 
@@ -822,84 +860,68 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                 required
                 className={`${inputCls} pl-9`}
               />
-              {showCompanyDropdown && (
+              {showCompanyDropdown && filteredCompanies.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {filteredCompanies.length > 0 ? (
-                    filteredCompanies.map((company, idx) => (
-                      <div
-                        key={idx}
-                        className="px-3 py-2.5 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-50 last:border-0 flex items-center justify-between"
-                        onMouseDown={() => handleCompanySelect(company)}
-                      >
-                        <div>
-                          <div className="font-semibold text-gray-800 flex items-center gap-1.5">
-                            <Icon name="mdi:office-building" className="w-4 h-4 text-blue-500" />
-                            {company.name}
-                          </div>
-                          {(company.details?.companyContactPersonName || company.details?.leadMobileNo || company.details?.leadCity) && (
-                            <div className="text-xs text-gray-400 mt-0.5 pl-5">
-                              {[
-                                company.details?.companyContactPersonName,
-                                company.details?.leadMobileNo,
-                                company.details?.leadCity
-                              ].filter(Boolean).join(' • ')}
-                            </div>
-                          )}
-                        </div>
-                        <span className="text-[10px] font-medium px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
-                          Existing Company
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="px-3 py-2 text-sm text-gray-500 flex items-center justify-between">
-                      <span>No matching existing companies</span>
-                      <span className="text-xs text-blue-600 font-medium">New Company Will Be Created</span>
-                    </div>
-                  )}
-                  {form.leadOrganisationName?.trim() && !filteredCompanies.some(c => c.name.toLowerCase() === form.leadOrganisationName.trim().toLowerCase()) && (
+                  {filteredCompanies.map((company, idx) => (
                     <div
-                      className="px-3 py-2.5 hover:bg-emerald-50 cursor-pointer text-sm text-emerald-700 font-medium border-t border-gray-100 flex items-center gap-2"
-                      onMouseDown={() => handleCompanySelect(form.leadOrganisationName.trim())}
+                      key={idx}
+                      className="px-3 py-2.5 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-50 last:border-0 flex items-center justify-between"
+                      onMouseDown={() => handleCompanySelect(company)}
                     >
-                      <Icon name="mdi:plus-circle" className="w-4 h-4 text-emerald-600" />
-                      Add as new company: "{form.leadOrganisationName}"
+                      <div>
+                        <div className="font-semibold text-gray-800 flex items-center gap-1.5">
+                          <Icon name="mdi:office-building" className="w-4 h-4 text-blue-500" />
+                          {company.name}
+                        </div>
+                        {(company.details?.companyContactPersonName || company.details?.leadMobileNo || company.details?.leadCity) && (
+                          <div className="text-xs text-gray-400 mt-0.5 pl-5">
+                            {[
+                              company.details?.companyContactPersonName,
+                              company.details?.leadMobileNo,
+                              company.details?.leadCity
+                            ].filter(Boolean).join(' • ')}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-medium px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                        Existing Company
+                      </span>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
             </div>
-            {form.leadOrganisationName && !showCompanyDropdown && (
+            {form.leadOrganisationName?.trim() && (
               <div className="text-[11px] mt-1 flex items-center justify-between">
                 <span>
-                  {existingCompanies.some(c => c.name.toLowerCase() === form.leadOrganisationName.trim().toLowerCase()) ? (
+                  {existingCompanies.some(c => (c.name || '').trim().toLowerCase() === form.leadOrganisationName.trim().toLowerCase()) ? (
                     <span className="text-blue-600 font-medium flex items-center gap-1">
                       <Icon name="mdi:check-circle-outline" className="w-3.5 h-3.5 inline" /> Existing company selected
                     </span>
                   ) : (
                     <span className="text-emerald-600 font-medium flex items-center gap-1">
-                      <Icon name="mdi:plus-circle-outline" className="w-3.5 h-3.5 inline" /> New company will be added
+                      <Icon name="mdi:plus-circle-outline" className="w-3.5 h-3.5 inline" /> New company will be created on "Create Lead"
                     </span>
                   )}
                 </span>
               </div>
             )}
           </div>
-<div>
-  <label className={labelCls}>Contact Phone</label>
-  <div className="relative">
-    <Icon name="mdi:phone-outline" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-    <input
-      type="tel"
-      value={form.leadMobileNo}
-      onChange={(e) =>
-        set("leadMobileNo", e.target.value.replace(/\D/g, ""))
-      }
-      placeholder="Phone/Mobile Number"
-      className={`${inputCls} pl-9`}
-    />
-  </div>
-</div>
+          <div>
+            <label className={labelCls}>Contact Phone</label>
+            <div className="relative">
+              <Icon name="mdi:phone-outline" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                type="tel"
+                value={form.leadMobileNo}
+                onChange={(e) =>
+                  set("leadMobileNo", e.target.value.replace(/\D/g, ""))
+                }
+                placeholder="Phone/Mobile Number"
+                className={`${inputCls} pl-9`}
+              />
+            </div>
+          </div>
 
           <div>
             <label className={labelCls}>Contact Email</label>
@@ -931,6 +953,22 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
           </div>
 
           <div>
+            <label className={labelCls}>Assigned Team</label>
+            <select
+              value={selectedTeamFilter}
+              onChange={(e) => setSelectedTeamFilter(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">All Teams / Show All Members</option>
+              {teams.map((t) => (
+                <option key={getTeamId(t)} value={getTeamId(t)}>
+                  📁 {getTeamLabel(t)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className={labelCls}>Team Members</label>
             <select
               value={form.leadRef}
@@ -938,29 +976,56 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
               className={inputCls}
             >
               <option value="">Select Team Member</option>
-              {groupedData.groupedTeams.map(({ team, members }) => (
-                <optgroup key={getTeamId(team)} label={`📁 ${getTeamLabel(team)}`}>
-                  {members.map((member) => (
-                    <option
-                      key={getMemberId(member)}
-                      value={member.teamMemberName}
-                    >
-                      {member.teamMemberName} ({member.teamMemberRole || 'Member'})
-                    </option>
+              {selectedTeamFilter ? (
+                <>
+                  <optgroup label={`🎯 ${getTeamLabel(teams.find(t => String(getTeamId(t)) === String(selectedTeamFilter)))} Members`}>
+                    {(groupedData.groupedTeams.find(
+                      (g) => String(getTeamId(g.team)) === String(selectedTeamFilter)
+                    )?.members || []).map((m) => (
+                      <option key={getMemberId(m)} value={m.teamMemberName}>
+                        {m.teamMemberName} ({m.teamMemberRole || 'Member'})
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="👥 Other Teams & All Members">
+                    {teamMembers
+                      .filter((m) => {
+                        const teamGroup = groupedData.groupedTeams.find(
+                          (g) => String(getTeamId(g.team)) === String(selectedTeamFilter)
+                        );
+                        const memberIdsInSelectedTeam = (teamGroup?.members || []).map((tm) =>
+                          getMemberId(tm)
+                        );
+                        return !memberIdsInSelectedTeam.includes(getMemberId(m));
+                      })
+                      .map((m) => (
+                        <option key={getMemberId(m)} value={m.teamMemberName}>
+                          {m.teamMemberName} ({m.teamMemberRole || 'Member'})
+                        </option>
+                      ))}
+                  </optgroup>
+                </>
+              ) : (
+                <>
+                  {groupedData.groupedTeams.map(({ team, members }) => (
+                    <optgroup key={getTeamId(team)} label={`📁 ${getTeamLabel(team)}`}>
+                      {members.map((member) => (
+                        <option key={getMemberId(member)} value={member.teamMemberName}>
+                          {member.teamMemberName} ({member.teamMemberRole || 'Member'})
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
-                </optgroup>
-              ))}
-              {groupedData.unassigned.length > 0 && (
-                <optgroup label="👤 General / Unassigned Members">
-                  {groupedData.unassigned.map((member) => (
-                    <option
-                      key={getMemberId(member)}
-                      value={member.teamMemberName}
-                    >
-                      {member.teamMemberName} ({member.teamMemberRole || 'Member'})
-                    </option>
-                  ))}
-                </optgroup>
+                  {groupedData.unassigned.length > 0 && (
+                    <optgroup label="👤 General / Unassigned Members">
+                      {groupedData.unassigned.map((member) => (
+                        <option key={getMemberId(member)} value={member.teamMemberName}>
+                          {member.teamMemberName} ({member.teamMemberRole || 'Member'})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </>
               )}
             </select>
           </div>
@@ -1409,6 +1474,18 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
               </select>
             </div>
 
+
+
+            <div>
+              <label className={labelCls}>Quotation Working Date</label>
+              <input
+                type="date"
+                value={form.quotationDate}
+                onChange={(e) => set('quotationDate', e.target.value)}
+                className={inputCls}
+              />
+            </div>
+
             <div>
               <label className={labelCls}>Quotation Revision</label>
               <select
@@ -1424,16 +1501,6 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
               </select>
             </div>
 
-            <div>
-              <label className={labelCls}>Quotation Working Date</label>
-              <input
-                type="date"
-                value={form.quotationDate}
-                onChange={(e) => set('quotationDate', e.target.value)}
-                className={inputCls}
-              />
-            </div>
-
             <div className="col-span-full bg-slate-50/80 p-3 rounded-lg border border-slate-200 space-y-3">
               {isManualQuotation && (
                 <div className="flex items-center justify-between">
@@ -1441,7 +1508,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                     type="button"
                     onClick={() => {
                       setIsManualQuotation(false);
-                      const parsed = parseQuotationParts(form.quotationNumber, form.leadOrganisationName, form.inquiryDate);
+                      const parsed = parseQuotationParts(form.quotationNumber, form.inquiryDate);
                       const p = qPrefix || parsed.prefix || 'UWS';
                       const y = qYear || parsed.year || getFinancialYear(form.inquiryDate);
                       const s = qSerial || parsed.serial || '001';
@@ -1632,23 +1699,23 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                           </span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <button 
-                            type="button" 
-                            onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName, doc.fileName)} 
+                          <button
+                            type="button"
+                            onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName, doc.fileName)}
                             className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
                           >
                             <Icon name="mdi:eye" /> View
                           </button>
-                          <button 
-                            type="button" 
-                            onClick={() => negotiationApi.handleDownloadRevisionDocument(doc.fileUrl || doc.fileName, doc.fileName)} 
+                          <button
+                            type="button"
+                            onClick={() => negotiationApi.handleDownloadRevisionDocument(doc.fileUrl || doc.fileName, doc.fileName)}
                             className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
                           >
                             <Icon name="mdi:download" /> Download
                           </button>
-                          <button 
-                            type="button" 
-                            onClick={() => handleDeleteRevisionDocument(doc.id || doc.quotationNo || selectedRevCode)} 
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRevisionDocument(doc.id || doc.quotationNo || selectedRevCode)}
                             className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
                           >
                             <Icon name="mdi:delete" /> Delete / Replace

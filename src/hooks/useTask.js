@@ -10,6 +10,8 @@ export function useTask() {
     api.postForm('/tasks', objectToFormData('task', task, { taskDoc: doc ?? null }))
   const update = (id, task, doc) =>
     api.putForm(`/tasks/${id}`, objectToFormData('task', task, { taskDoc: doc ?? null }))
+  const bulkUpdate = (payload) => api.put('/tasks/bulk-update', payload)
   const remove = (id) => api.del(`/tasks/${id}`)
-  return { getAll, getById, getByTeam, create, update, remove }
+  return { getAll, getById, getByTeam, create, update, bulkUpdate, remove }
 }
+

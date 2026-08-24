@@ -10,6 +10,7 @@ import {
   getMemberLabel,
   getTeamLabel,
   teamsForMember,
+  assignmentIdsForMember,
 } from '../../utils/teamRelations';
 
 const emptyForm = {
@@ -201,11 +202,13 @@ export default function TeamLeadPage() {
   }
 
   async function removeTeamLead(member) {
-    if (!confirm(`Are you sure you want to remove Team Lead role for ${getMemberLabel(member)}?`)) return;
+    const memberId = getMemberId(member);
+    const memberName = getMemberLabel(member);
+    if (!confirm(`Are you sure you want to delete Team Lead "${memberName}"? This will delete the account and clear all lead assignments.`)) return;
     setSaving(true);
     try {
-      // Find teams led by this member and clear lead ID
-      const ledTeams = teams.filter((t) => Number(t.teamLeadId) === Number(getMemberId(member)));
+      // 1. Unassign member from any teams they lead
+      const ledTeams = teams.filter((t) => Number(t.teamLeadId) === Number(memberId));
       await Promise.all(
         ledTeams.map((t) =>
           teamHook.update(t.teamId, {
@@ -214,10 +217,18 @@ export default function TeamLeadPage() {
           })
         )
       );
+
+      // 2. Remove team assignments for this member
+      const existingAssignmentIds = assignmentIdsForMember(memberId, assignments);
+      await Promise.all(existingAssignmentIds.map((id) => createTeamHook.remove(id)));
+
+      // 3. Delete team member record & associated user account
+      await teamMemberHook.remove(memberId);
+
       await loadData();
     } catch (error) {
       console.error('Failed to remove team lead:', error);
-      alert('Failed to update team lead role.');
+      alert(error?.response?.data?.message || error?.message || 'Failed to remove team lead.');
     } finally {
       setSaving(false);
     }
@@ -356,7 +367,7 @@ export default function TeamLeadPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTeamLeads.map((member) => {
             const memberId = getMemberId(member);
-            const name = getMemberLabel(member);
+            const displayName = member.teamMemberName || member.name || member.teamMemberEmail || 'Unnamed Lead';
             const email = member.teamMemberEmail;
             const mobile = member.teamMemberMobile;
             const ledTeams = teams.filter((t) => Number(t.teamLeadId) === Number(memberId));
@@ -369,23 +380,25 @@ export default function TeamLeadPage() {
               >
                 <div>
                   {/* Card Header */}
-                  <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-100 dark:border-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center font-bold text-sm shadow-sm dark:bg-amber-900/40 dark:text-amber-300">
-                        {name.substring(0, 2).toUpperCase()}
+                  <div className="flex items-start justify-between gap-3 pb-4 mb-4 border-b border-gray-100 dark:border-white/5">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-11 h-11 shrink-0 rounded-2xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center font-bold text-sm shadow-sm dark:bg-amber-900/40 dark:text-amber-300">
+                        {displayName.substring(0, 2).toUpperCase()}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <h3 className="text-base font-bold text-gray-900 dark:text-white">{name}</h3>
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="text-base font-bold text-gray-900 dark:text-white truncate" title={displayName}>
+                            {displayName}
+                          </h3>
+                          <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
                             👑 TEAM LEAD
                           </span>
                         </div>
-                        {email && <p className="text-xs text-gray-400 mt-0.5">{email}</p>}
+                        {email && <p className="text-xs text-gray-400 mt-0.5 truncate" title={email}>{email}</p>}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => openEdit(member)}
                         className="rounded-xl p-2 text-gray-400 hover:bg-amber-50 hover:text-amber-600 transition-colors"
@@ -396,7 +409,7 @@ export default function TeamLeadPage() {
                       <button
                         onClick={() => removeTeamLead(member)}
                         className="rounded-xl p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                        title="Remove Team Lead Role"
+                        title="Delete Team Lead"
                       >
                         <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
                       </button>
@@ -464,7 +477,7 @@ export default function TeamLeadPage() {
               <tbody className="divide-y divide-gray-100 dark:divide-white/5">
                 {filteredTeamLeads.map((member) => {
                   const memberId = getMemberId(member);
-                  const name = getMemberLabel(member);
+                  const displayName = member.teamMemberName || member.name || member.teamMemberEmail || 'Unnamed Lead';
                   const email = member.teamMemberEmail;
                   const mobile = member.teamMemberMobile;
                   const ledTeams = teams.filter((t) => Number(t.teamLeadId) === Number(memberId));
@@ -472,14 +485,14 @@ export default function TeamLeadPage() {
                   return (
                     <tr key={memberId} className="hover:bg-slate-50/70 transition-colors dark:hover:bg-slate-800/50">
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-800 border border-amber-300 font-bold flex items-center justify-center text-xs dark:bg-amber-900/40 dark:text-amber-300">
-                            {name.substring(0, 2).toUpperCase()}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 shrink-0 rounded-full bg-amber-100 text-amber-800 border border-amber-300 font-bold flex items-center justify-center text-xs dark:bg-amber-900/40 dark:text-amber-300">
+                            {displayName.substring(0, 2).toUpperCase()}
                           </div>
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                              <p className="font-bold text-gray-900 dark:text-white">{name}</p>
-                              <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                              <p className="font-bold text-gray-900 dark:text-white truncate" title={displayName}>{displayName}</p>
+                              <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">
                                 👑 LEAD
                               </span>
                             </div>
@@ -488,7 +501,7 @@ export default function TeamLeadPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="font-semibold text-gray-800 dark:text-slate-200">{email || '-'}</p>
+                        <p className="font-semibold text-gray-800 dark:text-slate-200 truncate">{email || '-'}</p>
                         {mobile && <p className="text-gray-400 text-[11px]">{mobile}</p>}
                       </td>
                       <td className="px-6 py-4">
@@ -504,7 +517,7 @@ export default function TeamLeadPage() {
                                 <Icon name="mdi:folder-outline" className="w-3 h-3" />
                                 {getTeamLabel(t)}
                               </span>
-                            ))}
+                                                        ))}
                           </div>
                         )}
                       </td>
@@ -520,7 +533,7 @@ export default function TeamLeadPage() {
                           <button
                             onClick={() => removeTeamLead(member)}
                             className="rounded-xl p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-                            title="Remove Team Lead Role"
+                            title="Delete Team Lead"
                           >
                             <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
                           </button>

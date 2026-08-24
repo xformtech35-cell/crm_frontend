@@ -4,6 +4,7 @@ import { useDataScopeConfig } from '../../hooks/useDataScopeConfig'
 import { useRole } from '../../hooks/useRole'
 import { useTeamMember } from '../../hooks/useTeamMember'
 import { useAuthStore } from '../../stores/auth'
+import { useDashHeaderConfig } from '../../hooks/useDashHeaderConfig'
 
 const MODULES = [
   // MAIN
@@ -79,7 +80,8 @@ export default function DataAccessConfigPage() {
   const teamMemberHook = useTeamMember()
   const selectedCompanyId = useAuthStore((s) => s.selectedCompanyId)
 
-  const [activeTab, setActiveTab] = useState('roles') // 'roles' | 'users'
+  const { config: dashHeaderConfig, updateConfig: updateDashHeaderConfig } = useDashHeaderConfig()
+  const [activeTab, setActiveTab] = useState('roles') // 'roles' | 'users' | 'dashboard'
   const [roles, setRoles] = useState([])
   const [members, setMembers] = useState([])
   const [configs, setConfigs] = useState([])
@@ -312,6 +314,17 @@ export default function DataAccessConfigPage() {
             <Icon name="mdi:account-cog-outline" className="h-4 w-4" />
             User Specific Overrides ({members.length})
           </button>
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+              activeTab === 'dashboard'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            <Icon name="mdi:view-dashboard-edit-outline" className="h-4 w-4" />
+            Dashboard & Header Config
+          </button>
         </div>
 
         <div className="relative w-full sm:w-72">
@@ -355,10 +368,11 @@ export default function DataAccessConfigPage() {
       </div>
 
       {/* Main Scoping Matrix Table */}
-      <section className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-        {loading ? (
-          <div className="p-10 text-center text-sm text-gray-500">Loading access configuration matrix...</div>
-        ) : activeTab === 'roles' ? (
+      {activeTab !== 'dashboard' && (
+        <section className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+          {loading ? (
+            <div className="p-10 text-center text-sm text-gray-500">Loading access configuration matrix...</div>
+          ) : activeTab === 'roles' ? (
           /* Role Scoping Matrix */
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-sm">
@@ -507,7 +521,122 @@ export default function DataAccessConfigPage() {
             </table>
           </div>
         )}
-      </section>
+        </section>
+      )}
+      {activeTab === 'dashboard' && (
+        <div className="space-y-8 animate-fade-in">
+          {/* Section 1: Header Elements Configuration */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <Icon name="mdi:page-layout-header" className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">Header Controls & Data Access Configuration</h2>
+                  <p className="text-xs text-gray-500">Enable or disable elements rendered in the top application navigation header.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                { key: 'showViewContext', label: 'View Context Selector', desc: 'Allows admins to filter data context by specific team members', icon: 'mdi:account-group' },
+                { key: 'showQuickCreate', label: 'Quick Create Button', desc: 'Renders the + Quick Create shortcut button in the header', icon: 'mdi:plus-circle-outline' },
+                { key: 'showNotifications', label: 'Notification Center Bell', desc: 'Renders the notification bell icon and unread count badge', icon: 'mdi:bell-outline' },
+                { key: 'showRefreshBtn', label: 'Refresh Page Button', desc: 'Renders the page refresh action button in the header bar', icon: 'mdi:refresh' },
+                { key: 'showBackBtn', label: 'Navigation Back Button', desc: 'Renders the history back navigation button in header', icon: 'mdi:arrow-left' },
+                { key: 'showHeaderBadges', label: 'Header Counter Badges', desc: 'Renders total item counter badges in page headers', icon: 'mdi:numeric' },
+              ].map((item) => {
+                const isChecked = !!dashHeaderConfig.header[item.key];
+                return (
+                  <div key={item.key} className="p-4 rounded-xl border border-gray-100 bg-gray-50/50 flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <Icon name={item.icon} className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-900">{item.label}</h4>
+                        <p className="text-[11px] text-gray-500 mt-0.5">{item.desc}</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const updated = {
+                            ...dashHeaderConfig,
+                            header: { ...dashHeaderConfig.header, [item.key]: e.target.checked }
+                          };
+                          updateDashHeaderConfig(updated);
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600" />
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section 2: Dashboard Metric Cards & Widgets */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                  <Icon name="mdi:view-dashboard" className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">Dashboard Widget & Metric Cards Configuration</h2>
+                  <p className="text-xs text-gray-500">Configure which KPI metric cards, funnel charts, and widgets are displayed on the main Dashboard.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                { key: 'showTotalLeadsCard', label: 'Total Leads KPI Card', desc: 'Displays total leads count and status breakdown', icon: 'mdi:account-arrow-right-outline' },
+                { key: 'showRevenueCard', label: 'Pipeline Revenue Card', desc: 'Displays total deal revenue and quotation value', icon: 'mdi:currency-usd' },
+                { key: 'showNegotiationsCard', label: 'Active Negotiations Card', desc: 'Displays open quotation revisions & deal negotiations', icon: 'mdi:handshake-outline' },
+                { key: 'showTasksCard', label: 'Tasks & Follow-ups Card', desc: 'Displays pending task assignments and due reminders', icon: 'mdi:checkbox-marked-circle-outline' },
+                { key: 'showMarketplaceCard', label: 'Marketplace Leads Card', desc: 'Displays IndiaMART and TradeIndia lead counters', icon: 'mdi:storefront-outline' },
+                { key: 'showStarLeadsCard', label: 'Star Rated Leads Widget', desc: 'Displays 5-Star, 4-Star high-value lead rankings', icon: 'mdi:star-outline' },
+                { key: 'showChartsCard', label: 'Analytics & Funnel Charts', desc: 'Displays bar and doughnut charts for lead conversion', icon: 'mdi:chart-bar' },
+                { key: 'showActivityTimelineCard', label: 'Activity Timeline Widget', desc: 'Displays live feed of calls, emails, and meetings', icon: 'mdi:timeline-text-outline' },
+                { key: 'showPipelineStageCard', label: 'Sales Funnel Stage Widget', desc: 'Displays visual sales funnel conversion polygon', icon: 'mdi:filter-variant' },
+              ].map((item) => {
+                const isChecked = !!dashHeaderConfig.dashboard[item.key];
+                return (
+                  <div key={item.key} className="p-4 rounded-xl border border-gray-100 bg-gray-50/50 flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <Icon name={item.icon} className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-900">{item.label}</h4>
+                        <p className="text-[11px] text-gray-500 mt-0.5">{item.desc}</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const updated = {
+                            ...dashHeaderConfig,
+                            dashboard: { ...dashHeaderConfig.dashboard, [item.key]: e.target.checked }
+                          };
+                          updateDashHeaderConfig(updated);
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600" />
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sticky Bottom Save Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-gray-200 bg-white/95 px-6 py-3 shadow-lg backdrop-blur-md">

@@ -256,6 +256,26 @@ export default function ModuleWorkspace({ config, hidePrimaryAction }) {
       const payload = config.toPayload
         ? config.toPayload(form, selected)
         : form;
+
+      // Case-insensitive duplicate check for primary key (e.g. Organization Name)
+      if (config.primaryKey && payload[config.primaryKey]) {
+        const targetVal = String(payload[config.primaryKey]).trim().toLowerCase();
+        const duplicate = items.some((item) => {
+          const itemVal = String(valueOf(item, config.primaryKey) || "").trim().toLowerCase();
+          const isSameId = selected && String(config.getId(item)) === String(config.getId(selected));
+          return itemVal === targetVal && !isSameId;
+        });
+
+        if (duplicate) {
+          setSaving(false);
+          setToast({
+            type: "error",
+            text: `${config.singular} "${String(payload[config.primaryKey]).trim()}" already exists! Duplicates are not allowed.`,
+          });
+          return;
+        }
+      }
+
       if (selected) {
         const updated = await config.update(config.getId(selected), payload);
         setItems((current) =>

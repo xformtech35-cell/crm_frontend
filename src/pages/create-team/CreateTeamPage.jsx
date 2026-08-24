@@ -28,6 +28,13 @@ export default function CreateTeamPage() {
     roleIdFk: '',
   });
 
+  const extractArray = (res) => {
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res?.data)) return res.data;
+    if (Array.isArray(res?.data?.data)) return res.data.data;
+    return [];
+  };
+
   async function loadData() {
     setLoading(true);
     try {
@@ -37,10 +44,10 @@ export default function CreateTeamPage() {
         teamMemberHook.getAll(),
         roleHook.getAll(),
       ]);
-      setAssignments(Array.isArray(assignmentData) ? assignmentData : []);
-      setTeams(Array.isArray(teamData) ? teamData : []);
-      setMembers(Array.isArray(memberData) ? memberData : []);
-      setRoles(Array.isArray(roleData) ? roleData : []);
+      setAssignments(extractArray(assignmentData));
+      setTeams(extractArray(teamData));
+      setMembers(extractArray(memberData));
+      setRoles(extractArray(roleData));
     } catch (error) {
       console.error('Failed to load team assignment data:', error);
     } finally {
@@ -53,27 +60,27 @@ export default function CreateTeamPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getTeamObj = (teamId) => teams.find((t) => String(t.teamId) === String(teamId));
+  const getTeamObj = (teamId) => teams.find((t) => String(t.teamId) === String(teamId) || String(t.id) === String(teamId));
   const getTeamName = (teamId) => {
     const obj = getTeamObj(teamId);
-    return obj ? obj.teamName : `Team #${teamId}`;
+    return obj ? (obj.teamName || obj.name) : `Team #${teamId}`;
   };
 
-  const getMemberObj = (memberId) => members.find((m) => String(m.teamMemberId) === String(memberId));
+  const getMemberObj = (memberId) => members.find((m) => String(m.teamMemberId) === String(memberId) || String(m.userid) === String(memberId) || String(m.id) === String(memberId));
   const getMemberName = (memberId) => {
     const obj = getMemberObj(memberId);
-    return obj ? obj.teamMemberName : `Member #${memberId}`;
+    return obj ? (obj.teamMemberName || obj.username || obj.name) : `Member #${memberId}`;
   };
 
   const getMemberEmail = (memberId) => {
     const obj = getMemberObj(memberId);
-    return obj ? obj.teamMemberEmail : '';
+    return obj ? (obj.teamMemberEmail || obj.userEmail || '') : '';
   };
 
-  const getRoleObj = (roleId) => roles.find((r) => String(r.roleId) === String(roleId));
+  const getRoleObj = (roleId) => roles.find((r) => String(r.roleId) === String(roleId) || String(r.id) === String(roleId));
   const getRoleName = (roleId) => {
     const obj = getRoleObj(roleId);
-    return obj ? obj.roleName : `Role #${roleId}`;
+    return obj ? (obj.roleName || obj.name) : `Role #${roleId}`;
   };
 
   const isTeamLeadRole = (roleId, roleNameStr) => {
@@ -99,17 +106,19 @@ export default function CreateTeamPage() {
     const map = new Map();
     // Pre-populate with known teams
     teams.forEach((t) => {
-      map.set(String(t.teamId), {
+      const tid = String(t.teamId || t.id);
+      map.set(tid, {
         team: t,
         assignments: [],
       });
     });
 
     filteredAssignments.forEach((a) => {
-      const key = String(a.teamIdFk);
+      const key = String(a.teamIdFk || a.teamId);
       if (!map.has(key)) {
+        const teamObj = getTeamObj(key) || { teamId: a.teamIdFk, teamName: getTeamName(a.teamIdFk) };
         map.set(key, {
-          team: { teamId: a.teamIdFk, teamName: getTeamName(a.teamIdFk) },
+          team: teamObj,
           assignments: [],
         });
       }
@@ -118,7 +127,7 @@ export default function CreateTeamPage() {
 
     return Array.from(map.values());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teams, filteredAssignments]);
+  }, [teams, filteredAssignments, members, roles]);
 
   function openCreate(preselectedTeamId = '') {
     setEditingAssignment(null);

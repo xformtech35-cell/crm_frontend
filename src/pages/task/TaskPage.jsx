@@ -50,7 +50,7 @@ const EMPTY_FORM = {
   taskPriority: 'Medium', taskAssign: 'To Do',
   taskStartDate: '', taskDueDate: '',
   taskPercentageCompleted: 0, taskRelatedTo: '', taskDescription: '',
-  taskType: 'Feature', taskPhone: '', taskEmail: '',
+  taskType: 'Sales', taskPhone: '', taskEmail: '',
   taskProjectId: '', taskExpectedCompletion: '', taskPeriod: '', taskCreatedBy: ''
 }
 
@@ -109,32 +109,118 @@ function Toast({ toast }) {
   )
 }
 
+/* ═══════════════════════════════ DONE CHECKLIST MODAL ════════════════════ */
+function DoneChecklistModal({ open, onConfirm, onCancel, taskTitle }) {
+  const [checked1, setChecked1] = useState(false)
+  const [checked2, setChecked2] = useState(false)
+  const [checked3, setChecked3] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setChecked1(false); setChecked2(false); setChecked3(false)
+    }
+  }, [open])
+
+  if (!open) return null
+  const allChecked = checked1 && checked2 && checked3
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-gray-100">
+        <div className="flex items-center gap-3 mb-4 text-emerald-600">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
+            <Icon name="mdi:clipboard-check-outline" className="w-6 h-6 text-emerald-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Done Completion Verification</h3>
+            <p className="text-xs text-gray-400">Task: "{taskTitle}"</p>
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-600 mb-4 bg-amber-50 border border-amber-100 p-3 rounded-xl font-medium">
+          Please verify all 3 mandatory completion steps before marking this task as <strong>Done</strong>.
+        </p>
+
+        <div className="space-y-3 mb-6">
+          <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
+            <input type="checkbox" checked={checked1} onChange={e => setChecked1(e.target.checked)} className="mt-0.5 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500" />
+            <span className="text-xs text-gray-700 font-semibold">1. Did you speak with the client / stakeholder?</span>
+          </label>
+          <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
+            <input type="checkbox" checked={checked2} onChange={e => setChecked2(e.target.checked)} className="mt-0.5 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500" />
+            <span className="text-xs text-gray-700 font-semibold">2. Was the final outcome recorded in the description/notes?</span>
+          </label>
+          <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
+            <input type="checkbox" checked={checked3} onChange={e => setChecked3(e.target.checked)} className="mt-0.5 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500" />
+            <span className="text-xs text-gray-700 font-semibold">3. Have you reviewed if any follow-up task is needed?</span>
+          </label>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+          <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-100">Cancel</button>
+          <button
+            type="button"
+            disabled={!allChecked}
+            onClick={onConfirm}
+            className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all"
+          >
+            Confirm & Mark Done
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ═══════════════════════════════ KANBAN CARD ════════════════════════════ */
-function KanbanCard({ task, memberById, onEdit, onDelete, onDragStart, isDragging }) {
+function KanbanCard({ task, memberById, activeTimerLog, onQuickTimer, onEdit, onDelete, onDragStart, isDragging }) {
   const member = memberById.get(Number(task.taskAssignedMember || task.taskAssignedTo))
   const pct    = task.taskPercentageCompleted || 0
   const due    = task.taskDueDate
   const overdue = isOverdue(due) && task.taskAssign !== 'Done'
   const taskRef = `TK-${String(genId(task)).padStart(3, '0')}`
   const pm = PRIORITY_META[task.taskPriority] || PRIORITY_META.Medium
+  const taskId = genId(task)
+  const isTimerActive = activeTimerLog && (Number(activeTimerLog.taskId) === Number(taskId) || Number(activeTimerLog.id) === Number(taskId))
+  const spentMins = task.taskTimeSpentMinutes || 0
 
   return (
     <div
       draggable
       onDragStart={(e) => onDragStart(e, task)}
       onClick={() => onEdit(task)}
-      className={`bg-white rounded-xl border shadow-sm transition-all duration-150 p-3.5 group cursor-grab active:cursor-grabbing select-none
-        ${isDragging ? 'opacity-40 scale-95 shadow-none border-indigo-300' : 'border-gray-100 hover:shadow-md hover:-translate-y-0.5 hover:border-indigo-200/60'}`}
-      style={{ borderLeftWidth: '3px', borderLeftColor: pm.dot.replace('bg-', '').includes('-') ? `var(--tw-${pm.dot})` : '#6366f1' }}
+      className={`bg-white rounded-xl border shadow-sm transition-all duration-150 p-3.5 group cursor-grab active:cursor-grabbing select-none relative
+        ${isDragging ? 'opacity-40 scale-95 shadow-none border-indigo-300' : isTimerActive ? 'border-emerald-300 ring-2 ring-emerald-100 shadow-md' : 'border-gray-100 hover:shadow-md hover:-translate-y-0.5 hover:border-indigo-200/60'}`}
+      style={{ borderLeftWidth: '3px', borderLeftColor: isTimerActive ? '#10b981' : pm.dot.replace('bg-', '').includes('-') ? `var(--tw-${pm.dot})` : '#6366f1' }}
     >
-      {/* Priority stripe + drag handle */}
       <div className="flex items-start justify-between gap-2 mb-2.5">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[10px] font-bold text-indigo-400 tracking-wide">{taskRef}</span>
           <PriorityBadge priority={task.taskPriority || 'Medium'} />
           <TypeBadge type={task.taskType} />
+          {isTimerActive && (
+            <span className="text-[10px] bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+              <span className="w-1.5 h-1.5 bg-white rounded-full" />
+              ⏱ Running
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={(e) => onQuickTimer(task, e)}
+            title={isTimerActive ? 'Stop Timer' : 'Start Timer'}
+            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all ${
+              isTimerActive
+                ? 'bg-red-500 text-white shadow-sm hover:bg-red-600'
+                : spentMins > 0
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+            }`}
+          >
+            <Icon name={isTimerActive ? 'mdi:stop-circle-outline' : 'mdi:play-circle-outline'} className="w-3.5 h-3.5" />
+            {isTimerActive ? 'Stop' : spentMins > 0 ? `${spentMins}m` : 'Timer'}
+          </button>
           <button className="p-1 rounded-lg text-gray-400 hover:bg-amber-50 hover:text-amber-600 transition-colors" onClick={() => onEdit(task)} title="Edit">
             <Icon name="mdi:pencil-outline" className="w-3.5 h-3.5" />
           </button>
@@ -147,12 +233,10 @@ function KanbanCard({ task, memberById, onEdit, onDelete, onDragStart, isDraggin
         </div>
       </div>
 
-      {/* Task name */}
       <p className={`text-sm font-semibold leading-snug mb-2.5 ${task.taskAssign === 'Done' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
         {task.taskName}
       </p>
 
-      {/* Meta info */}
       {task.taskRelatedTo && (
         <p className="text-xs text-gray-400 mb-1.5 flex items-center gap-1 truncate">
           <Icon name="mdi:link-variant" className="w-3 h-3 shrink-0" />
@@ -163,7 +247,6 @@ function KanbanCard({ task, memberById, onEdit, onDelete, onDragStart, isDraggin
         <p className="text-[10px] text-gray-400 mb-2">by {task.taskCreatedBy}</p>
       )}
 
-      {/* Progress */}
       {pct > 0 && (
         <div className="mb-2.5">
           <div className="flex items-center justify-between mb-1">
@@ -179,7 +262,6 @@ function KanbanCard({ task, memberById, onEdit, onDelete, onDragStart, isDraggin
         </div>
       )}
 
-      {/* Footer */}
       <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-50">
         <div className="flex items-center gap-1.5 min-w-0">
           {member ? (
@@ -188,10 +270,10 @@ function KanbanCard({ task, memberById, onEdit, onDelete, onDragStart, isDraggin
               <span className="text-xs text-gray-500 truncate max-w-[90px]">{getMemberLabel(member)}</span>
             </>
           ) : (
-            <span className="text-xs text-gray-300 italic">Unassigned</span>
+            <span className="text-xs text-red-500 font-semibold italic">Unassigned *</span>
           )}
         </div>
-        {due && (
+        {due ? (
           <span className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
             overdue ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'
           }`}>
@@ -199,6 +281,8 @@ function KanbanCard({ task, memberById, onEdit, onDelete, onDragStart, isDraggin
             <Icon name="mdi:calendar-outline" className="w-2.5 h-2.5" />
             {new Date(due).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
           </span>
+        ) : (
+          <span className="text-[10px] font-semibold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">No Date *</span>
         )}
       </div>
     </div>
@@ -206,7 +290,7 @@ function KanbanCard({ task, memberById, onEdit, onDelete, onDragStart, isDraggin
 }
 
 /* ═══════════════════════════════ KANBAN COLUMN ══════════════════════════ */
-function KanbanColumn({ status, tasks, memberById, onEdit, onDelete, onAddTask, onDragStart, onDrop, onDragOver, onDragLeave, isDropTarget, draggingId }) {
+function KanbanColumn({ status, tasks, memberById, activeTimerLog, onQuickTimer, onEdit, onDelete, onAddTask, onDragStart, onDrop, onDragOver, onDragLeave, isDropTarget, draggingId }) {
   const meta = STATUS_META[status] || STATUS_META['To Do']
   const statusIcons = {
     'To Do': 'mdi:circle-outline',
@@ -217,38 +301,30 @@ function KanbanColumn({ status, tasks, memberById, onEdit, onDelete, onAddTask, 
 
   return (
     <div
-      className={`flex flex-col rounded-2xl border-2 transition-all duration-200 ${
-        isDropTarget
-          ? 'border-indigo-400 shadow-lg shadow-indigo-100 scale-[1.01]'
-          : `${meta.border} ${meta.bg}`
+      onDragOver={(e) => onDragOver(e, status)}
+      onDragLeave={(e) => onDragLeave(e, status)}
+      onDrop={(e) => onDrop(e, status)}
+      className={`flex flex-col rounded-2xl border transition-all duration-200 min-w-[280px] max-w-[340px] flex-1 ${meta.bg} ${
+        isDropTarget ? 'border-indigo-400 ring-2 ring-indigo-200/50 scale-[1.01]' : meta.border
       }`}
-      style={{ minWidth: '280px', maxWidth: '310px', flex: '0 0 292px' }}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onDragLeave={onDragLeave}
     >
-      {/* Column header */}
-      <div className={`flex items-center justify-between px-4 py-3 rounded-t-2xl ${isDropTarget ? 'bg-indigo-50' : meta.header} border-b ${isDropTarget ? 'border-indigo-300' : meta.border}`}>
-        <div className="flex items-center gap-2.5">
-          <Icon name={statusIcons[status]} className="w-4 h-4" style={{ color: meta.headerDot }} />
-          <span className="text-sm font-bold text-gray-800">{status}</span>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${meta.badge}`}>{tasks.length}</span>
+      <div className={`p-3.5 rounded-t-2xl border-b flex items-center justify-between ${meta.header} ${meta.border}`}>
+        <div className="flex items-center gap-2">
+          <Icon name={statusIcons[status] || 'mdi:circle-outline'} className="w-4 h-4" style={{ color: meta.headerDot }} />
+          <span className="text-xs font-bold text-gray-800 tracking-wide uppercase">{status}</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-white text-gray-600 shadow-sm border border-gray-100">
+            {tasks.length}
+          </span>
         </div>
         <button
           onClick={() => onAddTask(status)}
-          className="p-1.5 rounded-lg text-gray-400 hover:bg-white hover:text-indigo-600 transition-colors"
+          className="p-1 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-white transition-colors"
           title={`Add task to ${status}`}
         >
           <Icon name="mdi:plus" className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Drop zone indicator */}
-      {isDropTarget && (
-        <div className="mx-2 mt-2 h-1.5 bg-indigo-300 rounded-full animate-pulse" />
-      )}
-
-      {/* Cards */}
       <div className="flex-1 p-2.5 space-y-2.5 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 310px)' }}>
         {tasks.map(task => (
           <KanbanCard
@@ -261,7 +337,7 @@ function KanbanColumn({ status, tasks, memberById, onEdit, onDelete, onAddTask, 
             isDragging={draggingId && genId(task) === draggingId}
           />
         ))}
-        {tasks.length === 0 && !isDropTarget && (
+        {tasks.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 text-center">
             <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
               <Icon name="mdi:clipboard-text-outline" className="w-6 h-6 text-gray-300" />
@@ -270,39 +346,25 @@ function KanbanColumn({ status, tasks, memberById, onEdit, onDelete, onAddTask, 
             <button onClick={() => onAddTask(status)} className="mt-2 text-xs text-indigo-500 hover:underline font-semibold">+ Add task</button>
           </div>
         )}
-        {tasks.length === 0 && isDropTarget && (
-          <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed border-indigo-300 rounded-xl bg-indigo-50/50">
-            <Icon name="mdi:arrow-down-circle-outline" className="w-8 h-8 text-indigo-400 mb-2" />
-            <p className="text-xs text-indigo-600 font-semibold">Drop here</p>
-          </div>
-        )}
-      </div>
-
-      {/* Bottom add button */}
-      <div className="px-2.5 pb-2.5">
-        <button
-          onClick={() => onAddTask(status)}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-400 hover:bg-white/80 hover:text-indigo-600 transition-colors font-medium"
-        >
-          <Icon name="mdi:plus" className="w-4 h-4" />
-          Add task
-        </button>
       </div>
     </div>
   )
 }
 
 /* ═══════════════════════════════ TASK FORM DRAWER ═══════════════════════ */
-function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignments, projects, currentUser, saving, onSave, isAdmin }) {
+function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignments, projects, currentUser, saving, onSave, isAdmin, onTimerStateChange }) {
   const [form, setForm] = useState({ ...EMPTY_FORM })
-  const { startTimer, stopTimer, getLogsByTask, loading: timeLoading } = useTaskTime()
+  const [formErrors, setFormErrors] = useState({})
+  const { startTimer, stopTimer, getLogsByTask, actionLoading, fetchLoading } = useTaskTime()
   const [logs, setLogs] = useState([])
   const [activeLog, setActiveLog] = useState(null)
   const [activeTab, setActiveTab] = useState('details')
+  const [elapsedSecs, setElapsedSecs] = useState(0)
 
   useEffect(() => {
     if (open) {
       setActiveTab('details')
+      setFormErrors({})
     }
   }, [open])
 
@@ -320,7 +382,45 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
   }, [open, editingTask?.taskId, editingTask?.id, getLogsByTask])
 
   useEffect(() => {
+    let interval = null
+    if (activeLog && activeLog.startTime) {
+      const startMs = new Date(activeLog.startTime).getTime()
+      setElapsedSecs(Math.max(0, Math.floor((Date.now() - startMs) / 1000)))
+      interval = setInterval(() => {
+        setElapsedSecs(Math.max(0, Math.floor((Date.now() - startMs) / 1000)))
+      }, 1000)
+    } else {
+      setElapsedSecs(0)
+    }
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [activeLog])
+
+  const elapsedStr = useMemo(() => {
+    const hrs = Math.floor(elapsedSecs / 3600)
+    const mins = Math.floor((elapsedSecs % 3600) / 60)
+    const secs = elapsedSecs % 60
+    if (hrs > 0) {
+      return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+    }
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  }, [elapsedSecs])
+
+  const totalMins = useMemo(() => {
+    let sum = 0
+    logs.forEach(l => {
+      if (l.durationMinutes) sum += l.durationMinutes
+    })
+    if (editingTask?.taskTimeSpentMinutes) {
+      sum = Math.max(sum, editingTask.taskTimeSpentMinutes)
+    }
+    return sum
+  }, [logs, editingTask?.taskTimeSpentMinutes])
+
+  useEffect(() => {
     if (open) {
+      const defaultProjId = projects && projects.length > 0 ? (projects[0].projectId || projects[0].id) : ''
       if (editingTask) {
         setForm({
           taskName: editingTask.taskName || '',
@@ -333,18 +433,18 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
           taskPercentageCompleted: editingTask.taskPercentageCompleted || 0,
           taskRelatedTo: editingTask.taskRelatedTo || '',
           taskDescription: editingTask.taskDescription || '',
-          taskType: editingTask.taskType || 'Feature',
+          taskType: editingTask.taskType || 'Sales',
           taskPhone: editingTask.taskPhone || '',
           taskEmail: editingTask.taskEmail || '',
-          taskProjectId: editingTask.taskProjectId || '',
+          taskProjectId: editingTask.taskProjectId || defaultProjId,
           taskExpectedCompletion: editingTask.taskExpectedCompletion || '',
           taskPeriod: editingTask.taskPeriod || '',
         })
       } else {
-        setForm({ ...EMPTY_FORM })
+        setForm({ ...EMPTY_FORM, taskProjectId: defaultProjId })
       }
     }
-  }, [open, editingTask])
+  }, [open, editingTask, projects])
 
   function setF(k, v) {
     setForm(prev => {
@@ -352,6 +452,9 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
       if (k === 'taskAssignedTeam') next.taskAssignedMember = ''
       return next
     })
+    if (formErrors[k]) {
+      setFormErrors(prev => ({ ...prev, [k]: null }))
+    }
   }
 
   const availableMembers = useMemo(
@@ -364,9 +467,23 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
     [teams, members, assignments]
   )
 
+  function validateForm() {
+    const errs = {}
+    if (!form.taskName.trim()) errs.taskName = 'Task Title is mandatory'
+    if (!form.taskAssignedMember) errs.taskAssignedMember = 'Assignee is mandatory'
+    if (!form.taskDueDate) errs.taskDueDate = 'Due Date is mandatory'
+    if (!form.taskType) errs.taskType = 'Task Type is mandatory'
+    if (!form.taskRelatedTo.trim()) errs.taskRelatedTo = 'Related Lead/Project reference is mandatory'
+    setFormErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
   function handleSubmit(e) {
     e.preventDefault()
-    if (!form.taskName.trim()) return
+    if (!validateForm()) {
+      if (formErrors.taskAssignedMember && !form.taskName.trim()) setActiveTab('details')
+      return
+    }
     const memberId = form.taskAssignedMember ? Number(form.taskAssignedMember) : null
     onSave({
       taskName: form.taskName.trim(),
@@ -377,7 +494,7 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
       taskAssign: form.taskAssign,
       taskStartDate: form.taskStartDate || null,
       taskDueDate: form.taskDueDate || null,
-      taskRelatedTo: form.taskRelatedTo,
+      taskRelatedTo: form.taskRelatedTo.trim(),
       taskDescription: form.taskDescription,
       taskPercentageCompleted: Number(form.taskPercentageCompleted || 0),
       taskType: form.taskType,
@@ -392,15 +509,17 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
 
   async function handleToggleTimer() {
     try {
+      const taskId = editingTask.taskId || editingTask.id
       if (activeLog) {
         const updated = await stopTimer(activeLog.timeLogId || activeLog.id)
         setActiveLog(null)
         setLogs(logs.map(l => (l.timeLogId || l.id) === (updated.timeLogId || updated.id) ? updated : l))
       } else {
-        const log = await startTimer(editingTask.taskId || editingTask.id, 'Working')
+        const log = await startTimer(taskId, 'Working')
         setActiveLog(log)
         setLogs([...logs, log])
       }
+      if (onTimerStateChange) onTimerStateChange()
     } catch (e) {
       console.error(e)
     }
@@ -424,22 +543,61 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
       subtitle={editingTask?.taskId || editingTask?.id ? 'Update task details and tracking' : 'Create and assign a new task'}
       icon="mdi:clipboard-text-outline"
       footer={
-        <>
-          <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
-          <button
-            form="task-form"
-            type="submit"
-            disabled={saving || !form.taskName.trim()}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60 hover:scale-105 transition-transform"
-            style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
-          >
-            {saving ? <Icon name="mdi:loading" className="w-4 h-4 animate-spin" /> : <Icon name="mdi:check-circle-outline" className="w-4 h-4" />}
-            {saving ? 'Saving…' : (editingTask?.taskId || editingTask?.id) ? 'Update Task' : 'Create Task'}
-          </button>
-        </>
+        <div className="flex items-center justify-between w-full gap-3 flex-wrap sm:flex-nowrap">
+          {(editingTask?.taskId || editingTask?.id) ? (
+            <div className="flex items-center gap-2.5 bg-indigo-50/60 border border-indigo-100/80 rounded-2xl px-3 py-1.5 shrink-0 shadow-sm">
+              <button
+                type="button"
+                onClick={handleToggleTimer}
+                disabled={actionLoading}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 shadow-sm hover:scale-105 active:scale-95 ${
+                  activeLog ? 'bg-red-500 hover:bg-red-600 shadow-red-200' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'
+                }`}
+              >
+                {actionLoading ? (
+                  <Icon name="mdi:loading" className="w-3.5 h-3.5 animate-spin shrink-0" />
+                ) : (
+                  <Icon name={activeLog ? 'mdi:stop' : 'mdi:play'} className="w-3.5 h-3.5 shrink-0 text-white" />
+                )}
+                <span>{activeLog ? 'Stop Timer' : 'Start Timer'}</span>
+              </button>
+              <div className="flex flex-col text-left">
+                <span className="text-[11px] font-semibold text-gray-700">
+                  {logs.length} sessions · Total: <span className="font-bold text-indigo-700">{totalMins} mins</span>
+                </span>
+                {activeLog && (
+                  <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shrink-0" />
+                    ⏱ Running ({elapsedStr})
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-100 text-[11px] font-medium text-gray-400">
+              <Icon name="mdi:timer-outline" className="w-3.5 h-3.5 text-gray-300" />
+              <span>Save task to enable timer</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 ml-auto">
+            <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
+            <button
+              form="task-form"
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60 hover:scale-105 transition-transform"
+              style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
+            >
+              {saving ? <Icon name="mdi:loading" className="w-4 h-4 animate-spin" /> : <Icon name="mdi:check-circle-outline" className="w-4 h-4" />}
+              {saving ? 'Saving…' : (editingTask?.taskId || editingTask?.id) ? 'Update Task' : 'Create Task'}
+            </button>
+          </div>
+        </div>
       }
     >
-      {/* Tab bar */}
+
+
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-5">
         {tabs.map(t => (
           <button
@@ -457,12 +615,12 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
       </div>
 
       <form id="task-form" onSubmit={handleSubmit} className="space-y-4">
-        {/* ─── TAB: Details ─── */}
         {activeTab === 'details' && (
           <div className="space-y-4">
             <div>
               <label className={lbl}>Task Title <span className="text-red-500">*</span></label>
-              <input value={form.taskName} onChange={e => setF('taskName', e.target.value)} placeholder="What needs to be done?" className={inp} autoFocus required />
+              <input value={form.taskName} onChange={e => setF('taskName', e.target.value)} placeholder="What needs to be done?" className={`${inp} ${formErrors.taskName ? 'border-red-400 ring-2 ring-red-100' : ''}`} autoFocus />
+              {formErrors.taskName && <p className="text-[11px] text-red-500 font-semibold mt-1 flex items-center gap-1"><Icon name="mdi:alert-circle" className="w-3 h-3" />{formErrors.taskName}</p>}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -479,10 +637,11 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
                 </select>
               </div>
               <div>
-                <label className={lbl}>Task Type</label>
-                <select value={form.taskType} onChange={e => setF('taskType', e.target.value)} className={sel}>
+                <label className={lbl}>Task Type <span className="text-red-500">*</span></label>
+                <select value={form.taskType} onChange={e => setF('taskType', e.target.value)} className={`${sel} ${formErrors.taskType ? 'border-red-400' : ''}`}>
                   {TASK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
+                {formErrors.taskType && <p className="text-[11px] text-red-500 font-semibold mt-1">{formErrors.taskType}</p>}
               </div>
               <div>
                 <label className={lbl}>Project</label>
@@ -496,8 +655,9 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
                 <input type="date" value={form.taskStartDate} onChange={e => setF('taskStartDate', e.target.value)} className={inp} />
               </div>
               <div>
-                <label className={lbl}>Due Date</label>
-                <input type="date" value={form.taskDueDate} onChange={e => setF('taskDueDate', e.target.value)} className={inp} />
+                <label className={lbl}>Due Date <span className="text-red-500">*</span></label>
+                <input type="date" value={form.taskDueDate} onChange={e => setF('taskDueDate', e.target.value)} className={`${inp} ${formErrors.taskDueDate ? 'border-red-400' : ''}`} />
+                {formErrors.taskDueDate && <p className="text-[11px] text-red-500 font-semibold mt-1">{formErrors.taskDueDate}</p>}
               </div>
               <div>
                 <label className={lbl}>Period</label>
@@ -511,8 +671,9 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
                 <input type="date" value={form.taskExpectedCompletion} onChange={e => setF('taskExpectedCompletion', e.target.value)} className={inp} />
               </div>
               <div>
-                <label className={lbl}>Related To</label>
-                <input value={form.taskRelatedTo} onChange={e => setF('taskRelatedTo', e.target.value)} placeholder="Lead, Project, Deal..." className={inp} />
+                <label className={lbl}>Related To <span className="text-red-500">*</span></label>
+                <input value={form.taskRelatedTo} onChange={e => setF('taskRelatedTo', e.target.value)} placeholder="Lead #4966, Client..." className={`${inp} ${formErrors.taskRelatedTo ? 'border-red-400' : ''}`} />
+                {formErrors.taskRelatedTo && <p className="text-[11px] text-red-500 font-semibold mt-1">{formErrors.taskRelatedTo}</p>}
               </div>
             </div>
 
@@ -521,7 +682,7 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
               <textarea
                 value={form.taskDescription}
                 onChange={e => setF('taskDescription', e.target.value)}
-                placeholder="Add more context or details..."
+                placeholder="Add context or notes..."
                 rows={3}
                 className={`${inp} resize-none`}
               />
@@ -535,17 +696,10 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
                 onChange={e => setF('taskPercentageCompleted', e.target.value)}
                 className="w-full accent-indigo-600"
               />
-              <div className="h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${form.taskPercentageCompleted >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
-                  style={{ width: `${form.taskPercentageCompleted}%` }}
-                />
-              </div>
             </div>
           </div>
         )}
 
-        {/* ─── TAB: Assignment ─── */}
         {activeTab === 'assign' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {isAdmin && (
@@ -558,36 +712,35 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
               </div>
             )}
 
-            {isAdmin && (
-              <div>
-                <label className={lbl}>Assign to Member</label>
-                <select value={form.taskAssignedMember} onChange={e => setF('taskAssignedMember', e.target.value)} className={sel}>
-                  <option value="">Unassigned</option>
-                  {form.taskAssignedTeam ? (
-                    availableMembers.map(m => (
-                      <option key={getMemberId(m)} value={getMemberId(m)}>{getMemberLabel(m)}</option>
-                    ))
-                  ) : (
-                    <>
-                      {groupedTaskMembers.groupedTeams.map(({ team, members: mems }) => (
-                        <optgroup key={getTeamId(team)} label={`📁 ${getTeamLabel(team)}`}>
-                          {mems.map(m => (
-                            <option key={getMemberId(m)} value={getMemberId(m)}>{getMemberLabel(m)}</option>
-                          ))}
-                        </optgroup>
-                      ))}
-                      {groupedTaskMembers.unassigned.length > 0 && (
-                        <optgroup label="👤 General Members">
-                          {groupedTaskMembers.unassigned.map(m => (
-                            <option key={getMemberId(m)} value={getMemberId(m)}>{getMemberLabel(m)}</option>
-                          ))}
-                        </optgroup>
-                      )}
-                    </>
-                  )}
-                </select>
-              </div>
-            )}
+            <div>
+              <label className={lbl}>Assign to Member <span className="text-red-500">*</span></label>
+              <select value={form.taskAssignedMember} onChange={e => setF('taskAssignedMember', e.target.value)} className={`${sel} ${formErrors.taskAssignedMember ? 'border-red-400' : ''}`}>
+                <option value="">Select Assignee</option>
+                {form.taskAssignedTeam ? (
+                  availableMembers.map(m => (
+                    <option key={getMemberId(m)} value={getMemberId(m)}>{getMemberLabel(m)}</option>
+                  ))
+                ) : (
+                  <>
+                    {groupedTaskMembers.groupedTeams.map(({ team, members: mems }) => (
+                      <optgroup key={getTeamId(team)} label={`📁 ${getTeamLabel(team)}`}>
+                        {mems.map(m => (
+                          <option key={getMemberId(m)} value={getMemberId(m)}>{getMemberLabel(m)}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                    {groupedTaskMembers.unassigned.length > 0 && (
+                      <optgroup label="👤 General Members">
+                        {groupedTaskMembers.unassigned.map(m => (
+                          <option key={getMemberId(m)} value={getMemberId(m)}>{getMemberLabel(m)}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </>
+                )}
+              </select>
+              {formErrors.taskAssignedMember && <p className="text-[11px] text-red-500 font-semibold mt-1">{formErrors.taskAssignedMember}</p>}
+            </div>
 
             <div>
               <label className={lbl}>Contact Phone</label>
@@ -600,7 +753,6 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
           </div>
         )}
 
-        {/* ─── TAB: Time Tracking ─── */}
         {activeTab === 'tracking' && (
           <>
             {(editingTask?.taskId || editingTask?.id) ? (
@@ -662,9 +814,51 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
 }
 
 /* ═══════════════════════════════ LIST VIEW ══════════════════════════════ */
-function ListView({ tasks, memberById, onEdit, onDelete, onStatusChange, isAdmin }) {
+function ListView({ tasks, memberById, selectedTaskIds, setSelectedTaskIds, activeTimerLog, onQuickTimer, onEdit, onDelete, onStatusChange, onBulkApply, members, isAdmin }) {
+  const [bulkMember, setBulkMember]     = useState('')
+  const [bulkDueDate, setBulkDueDate]   = useState('')
+  const [bulkPriority, setBulkPriority] = useState('')
+  const [bulkStatus, setBulkStatus]     = useState('')
+  const [bulkApplying, setBulkApplying] = useState(false)
+
+  const allSelected = tasks.length > 0 && selectedTaskIds.length === tasks.length
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedTaskIds([])
+    } else {
+      setSelectedTaskIds(tasks.map(t => genId(t)))
+    }
+  }
+
+  function toggleSelectRow(taskId) {
+    if (selectedTaskIds.includes(taskId)) {
+      setSelectedTaskIds(selectedTaskIds.filter(id => id !== taskId))
+    } else {
+      setSelectedTaskIds([...selectedTaskIds, taskId])
+    }
+  }
+
+  async function handleApplyBulk() {
+    if (selectedTaskIds.length === 0) return
+    setBulkApplying(true)
+    try {
+      await onBulkApply({
+        taskIds: selectedTaskIds,
+        taskAssignedMember: bulkMember ? Number(bulkMember) : null,
+        taskDueDate: bulkDueDate || null,
+        taskPriority: bulkPriority || null,
+        taskAssign: bulkStatus || null,
+      })
+      setSelectedTaskIds([])
+      setBulkMember(''); setBulkDueDate(''); setBulkPriority(''); setBulkStatus('')
+    } finally {
+      setBulkApplying(false)
+    }
+  }
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-16 h-16 rounded-3xl bg-gray-50 flex items-center justify-center mb-4">
@@ -675,29 +869,39 @@ function ListView({ tasks, memberById, onEdit, onDelete, onStatusChange, isAdmin
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ minWidth: '900px' }}>
+          <table className="w-full text-sm" style={{ minWidth: '1000px' }}>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['#', 'Task', 'Type', 'Status', 'Priority', 'Assignee', 'Due Date', 'Progress', 'Actions'].map(h => (
+                <th className="px-4 py-3 text-left w-10">
+                  <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
+                </th>
+                {['#', 'Task', 'Type', 'Status', 'Priority', 'Assignee', 'Due Date', 'Progress', 'Time Track', 'Actions'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {tasks.map((task, i) => {
+              {tasks.map((task) => {
+                const taskId = genId(task)
+                const isSelected = selectedTaskIds.includes(taskId)
                 const member = memberById.get(Number(task.taskAssignedMember || task.taskAssignedTo))
                 const pct = task.taskPercentageCompleted || 0
                 const overdue = isOverdue(task.taskDueDate) && task.taskAssign !== 'Done'
-                const pm = PRIORITY_META[task.taskPriority] || PRIORITY_META.Medium
                 const sm = STATUS_META[task.taskAssign] || STATUS_META['To Do']
+                const isTimerActive = activeTimerLog && (Number(activeTimerLog.taskId) === Number(taskId) || Number(activeTimerLog.id) === Number(taskId))
+                const spentMins = task.taskTimeSpentMinutes || 0
+
                 return (
                   <tr
-                    key={genId(task)}
-                    className="hover:bg-indigo-50/20 transition-colors cursor-pointer group"
+                    key={taskId}
+                    className={`hover:bg-indigo-50/20 transition-colors cursor-pointer group ${isSelected ? 'bg-indigo-50/40' : ''}`}
                     onClick={() => onEdit(task)}
                   >
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelectRow(taskId)} className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
+                    </td>
                     <td className="px-4 py-3">
-                      <span className="text-[10px] text-indigo-400 font-bold">TK-{String(genId(task)).padStart(3,'0')}</span>
+                      <span className="text-[10px] text-indigo-400 font-bold">TK-{String(taskId).padStart(3,'0')}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="min-w-0">
@@ -730,7 +934,7 @@ function ListView({ tasks, memberById, onEdit, onDelete, onStatusChange, isAdmin
                           <Avatar name={getMemberLabel(member)} size={6} />
                           <span className="text-xs text-gray-600 truncate max-w-[90px]">{getMemberLabel(member)}</span>
                         </div>
-                      ) : <span className="text-xs text-gray-300">—</span>}
+                      ) : <span className="text-xs text-red-500 font-semibold italic">Unassigned</span>}
                     </td>
                     <td className="px-4 py-3">
                       {task.taskDueDate ? (
@@ -738,7 +942,7 @@ function ListView({ tasks, memberById, onEdit, onDelete, onStatusChange, isAdmin
                           {overdue && <Icon name="mdi:alert-circle" className="w-3 h-3" />}
                           {new Date(task.taskDueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
                         </span>
-                      ) : <span className="text-gray-300 text-xs">—</span>}
+                      ) : <span className="text-red-500 text-xs font-semibold">No Date</span>}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 min-w-[80px]">
@@ -747,6 +951,22 @@ function ListView({ tasks, memberById, onEdit, onDelete, onStatusChange, isAdmin
                         </div>
                         <span className="text-[10px] font-bold text-gray-500 shrink-0 w-7 text-right">{pct}%</span>
                       </div>
+                    </td>
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => onQuickTimer(task, e)}
+                        title={isTimerActive ? 'Stop Timer' : 'Start Timer'}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1 transition-all ${
+                          isTimerActive
+                            ? 'bg-red-500 text-white animate-pulse shadow-md shadow-red-200'
+                            : spentMins > 0
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                            : 'bg-gray-50 border border-gray-200 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'
+                        }`}
+                      >
+                        <Icon name={isTimerActive ? 'mdi:stop-circle-outline' : 'mdi:play-circle-outline'} className="w-3.5 h-3.5" />
+                        {isTimerActive ? 'Stop Timer' : spentMins > 0 ? `${spentMins} mins` : 'Start Timer'}
+                      </button>
                     </td>
                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -761,6 +981,50 @@ function ListView({ tasks, memberById, onEdit, onDelete, onStatusChange, isAdmin
           </table>
         </div>
       )}
+
+      {/* Fix 4: Floating Bulk Action Toolbar */}
+      {selectedTaskIds.length > 0 && (
+        <div className="sticky bottom-4 mx-4 mb-4 p-3 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl shadow-2xl flex flex-wrap items-center justify-between gap-3 animate-fade-in border border-indigo-500/30 z-40">
+          <div className="flex items-center gap-2">
+            <span className="w-7 h-7 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-xs">
+              {selectedTaskIds.length}
+            </span>
+            <span className="text-xs font-semibold text-indigo-200">Tasks Selected for Bulk Edit</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <select value={bulkMember} onChange={e => setBulkMember(e.target.value)} className="bg-slate-800 border border-slate-700 text-white rounded-xl px-2.5 py-1.5 focus:outline-none">
+              <option value="">Reassign To...</option>
+              {members.map(m => <option key={getMemberId(m)} value={getMemberId(m)}>{getMemberLabel(m)}</option>)}
+            </select>
+
+            <input type="date" value={bulkDueDate} onChange={e => setBulkDueDate(e.target.value)} className="bg-slate-800 border border-slate-700 text-white rounded-xl px-2.5 py-1.5 focus:outline-none" />
+
+            <select value={bulkPriority} onChange={e => setBulkPriority(e.target.value)} className="bg-slate-800 border border-slate-700 text-white rounded-xl px-2.5 py-1.5 focus:outline-none">
+              <option value="">Priority...</option>
+              {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+
+            <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="bg-slate-800 border border-slate-700 text-white rounded-xl px-2.5 py-1.5 focus:outline-none">
+              <option value="">Status...</option>
+              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            <button
+              onClick={handleApplyBulk}
+              disabled={bulkApplying || (!bulkMember && !bulkDueDate && !bulkPriority && !bulkStatus)}
+              className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold transition-transform hover:scale-105 shadow-sm flex items-center gap-1"
+            >
+              {bulkApplying ? <Icon name="mdi:loading" className="w-3.5 h-3.5 animate-spin" /> : <Icon name="mdi:check-all" className="w-3.5 h-3.5" />}
+              Apply Bulk Edit
+            </button>
+
+            <button onClick={() => setSelectedTaskIds([])} className="p-1 text-slate-400 hover:text-white" title="Deselect All">
+              <Icon name="mdi:close-circle" className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -772,17 +1036,20 @@ export default function TaskPage() {
   const teamMemberHook = useTeamMember()
   const createTeamHook = useCreateTeam()
   const projectHook    = useProject()
+  const { startTimer, stopTimer, getActiveTimer } = useTaskTime()
 
   const isAdmin     = useAuthStore(s => s.isAdmin())
   const currentUser = useAuthStore(s => s.user)
 
-  const [tasks,       setTasks]       = useState([])
-  const [teams,       setTeams]       = useState([])
-  const [members,     setMembers]     = useState([])
-  const [assignments, setAssignments] = useState([])
-  const [projects,    setProjects]    = useState([])
-  const [loading,     setLoading]     = useState(true)
-  const [saving,      setSaving]      = useState(false)
+  const [tasks,           setTasks]           = useState([])
+  const [teams,           setTeams]           = useState([])
+  const [members,         setMembers]         = useState([])
+  const [assignments,     setAssignments]     = useState([])
+  const [projects,        setProjects]        = useState([])
+  const [loading,         setLoading]         = useState(true)
+  const [saving,          setSaving]          = useState(false)
+  const [selectedTaskIds, setSelectedTaskIds] = useState([])
+  const [activeTimerLog,  setActiveTimerLog]  = useState(null)
 
   const [view,            setView]           = useState('Board')
   const [query,           setQuery]          = useState('')
@@ -792,15 +1059,15 @@ export default function TaskPage() {
   const [filterType,      setFilterType]     = useState('')
   const [filterAssignee,  setFilterAssignee] = useState('')
 
-  const [modalOpen,    setModalOpen]    = useState(false)
-  const [editingTask,  setEditingTask]  = useState(null)
-  const [deleteTarget, setDeleteTarget] = useState(null)
-  const [toast,        setToast]        = useState(null)
+  const [modalOpen,            setModalOpen]            = useState(false)
+  const [editingTask,          setEditingTask]          = useState(null)
+  const [deleteTarget,         setDeleteTarget]         = useState(null)
+  const [doneModalOpen,        setDoneModalOpen]        = useState(false)
+  const [pendingDoneTaskAction, setPendingDoneTaskAction] = useState(null)
+  const [toast,                setToast]                = useState(null)
 
-  // Drag & drop state
   const [draggingTask,    setDraggingTask]   = useState(null)
   const [dropTargetCol,   setDropTargetCol]  = useState(null)
-  const dragCounterRef = useRef({})
 
   const toastTimer = useRef(null)
 
@@ -810,7 +1077,12 @@ export default function TaskPage() {
     toastTimer.current = setTimeout(() => setToast(null), 3500)
   }
 
-  /* ─── load ─── */
+  const fetchActiveTimer = useCallback(() => {
+    getActiveTimer().then(data => {
+      setActiveTimerLog(data)
+    }).catch(console.error)
+  }, [getActiveTimer])
+
   async function loadData() {
     setLoading(true)
     try {
@@ -826,6 +1098,7 @@ export default function TaskPage() {
       setMembers(Array.isArray(memberData) ? memberData : [])
       setAssignments(Array.isArray(assignmentData) ? assignmentData : [])
       setProjects(Array.isArray(projectData) ? projectData : [])
+      fetchActiveTimer()
     } catch {
       setTasks([]); setTeams([]); setMembers([]); setAssignments([]); setProjects([])
     } finally {
@@ -835,11 +1108,28 @@ export default function TaskPage() {
 
   useEffect(() => { loadData() }, []) // eslint-disable-line
 
-  /* ─── lookup maps ─── */
+  const handleQuickTimer = useCallback(async (task, e) => {
+    if (e) e.stopPropagation()
+    const taskId = genId(task)
+    try {
+      if (activeTimerLog && (Number(activeTimerLog.taskId) === Number(taskId) || Number(activeTimerLog.id) === Number(taskId))) {
+        await stopTimer(activeTimerLog.timeLogId || activeTimerLog.id)
+        setActiveTimerLog(null)
+        showToast('success', `Stopped timer for "${task.taskName}"`)
+      } else {
+        const log = await startTimer(taskId, 'Quick timer from Task page')
+        setActiveTimerLog(log)
+        showToast('success', `Started timer for "${task.taskName}"`)
+      }
+      loadData()
+    } catch (err) {
+      showToast('error', err?.response?.data?.message || err.message || 'Timer action failed')
+    }
+  }, [activeTimerLog, startTimer, stopTimer])
+
   const memberById = useMemo(() => new Map(members.map(m => [Number(getMemberId(m)), m])), [members])
   const teamById   = useMemo(() => new Map(teams.map(t => [Number(getTeamId(t)), t])), [teams])
 
-  /* ─── filtered tasks ─── */
   const filteredTasks = useMemo(() => {
     const q = query.trim().toLowerCase()
     return tasks.filter(t => {
@@ -855,7 +1145,6 @@ export default function TaskPage() {
     })
   }, [tasks, query, filterPriority, filterStatus, filterTeam, filterType, filterAssignee, memberById])
 
-  /* ─── grouped for kanban ─── */
   const grouped = useMemo(() => {
     const map = {}
     STATUSES.forEach(s => { map[s] = [] })
@@ -867,7 +1156,6 @@ export default function TaskPage() {
     return map
   }, [filteredTasks])
 
-  /* ─── stats ─── */
   const stats = useMemo(() => ({
     total:      tasks.length,
     todo:       tasks.filter(t => t.taskAssign === 'To Do').length,
@@ -878,7 +1166,6 @@ export default function TaskPage() {
     critical:   tasks.filter(t => t.taskPriority === 'Critical').length,
   }), [tasks])
 
-  /* ─── drag & drop handlers ─── */
   const handleDragStart = useCallback((e, task) => {
     setDraggingTask(task)
     e.dataTransfer.effectAllowed = 'move'
@@ -892,7 +1179,6 @@ export default function TaskPage() {
   }, [])
 
   const handleDragLeave = useCallback((e, status) => {
-    // Only clear if leaving the actual column element
     if (!e.currentTarget.contains(e.relatedTarget)) {
       setDropTargetCol(null)
     }
@@ -905,7 +1191,14 @@ export default function TaskPage() {
     const taskId = genId(draggingTask)
     if (draggingTask.taskAssign === status) { setDraggingTask(null); return }
 
-    // Optimistic UI update
+    // Fix 6: If moving to Done, require verification checklist modal
+    if (status === 'Done') {
+      setPendingDoneTaskAction({ type: 'drag', task: draggingTask, newStatus: status })
+      setDoneModalOpen(true)
+      setDraggingTask(null)
+      return
+    }
+
     setTasks(prev => prev.map(t => (genId(t) === taskId ? { ...t, taskAssign: status } : t)))
     setDraggingTask(null)
     try {
@@ -922,9 +1215,9 @@ export default function TaskPage() {
     setDropTargetCol(null)
   }, [])
 
-  /* ─── handlers ─── */
   function openCreate(defaultStatus) {
-    setEditingTask(defaultStatus ? { ...EMPTY_FORM, taskAssign: defaultStatus } : null)
+    const defaultProjId = projects && projects.length > 0 ? (projects[0].projectId || projects[0].id) : ''
+    setEditingTask(defaultStatus ? { ...EMPTY_FORM, taskAssign: defaultStatus, taskProjectId: defaultProjId } : { ...EMPTY_FORM, taskProjectId: defaultProjId })
     setModalOpen(true)
   }
 
@@ -934,6 +1227,16 @@ export default function TaskPage() {
   }
 
   async function handleSave(payload) {
+    // Fix 6: If saving task with status Done, require verification checklist
+    if (payload.taskAssign === 'Done' || payload.taskPercentageCompleted >= 100) {
+      setPendingDoneTaskAction({ type: 'save', payload })
+      setDoneModalOpen(true)
+      return
+    }
+    await executeSave(payload)
+  }
+
+  async function executeSave(payload) {
     setSaving(true)
     try {
       if (editingTask?.taskId || editingTask?.id) {
@@ -946,20 +1249,68 @@ export default function TaskPage() {
       setModalOpen(false)
       setEditingTask(null)
       await loadData()
-    } catch {
-      showToast('error', 'Failed to save task.')
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to save task.'
+      showToast('error', msg)
     } finally {
       setSaving(false)
     }
   }
 
+  async function handleConfirmDoneChecklist() {
+    setDoneModalOpen(false)
+    if (!pendingDoneTaskAction) return
+
+    const nowStr = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+    const userName = currentUser?.username || 'User'
+    const auditRecord = `\n\n[Done Checklist Verified on ${nowStr} by ${userName}: 1. Spoke with client=YES, 2. Outcome recorded=YES, 3. Follow-up task needed=NO]`
+
+    if (pendingDoneTaskAction.type === 'drag') {
+      const { task, newStatus } = pendingDoneTaskAction
+      const taskId = genId(task)
+      const updatedDesc = (task.taskDescription || '') + auditRecord
+      setTasks(prev => prev.map(t => (genId(t) === taskId ? { ...t, taskAssign: newStatus, taskPercentageCompleted: 100, taskDescription: updatedDesc } : t)))
+      try {
+        await taskHook.update(taskId, { ...task, taskAssign: newStatus, taskPercentageCompleted: 100, taskDescription: updatedDesc })
+        showToast('success', 'Task verified and marked Done! 🎉')
+      } catch {
+        showToast('error', 'Failed to update task status.')
+        await loadData()
+      }
+    } else if (pendingDoneTaskAction.type === 'save') {
+      const { payload } = pendingDoneTaskAction
+      payload.taskAssign = 'Done'
+      payload.taskPercentageCompleted = 100
+      payload.taskDescription = (payload.taskDescription || '') + auditRecord
+      await executeSave(payload)
+    }
+    setPendingDoneTaskAction(null)
+  }
+
   async function handleStatusChange(task, newStatus) {
+    if (newStatus === 'Done') {
+      setPendingDoneTaskAction({ type: 'drag', task, newStatus })
+      setDoneModalOpen(true)
+      return
+    }
     try {
       const id = task.taskId || task.id
       await taskHook.update(id, { ...task, taskAssign: newStatus })
       setTasks(prev => prev.map(t => (t.taskId || t.id) === id ? { ...t, taskAssign: newStatus } : t))
+      showToast('success', `Status updated to ${newStatus}`)
     } catch {
       showToast('error', 'Could not update status.')
+    }
+  }
+
+  async function handleBulkApply(payload) {
+    try {
+      await taskHook.bulkUpdate(payload)
+      showToast('success', `${payload.taskIds.length} tasks bulk updated!`)
+      await loadData()
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to bulk update tasks.'
+      showToast('error', msg)
     }
   }
 
@@ -978,15 +1329,11 @@ export default function TaskPage() {
 
   const hasFilters = query || filterPriority || filterStatus || filterTeam || filterType || filterAssignee
   const clearFilters = () => { setQuery(''); setFilterPriority(''); setFilterStatus(''); setFilterTeam(''); setFilterType(''); setFilterAssignee('') }
-
-  /* ─── completion percentage ─── */
   const completionPct = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0
 
-  /* ────────────────────────────── RENDER ──────────────────────────────── */
   return (
     <div className="flex flex-col gap-5 animate-fade-in pb-8" onDragEnd={handleDragEnd}>
 
-      {/* ── Header Banner ── */}
       <div className="hero-dark-card rounded-2xl overflow-hidden shadow-sm" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)' }}>
         <div className="px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -1025,7 +1372,6 @@ export default function TaskPage() {
             </button>
           </div>
         </div>
-        {/* Progress bar */}
         <div className="px-6 pb-4">
           <div className="flex items-center gap-3">
             <div className="flex-1 h-2 bg-white/20 rounded-full overflow-hidden">
@@ -1039,7 +1385,6 @@ export default function TaskPage() {
         </div>
       </div>
 
-      {/* ── Stats Row ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
         {[
           { label: 'Total',      value: stats.total,      icon: 'mdi:clipboard-list-outline', bg: 'bg-indigo-50',  text: 'text-indigo-600',  action: '' },
@@ -1068,10 +1413,8 @@ export default function TaskPage() {
         ))}
       </div>
 
-      {/* ── Toolbar ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          {/* Search */}
           <div className="relative flex-1 min-w-[160px]">
             <Icon name="mdi:magnify" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <input
@@ -1083,7 +1426,6 @@ export default function TaskPage() {
             />
           </div>
 
-          {/* Filters */}
           <div className="flex flex-wrap items-center gap-2">
             <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="text-sm border border-gray-200 rounded-xl px-3 py-2 text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white">
               <option value="">All Priorities</option>
@@ -1116,14 +1458,12 @@ export default function TaskPage() {
             )}
           </div>
 
-          {/* Filters count badge */}
           {hasFilters && (
             <span className="text-xs text-gray-500 shrink-0">
               <span className="font-bold text-indigo-600">{filteredTasks.length}</span> / {tasks.length} tasks
             </span>
           )}
 
-          {/* View switcher */}
           <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 shrink-0 ml-auto">
             {VIEWS.map(v => (
               <button
@@ -1141,7 +1481,6 @@ export default function TaskPage() {
         </div>
       </div>
 
-      {/* ── Content ── */}
       {loading ? (
         <div className="flex items-center justify-center py-24">
           <div className="flex flex-col items-center gap-4">
@@ -1152,7 +1491,6 @@ export default function TaskPage() {
           </div>
         </div>
       ) : view === 'Board' ? (
-        /* ─ KANBAN BOARD ─ */
         <div>
           {draggingTask && (
             <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 rounded-xl text-sm text-indigo-700 font-medium mb-3 border border-indigo-100">
@@ -1167,6 +1505,8 @@ export default function TaskPage() {
                 status={status}
                 tasks={grouped[status] || []}
                 memberById={memberById}
+                activeTimerLog={activeTimerLog}
+                onQuickTimer={handleQuickTimer}
                 onEdit={openEdit}
                 onDelete={setDeleteTarget}
                 onAddTask={openCreate}
@@ -1181,19 +1521,22 @@ export default function TaskPage() {
           </div>
         </div>
       ) : (
-        /* ─ LIST VIEW ─ */
         <ListView
           tasks={filteredTasks}
           memberById={memberById}
-          teamById={teamById}
+          members={members}
+          selectedTaskIds={selectedTaskIds}
+          setSelectedTaskIds={setSelectedTaskIds}
+          activeTimerLog={activeTimerLog}
+          onQuickTimer={handleQuickTimer}
           onEdit={openEdit}
           onDelete={setDeleteTarget}
           onStatusChange={handleStatusChange}
+          onBulkApply={handleBulkApply}
           isAdmin={isAdmin}
         />
       )}
 
-      {/* ── Task Form Drawer ── */}
       <TaskFormDrawer
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingTask(null) }}
@@ -1206,9 +1549,16 @@ export default function TaskPage() {
         saving={saving}
         onSave={handleSave}
         isAdmin={isAdmin}
+        onTimerStateChange={fetchActiveTimer}
       />
 
-      {/* ── Delete Confirm ── */}
+      <DoneChecklistModal
+        open={doneModalOpen}
+        onConfirm={handleConfirmDoneChecklist}
+        onCancel={() => { setDoneModalOpen(false); setPendingDoneTaskAction(null) }}
+        taskTitle={pendingDoneTaskAction?.task?.taskName || pendingDoneTaskAction?.payload?.taskName || 'Task'}
+      />
+
       <AppConfirmDialog
         open={deleteTarget !== null}
         title="Delete Task"
@@ -1217,8 +1567,8 @@ export default function TaskPage() {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* ── Toast ── */}
       <Toast toast={toast} />
     </div>
   )
 }
+

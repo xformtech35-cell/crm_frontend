@@ -24,7 +24,7 @@ export default function NegotiationDetailPage() {
   const [revisions, setRevisions] = useState([]);
   const [showRevisions, setShowRevisions] = useState(true);
   const [revisionLoading, setRevisionLoading] = useState(false);
-  
+
   // Document states
   const [documentFile, setDocumentFile] = useState(null);
   const [documentFiles, setDocumentFiles] = useState([]);
@@ -97,8 +97,8 @@ export default function NegotiationDetailPage() {
       if (name === "quotationRevision" && value) {
         const selectedRevCode = value.toUpperCase();
         const baseQuotNo = (lead?.quotationNumber || "").replace(/\/R\d+$/i, "");
-        
-        const matchingRev = (revisions || []).find(r => 
+
+        const matchingRev = (revisions || []).find(r =>
           (r.revisionNo || r.quotationRevision || "R0").toUpperCase() === selectedRevCode
         );
 
@@ -150,50 +150,51 @@ export default function NegotiationDetailPage() {
   //     setUpdating(false);
   //   }
   // };
-const handleSaveEdit = async (e) => {
-  e.preventDefault();
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
 
-  try {
-    setUpdating(true);
-    setError("");
+    try {
+      setUpdating(true);
+      setError("");
 
-    // 1. Update lead
-    const response = await leadApi.update(lead.leadId, editedLead);
+      const payload = {
+        ...editedLead,
+        quotationWorkingDate: editedLead.quotationDate || editedLead.quotationWorkingDate,
+        quotationDate: editedLead.quotationDate || editedLead.quotationWorkingDate,
+      };
 
-    // response example:
-    // {
-    //   success:true,
-    //   data:{
-    //      quotationNumber:"UWS/RRW/26-27/01/R10"
-    //   }
-    // }
+      // 1. Update lead
+      const response = await leadApi.update(lead.leadId, payload);
 
-    const quotationNumber =
-      response?.data?.quotationNumber ||
-      response?.quotationNumber;
-console.log("sdsdsdsdsd",quotationNumber )
-    // 2. Upload files after successful update
-    if (quotationNumber && documentFiles.length > 0) {
-      await negotiationApi.uploadQuotationDocuments(
-        quotationNumber,
-        documentFiles
-      );
+      const quotationNumber =
+        response?.data?.quotationNumber ||
+        response?.quotationNumber ||
+        editedLead.quotationNumber;
+
+      // 2. Upload files after successful update
+      if (quotationNumber && documentFiles.length > 0) {
+        await negotiationApi.uploadQuotationDocuments(
+          quotationNumber,
+          documentFiles
+        );
+      }
+
+      // 3. Refresh & Notify views
+      await loadLead();
+      await loadRevisions();
+
+      window.dispatchEvent(new CustomEvent("crm-data-updated"));
+
+      setDocumentFiles([]);
+      setIsEditing(false);
+
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Failed to update lead.");
+    } finally {
+      setUpdating(false);
     }
-
-    // 3. Refresh
-    await loadLead();
-    await loadRevisions();
-
-    setDocumentFiles([]);
-    setIsEditing(false);
-
-  } catch (err) {
-    console.error(err);
-    setError(err.message || "Failed to update lead.");
-  } finally {
-    setUpdating(false);
-  }
-};
+  };
 
   // Document handlers
   // const handleFileChange = (e) => {
@@ -202,10 +203,10 @@ console.log("sdsdsdsdsd",quotationNumber )
   //     setDocumentFile(file);
   //   }
   // };
-const handleFileChange = (e) => {
-  const files = Array.from(e.target.files || []);
-  setDocumentFiles(files);
-};
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    setDocumentFiles(files);
+  };
 
   const handleUploadDocument = async () => {
     if (!documentFile) {
@@ -223,16 +224,16 @@ const handleFileChange = (e) => {
       }, 200);
 
       await negotiationApi.uploadDocument(id, documentFile);
-      
+
       clearInterval(interval);
       setUploadProgress(100);
-      
+
       setDocumentExists(true);
       setDocumentFile(null);
-      
+
       const fileInput = document.getElementById('document-upload');
       if (fileInput) fileInput.value = '';
-      
+
       setTimeout(() => setUploadProgress(0), 1000);
       await checkDocumentExists();
     } catch (err) {
@@ -327,7 +328,7 @@ const handleFileChange = (e) => {
     const currentRevStr = lead?.quotationRevision || "R0";
     const currentNum = parseInt(currentRevStr.replace(/\D/g, ""), 10) || 0;
     const nextRevStr = `R${currentNum + 1}`;
-    
+
     let currentQuotNo = lead?.quotationNumber || "";
     if (currentQuotNo) {
       if (/\/R\d+$/i.test(currentQuotNo)) {
@@ -352,8 +353,8 @@ const handleFileChange = (e) => {
       <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4 max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => navigate(-1)} 
+            <button
+              onClick={() => navigate(-1)}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 text-gray-700"
               title="Go Back"
             >
@@ -381,14 +382,14 @@ const handleFileChange = (e) => {
 
           {!isEditing && (
             <div className="flex items-center gap-3">
-              <button 
-                onClick={handleAddNewRevision} 
+              <button
+                onClick={handleAddNewRevision}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold flex items-center gap-2 transition shadow-sm text-xs"
               >
                 <Icon icon="mdi:plus-circle" className="text-base" /> + Add New Revision
               </button>
-              <button 
-                onClick={handleEdit} 
+              <button
+                onClick={handleEdit}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-2 transition shadow-sm text-xs"
               >
                 <Icon icon="mdi:pencil" className="text-base" /> Edit Commercials
@@ -400,8 +401,8 @@ const handleFileChange = (e) => {
 
       {/* Main Content */}
       <div className="px-6 max-w-7xl mx-auto pb-12">
-        <ViewMode 
-          lead={lead} 
+        <ViewMode
+          lead={lead}
           revisions={revisions}
           revisionLoading={revisionLoading}
           showRevisions={showRevisions}
@@ -445,11 +446,11 @@ const handleFileChange = (e) => {
 
 // ============= VIEW MODE =============
 
-const ViewMode = ({ 
-  lead, 
-  revisions, 
-  revisionLoading, 
-  showRevisions, 
+const ViewMode = ({
+  lead,
+  revisions,
+  revisionLoading,
+  showRevisions,
   setShowRevisions,
   documentExists,
   handleViewDocument,
@@ -460,15 +461,15 @@ const ViewMode = ({
   <div className="grid lg:grid-cols-3 gap-6">
     <div className="lg:col-span-2 space-y-6">
       <InfoSection title="Quotation & Commercials" fields={getCommercialFields(lead)} />
-      
-      <DocumentSection 
+
+      <DocumentSection
         documentExists={documentExists}
         handleViewDocument={handleViewDocument}
         handleDownloadDocument={handleDownloadDocument}
         handleDeleteDocument={handleDeleteDocument}
       />
-      
-      <RevisionHistorySection 
+
+      <RevisionHistorySection
         revisions={revisions}
         loading={revisionLoading}
         showRevisions={showRevisions}
@@ -492,11 +493,11 @@ const ViewMode = ({
 
 // ============= DOCUMENT SECTION =============
 
-const DocumentSection = ({ 
-  documentExists, 
-  handleViewDocument, 
-  handleDownloadDocument, 
-  handleDeleteDocument 
+const DocumentSection = ({
+  documentExists,
+  handleViewDocument,
+  handleDownloadDocument,
+  handleDeleteDocument
 }) => {
   if (!documentExists) return null;
 
@@ -531,6 +532,28 @@ const DocumentSection = ({
   );
 };
 
+const formatDateDisplay = (dateVal) => {
+  if (!dateVal) return "—";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  } catch (e) {
+    return String(dateVal);
+  }
+};
+
+const formatDateTimeDisplay = (dateVal) => {
+  if (!dateVal) return "—";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return `${d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  } catch (e) {
+    return String(dateVal);
+  }
+};
+
 // ============= REVISION HISTORY SECTION =============
 
 export const RevisionHistorySection = ({ revisions = [], loading, showRevisions, setShowRevisions, lead, negotiationApi }) => {
@@ -542,15 +565,18 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
   const displayRevisions = React.useMemo(() => {
     const map = new Map();
     safeRevisions.forEach((rev) => {
-      const key = rev.revisionNo || "R0";
+      const key = rev.revisionNo || rev.quotationRevision || "R0";
       if (!map.has(key) || new Date(rev.updatedDate || 0) > new Date(map.get(key).updatedDate || 0)) {
-        map.set(key, rev);
+        map.set(key, { ...rev });
       }
     });
 
+    const leadWorkingDate = lead?.quotationWorkingDate || lead?.quotationDate || null;
+    const leadSentDate = lead?.quotationSentDate || lead?.sentQuotationDate || null;
+
     if (!map.has("R0")) {
       const baseQtnNo = (lead?.quotationNumber || lead?.quotationNo || "").replace(/\/R\d+$/, "") || "QTN-001";
-      const r0Date = lead?.inquiryDate || lead?.quotationDate || lead?.leadCreatedDate || lead?.createdDate || new Date().toISOString();
+      const r0Date = lead?.inquiryDate || lead?.leadCreatedDate || lead?.createdDate || new Date().toISOString();
 
       map.set("R0", {
         id: "r0-fallback",
@@ -561,14 +587,35 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
         remarks: lead?.followUpRemark || "Initial Baseline Proposal",
         enquiryDescription: lead?.enquiryDescription,
         updatedDate: r0Date,
+        quotationWorkingDate: (lead?.quotationRevision === "R0" && leadWorkingDate) ? leadWorkingDate : (lead?.inquiryDate || r0Date),
+        sentQuotationDate: leadSentDate,
         documents: []
       });
     }
 
+    map.forEach((rev, key) => {
+      const isCurrentRev = key === (lead?.quotationRevision || "R0");
+      const specificRevDate = rev.quotationDate || rev.quotationWorkingDate;
+
+      if (specificRevDate) {
+        rev.quotationWorkingDate = specificRevDate;
+      } else if (isCurrentRev && leadWorkingDate) {
+        rev.quotationWorkingDate = leadWorkingDate;
+      } else if (key === "R0") {
+        rev.quotationWorkingDate = lead?.inquiryDate || rev.updatedDate;
+      } else {
+        rev.quotationWorkingDate = rev.updatedDate || rev.createdDate;
+      }
+
+      if (!rev.sentQuotationDate && isCurrentRev) {
+        rev.sentQuotationDate = leadSentDate;
+      }
+    });
+
     const r0 = map.get("R0");
     if (r0) {
       if (!r0.updatedDate || String(r0.updatedDate).startsWith("2020")) {
-        r0.updatedDate = lead?.inquiryDate || lead?.quotationDate || lead?.leadCreatedDate || lead?.createdDate || r0.updatedDate;
+        r0.updatedDate = lead?.inquiryDate || lead?.leadCreatedDate || lead?.createdDate || r0.updatedDate;
       }
       if ((!r0.documents || r0.documents.length === 0) && lead) {
         const leadDocs = [
@@ -604,6 +651,15 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
 
   const chronologicalRevisions = displayRevisions;
 
+  const latestRevision = React.useMemo(() => {
+    if (!displayRevisions || displayRevisions.length === 0) return null;
+    return displayRevisions[displayRevisions.length - 1];
+  }, [displayRevisions]);
+
+  const verticalTimelineRevisions = React.useMemo(() => {
+    return [...displayRevisions].reverse();
+  }, [displayRevisions]);
+
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -618,7 +674,7 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
     );
   }
 
-  if (!safeRevisions || safeRevisions.length === 0) {
+  if (!displayRevisions || displayRevisions.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
@@ -635,9 +691,7 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
     );
   }
 
-  const latestRevision = displayRevisions.find(r => r.isCurrent) || displayRevisions[displayRevisions.length - 1] || revisions[0];
-
-  const activeSelectedRev = selectedRevId 
+  const activeSelectedRev = selectedRevId
     ? displayRevisions.find(r => r.id === selectedRevId) || latestRevision
     : latestRevision;
 
@@ -649,7 +703,7 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       {/* Card Title Bar */}
-      <div 
+      <div
         className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between"
       >
         <div className="flex items-center gap-3">
@@ -658,15 +712,15 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
             Revision Timeline ({displayRevisions.length})
           </h3>
           <div className="flex items-center bg-gray-200/80 p-0.5 rounded-lg text-xs">
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setViewMode("tabs")}
               className={`px-2.5 py-1 rounded-md font-semibold transition ${viewMode === "tabs" ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
             >
               Tabs View
             </button>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setViewMode("vertical")}
               className={`px-2.5 py-1 rounded-md font-semibold transition ${viewMode === "vertical" ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
             >
@@ -724,22 +778,19 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
                       setSelectedRevId(rev.id);
                       setViewMode("tabs");
                     }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all flex-shrink-0 shadow-sm ${
-                      isSelected 
-                        ? "bg-blue-600 text-white border-blue-600 ring-2 ring-blue-200" 
-                        : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
-                    }`}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all flex-shrink-0 shadow-sm ${isSelected
+                      ? "bg-blue-600 text-white border-blue-600 ring-2 ring-blue-200"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
+                      }`}
                   >
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      isSelected ? "bg-white/20 text-white" : isLatest ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isSelected ? "bg-white/20 text-white" : isLatest ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"
+                      }`}>
                       {rev.revisionNo}
                     </span>
                     <span className="font-bold">{formatCurrency(rev.quotationAmount || 0)}</span>
                     {isLatest && (
-                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                        isSelected ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
-                      }`}>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${isSelected ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
+                        }`}>
                         Active
                       </span>
                     )}
@@ -750,7 +801,7 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
           </div>
         </div>
       )}
-      
+
       {showRevisions && viewMode === "tabs" && (
         <div className="p-6 bg-white">
           <div className="border border-blue-200 rounded-xl p-5 bg-blue-50/20 shadow-sm">
@@ -766,16 +817,21 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
               <span className={getRevStatusClass(activeSelectedRev.negotiationStatus)}>{activeSelectedRev.negotiationStatus || "Negotiation"}</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-3.5 rounded-lg border border-gray-200/80 mb-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-3.5 rounded-lg border border-gray-200/80 mb-3 text-xs">
               <div>
                 <span className="text-[10px] text-gray-400 block mb-0.5 font-bold uppercase tracking-wider">Quotation Amount</span>
                 <span className="font-bold text-gray-900 text-base">{formatCurrency(activeSelectedRev.quotationAmount || 0)}</span>
               </div>
               <div>
-                <span className="text-[10px] text-gray-400 block mb-0.5 font-bold uppercase tracking-wider">Date & Time Logged</span>
+                <span className="text-[10px] text-gray-400 block mb-0.5 font-bold uppercase tracking-wider">Quotation Working Date</span>
+                <span className="font-semibold text-gray-800 text-xs">
+                  {formatDateDisplay(activeSelectedRev.quotationWorkingDate || activeSelectedRev.updatedDate)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 block mb-0.5 font-bold uppercase tracking-wider">Quotation Sent Date</span>
                 <span className="font-semibold text-gray-700 text-xs">
-                  {activeSelectedRev.updatedDate ? new Date(activeSelectedRev.updatedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"} ·{" "}
-                  {activeSelectedRev.updatedDate ? new Date(activeSelectedRev.updatedDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                  {formatDateTimeDisplay(lead?.quotationSentDate || activeSelectedRev.createdDate)}
                 </span>
               </div>
             </div>
@@ -788,9 +844,11 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
             {/* Attached Documents for Selected Tab */}
             {activeSelectedRev.documents && activeSelectedRev.documents.length > 0 && (
               <div className="pt-2 border-t border-gray-200">
-                <span className="font-bold text-gray-500 block text-[10px] uppercase tracking-wider mb-2">Attached Quotation File (1)</span>
+                <span className="font-bold text-gray-500 block text-[10px] uppercase tracking-wider mb-2">
+                  Attached Quotation File ({activeSelectedRev.documents.length})
+                </span>
                 <div className="space-y-2">
-                  {[activeSelectedRev.documents[activeSelectedRev.documents.length - 1]].map((doc) => (
+                  {activeSelectedRev.documents.map((doc) => (
                     <div key={doc.id || doc.fileName} className="flex items-center justify-between rounded-lg border bg-white px-3 py-2 text-xs shadow-sm">
                       <div className="flex items-center gap-2 truncate">
                         <Icon icon="mdi:file-pdf-box" className="text-red-500 text-lg flex-shrink-0" />
@@ -814,12 +872,12 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
       )}
 
       {showRevisions && viewMode === "vertical" && (
-        <div className="p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto bg-gray-50/30 space-y-4 sm:space-y-6">
-          {displayRevisions.map((rev, idx) => {
-            const isLatest = rev.isCurrent || rev.id === latestRevision.id;
+        <div className="p-4 sm:p-6 bg-gray-50/30 space-y-4 sm:space-y-6">
+          {verticalTimelineRevisions.map((rev, idx) => {
+            const isLatest = Boolean(latestRevision && rev.id === latestRevision.id);
             return (
               <div key={rev.id} className="relative flex gap-4 sm:gap-6 pl-4 pb-2 last:pb-0">
-                {idx < displayRevisions.length - 1 && (
+                {idx < verticalTimelineRevisions.length - 1 && (
                   <span className="absolute left-[21px] sm:left-[25px] top-6 bottom-0 w-0.5 bg-blue-100" aria-hidden="true" />
                 )}
                 <div className="relative z-10 flex h-4 w-4 sm:h-5 sm:w-5 flex-none items-center justify-center rounded-full bg-white mt-1">
@@ -841,16 +899,21 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
                     </div>
                     <span className={getRevStatusClass(rev.negotiationStatus)}>{rev.negotiationStatus || "Negotiation"}</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 bg-gray-50/50 p-2 sm:p-2.5 rounded-lg border border-gray-100 mb-2 text-[10px] sm:text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 bg-gray-50/50 p-2 sm:p-2.5 rounded-lg border border-gray-100 mb-2 text-[10px] sm:text-xs">
                     <div>
-                      <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">Amount</span>
+                      <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-bold uppercase tracking-wider">Amount</span>
                       <span className="font-bold text-gray-900 text-xs sm:text-sm">{formatCurrency(rev.quotationAmount || 0)}</span>
                     </div>
                     <div>
-                      <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-medium">Date & Time</span>
+                      <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-bold uppercase tracking-wider">Working Date</span>
+                      <span className="font-semibold text-gray-800 text-[10px] sm:text-xs">
+                        {formatDateDisplay(rev.quotationWorkingDate || rev.updatedDate)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[8px] sm:text-[10px] text-gray-400 block mb-0.5 font-bold uppercase tracking-wider">Logged Date & Time</span>
                       <span className="font-semibold text-gray-700 text-[10px] sm:text-xs">
-                        {rev.updatedDate ? new Date(rev.updatedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"} ·{" "}
-                        {rev.updatedDate ? new Date(rev.updatedDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                        {formatDateTimeDisplay(rev.updatedDate || rev.createdDate)}
                       </span>
                     </div>
                   </div>
@@ -862,9 +925,11 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
                   {/* Attached Documents */}
                   {rev.documents && rev.documents.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-gray-100">
-                      <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-1.5">Attached Quotation File (1)</span>
+                      <span className="font-bold text-gray-500 block text-[8px] sm:text-[9px] uppercase tracking-wider mb-1.5">
+                        Attached Quotation File ({rev.documents.length})
+                      </span>
                       <div className="space-y-1.5">
-                        {[rev.documents[rev.documents.length - 1]].map((doc) => (
+                        {rev.documents.map((doc) => (
                           <div key={doc.id || doc.fileName} className="flex items-center justify-between rounded-lg border bg-gray-50 px-2.5 py-1.5 text-xs">
                             <span className="truncate font-medium text-gray-700 max-w-[200px]" title={cleanFileName(doc.fileName)}>{cleanFileName(doc.fileName)}</span>
                             <div className="flex items-center gap-1">
@@ -902,14 +967,14 @@ export const getRevStatusClass = (status) => {
 
 // ============= EDIT FORM =============
 
-const EditForm = ({ 
-  lead, 
+const EditForm = ({
+  lead,
   revisions = [],
   negotiationApi,
-  onCancel, 
-  onSave, 
-  onChange, 
-  updating, 
+  onCancel,
+  onSave,
+  onChange,
+  updating,
   error,
   documentExists,
   onDocumentUpload,
@@ -924,7 +989,7 @@ const EditForm = ({
   // Dynamic document lookup for selected revision level
   const selectedRevCode = (lead.quotationRevision || "R0").toUpperCase();
   const matchingRevision = (revisions || []).find(r => (r.revisionNo || "R0").toUpperCase() === selectedRevCode);
-  
+
   let currentRevDocs = [];
   if (matchingRevision && matchingRevision.documents && matchingRevision.documents.length > 0) {
     currentRevDocs = [matchingRevision.documents[matchingRevision.documents.length - 1]];
@@ -975,13 +1040,13 @@ const EditForm = ({
               <FormField label="Quotation Number" name="quotationNumber" value={lead.quotationNumber || ""} onChange={onChange} placeholder="UWS/26-27/224/R1" />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Select Revision Level</label>
-                <select 
-                  name="quotationRevision" 
-                  value={lead.quotationRevision || "R0"} 
+                <select
+                  name="quotationRevision"
+                  value={lead.quotationRevision || "R0"}
                   onChange={(e) => {
                     setReplaceMode(false);
                     onChange(e);
-                  }} 
+                  }}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm bg-white font-semibold"
                 >
                   {Array.from({ length: 11 }, (_, i) => <option key={i} value={`R${i}`}>Revision R{i}</option>)}
@@ -997,7 +1062,7 @@ const EditForm = ({
                 </select>
               </div>
               <FormField label="Quotation Working Date" name="quotationDate" value={lead.quotationDate ? String(lead.quotationDate).split("T")[0] : ""} onChange={onChange} type="date" />
-              <FormField label="Final Sent Date" name="quotationSentDate" value={lead.quotationSentDate ? String(lead.quotationSentDate).split("T")[0] : ""} onChange={onChange} type="date" />
+              <FormField label="Final Quotation Sent Date" name="quotationSentDate" value={formatDate(lead.quotationSentDate) ? String(lead.quotationSentDate).split("T")[0] : ""} onChange={onChange} type="date" />
             </div>
           </div>
         </div>
@@ -1027,31 +1092,31 @@ const EditForm = ({
                     </div>
                     <div className="flex items-center gap-2">
                       {negotiationApi?.handleViewDocument && (
-                        <button 
-                          type="button" 
-                          onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName, doc.fileName)} 
+                        <button
+                          type="button"
+                          onClick={() => negotiationApi.handleViewDocument(doc.fileUrl || doc.fileName, doc.fileName)}
                           className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
                         >
                           <Icon icon="mdi:eye" /> View
                         </button>
                       )}
                       {negotiationApi?.handleDownloadRevisionDocument && (
-                        <button 
-                          type="button" 
-                          onClick={() => negotiationApi.handleDownloadRevisionDocument(doc.fileUrl || doc.fileName, doc.fileName)} 
+                        <button
+                          type="button"
+                          onClick={() => negotiationApi.handleDownloadRevisionDocument(doc.fileUrl || doc.fileName, doc.fileName)}
                           className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
                         >
                           <Icon icon="mdi:download" /> Download
                         </button>
                       )}
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => {
                           setReplaceMode(true);
                           if (onDocumentDelete) {
                             onDocumentDelete(doc.id || doc.quotationNo || selectedRevCode);
                           }
-                        }} 
+                        }}
                         className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
                       >
                         <Icon icon="mdi:delete" /> Delete / Replace
@@ -1142,10 +1207,10 @@ const EditForm = ({
               <FormField label="Enquiry Date" name="inquiryDate" value={lead.inquiryDate ? String(lead.inquiryDate).split("T")[0] : ""} onChange={onChange} type="date" />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Lead Source</label>
-                <select 
-                  name="leadSource" 
-                  value={lead.leadSource || "Direct"} 
-                  onChange={onChange} 
+                <select
+                  name="leadSource"
+                  value={lead.leadSource || "Direct"}
+                  onChange={onChange}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm bg-white font-medium"
                 >
                   <option value="Direct">Direct</option>

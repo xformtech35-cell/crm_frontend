@@ -32,7 +32,12 @@ export function membersForTeam(teamId, members, assignments) {
       .map((assignment) => Number(getAssignmentMemberId(assignment))),
   )
 
-  return members.filter((member) => selectedIds.has(Number(getMemberId(member))))
+  return members.filter((member) => {
+    const mId = Number(getMemberId(member));
+    if (selectedIds.has(mId)) return true;
+    if (member?.teamIdFk != null && Number(member.teamIdFk) === Number(teamId)) return true;
+    return false;
+  })
 }
 
 export function assignmentIdsForTeam(teamId, assignments) {
@@ -49,14 +54,20 @@ export function assignmentIdsForMember(memberId, assignments) {
     .filter(Boolean)
 }
 
-export function teamsForMember(memberId, teams, assignments) {
+export function teamsForMember(memberId, teams, assignments, memberObj) {
   const selectedIds = new Set(
     assignments
       .filter((assignment) => Number(getAssignmentMemberId(assignment)) === Number(memberId))
       .map((assignment) => Number(getAssignmentTeamId(assignment))),
   )
 
-  return teams.filter((team) => selectedIds.has(Number(getTeamId(team))))
+  return teams.filter((team) => {
+    const tId = Number(getTeamId(team));
+    if (selectedIds.has(tId)) return true;
+    if (team?.teamLeadId != null && Number(team.teamLeadId) === Number(memberId)) return true;
+    if (memberObj?.teamIdFk != null && Number(memberObj.teamIdFk) === Number(tId)) return true;
+    return false;
+  })
 }
 
 export function groupMembersByTeam(teams = [], members = [], assignments = []) {

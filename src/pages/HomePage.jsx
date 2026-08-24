@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import {
@@ -14,6 +14,7 @@ import { useAdvancedCrmData } from '../hooks/useAdvancedCrmData'
 import { useAuthStore } from '../stores/auth'
 import Icon from '../components/Icon'
 import { formatCurrency } from '../utils/format'
+import { useDashHeaderConfig } from '../hooks/useDashHeaderConfig'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
@@ -139,6 +140,7 @@ const leadBarOptions = {
 }
 
 export default function HomePage() {
+  const { config: dhConfig } = useDashHeaderConfig()
   const navigate = useNavigate()
   const { getAll: getAllLeads, getAllScores, update } = useLead()
   const { getAll: getAllOpportunities } = useOpportunity()
@@ -163,6 +165,23 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedGroup, setSelectedGroup] = useState(null)
+  const [groupDropdownOpen, setGroupDropdownOpen] = useState(false)
+  const groupDropdownRef = useRef(null)
+  const [datePickerOpen, setDatePickerOpen] = useState(false)
+  const datePickerRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(e.target)) {
+        setGroupDropdownOpen(false)
+      }
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
+        setDatePickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -360,34 +379,56 @@ export default function HomePage() {
     }
   }, [filteredLeads])
 
-  const leadsByGrade = useMemo(() => {
-    const grades = {
-      A: [], B: [], C: [], D: [],
-    };
-    filteredLeads.forEach((lead) => {
-      if (lead.leadOutcomeStatus !== "Open") return;
+  const leadsByStar = useMemo(() => {
+    const stars = { 5: [], 4: [], 3: [], 2: [], 1: [] };
+    (filteredLeads || []).forEach((lead) => {
       const rating = Number(lead.leadRating || 0);
-      if (rating === 5) {
-        grades.A.push(lead);
-      } else if (rating === 4) {
-        grades.B.push(lead);
-      } else if (rating === 3) {
-        grades.C.push(lead);
-      } else if (rating <= 2 && rating > 0) {
-        grades.D.push(lead);
+      if (rating >= 1 && rating <= 5) {
+        stars[rating].push(lead);
       }
     });
-    return grades;
+    return stars;
   }, [filteredLeads]);
+
+  const starCounts = useMemo(() => {
+    return {
+      5: leadsByStar[5].length,
+      4: leadsByStar[4].length,
+      3: leadsByStar[3].length,
+      2: leadsByStar[2].length,
+      1: leadsByStar[1].length,
+    };
+  }, [leadsByStar]);
+
+  const quotationByStar = useMemo(() => {
+    return {
+      5: leadsByStar[5].reduce((sum, l) => sum + Number(l.quotationAmount || 0), 0),
+      4: leadsByStar[4].reduce((sum, l) => sum + Number(l.quotationAmount || 0), 0),
+      3: leadsByStar[3].reduce((sum, l) => sum + Number(l.quotationAmount || 0), 0),
+      2: leadsByStar[2].reduce((sum, l) => sum + Number(l.quotationAmount || 0), 0),
+      1: leadsByStar[1].reduce((sum, l) => sum + Number(l.quotationAmount || 0), 0),
+    };
+  }, [leadsByStar]);
+
+  const leadsByGrade = useMemo(() => {
+    return {
+      A: leadsByStar[5],
+      B: leadsByStar[4],
+      C: leadsByStar[3],
+      D: leadsByStar[2],
+      E: leadsByStar[1],
+    };
+  }, [leadsByStar]);
 
   const gradeCounts = useMemo(() => {
     return {
-      A: leadsByGrade.A.length,
-      B: leadsByGrade.B.length,
-      C: leadsByGrade.C.length,
-      D: leadsByGrade.D.length,
-    }
-  }, [leadsByGrade])
+      A: leadsByStar[5].length,
+      B: leadsByStar[4].length,
+      C: leadsByStar[3].length,
+      D: leadsByStar[2].length,
+      E: leadsByStar[1].length,
+    };
+  }, [leadsByStar]);
 
   const winRate = useMemo(() => {
     const total = calculatedStats.wonLeadsCount + calculatedStats.closedLeadsCount
@@ -558,21 +599,6 @@ export default function HomePage() {
     { key: 'source', label: 'Lead Source' },
   ]
 
-  const starCounts = useMemo(() => ({
-    5: leadsByGrade.A.length,
-    4: leadsByGrade.B.length,
-    3: leadsByGrade.C.length,
-    2: leadsByGrade.D.filter(l => Number(l.leadRating) === 2).length,
-    1: leadsByGrade.D.filter(l => Number(l.leadRating) === 1).length,
-  }), [leadsByGrade]);
-
-  const quotationByStar = {
-    5: leadsByGrade.A.reduce((sum, lead) => sum + Number(lead.quotationAmount || 0), 0),
-    4: leadsByGrade.B.reduce((sum, lead) => sum + Number(lead.quotationAmount || 0), 0),
-    3: leadsByGrade.C.reduce((sum, lead) => sum + Number(lead.quotationAmount || 0), 0),
-    2: leadsByGrade.D.reduce((sum, lead) => sum + Number(lead.quotationAmount || 0), 0),
-  };
-
   const leadGroups = useMemo(() => {
     const groups = [
       ...new Set(
@@ -617,70 +643,219 @@ export default function HomePage() {
 
   return (
     <div className="animate-fade-in space-y-5 max-w-[1700px] mx-auto px-2 sm:px-4 overflow-x-hidden">
-      {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Executive Command Header Banner */}
+      
+
+      {/* Filter & Date Selector Control Strip */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap items-center gap-0.5 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
+          <div className="flex flex-wrap items-center gap-1 bg-slate-100/80 p-1 rounded-xl">
             {DATE_RANGES.map((range) => (
               <button
                 key={range}
                 onClick={() => setDateRange(range)}
-                className={`px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-semibold transition-all duration-150 ${dateRange === range ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-              >{DATE_LABELS[range]}</button>
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  dateRange === range
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                {DATE_LABELS[range]}
+              </button>
             ))}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div
-            className={`relative rounded-xl transition-all ${selectedGroup
-                ? "bg-blue-50 border border-blue-300"
-                : "bg-white border border-gray-200"
+          {/* Custom Lead Group Dropdown Component */}
+          <div className="relative" ref={groupDropdownRef}>
+            <button
+              onClick={() => setGroupDropdownOpen(!groupDropdownOpen)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs border ${
+                selectedGroup
+                  ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
               }`}
-          >
-            <select
-              value={selectedGroup || ""}
-              onChange={(e) => setSelectedGroup(e.target.value)}
-              className="appearance-none bg-transparent px-3 sm:px-4 py-2 pr-8 sm:pr-10 text-xs sm:text-sm font-medium outline-none min-w-[140px] sm:min-w-[180px] cursor-pointer w-full"
             >
-              <option value="">👥 All Lead Groups</option>
-              {leadGroups.map((group) => (
-                <option key={group.id} value={group.groupName}>
-                  {group.groupName}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-2 sm:right-3 flex items-center">
-              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
+              <Icon name="mdi:account-group-outline" className={`w-4 h-4 ${selectedGroup ? 'text-blue-600' : 'text-slate-500'}`} />
+              <span className="truncate max-w-[140px] sm:max-w-[180px]">
+                {selectedGroup || 'All Lead Groups'}
+              </span>
+              <Icon
+                name="mdi:chevron-down"
+                className={`w-4 h-4 transition-transform duration-200 ${
+                  groupDropdownOpen ? 'rotate-180 text-blue-600' : 'text-slate-400'
+                }`}
+              />
+            </button>
+
+            {groupDropdownOpen && (
+              <div className="absolute right-0 sm:left-0 mt-2 w-56 rounded-2xl bg-white border border-slate-200 shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+                  Select Lead Group
+                </div>
+                
+                {/* All Lead Groups Option */}
+                <button
+                  onClick={() => {
+                    setSelectedGroup(null)
+                    setGroupDropdownOpen(false)
+                  }}
+                  className={`flex items-center justify-between w-full px-3.5 py-2 text-xs font-bold transition-colors ${
+                    !selectedGroup
+                      ? 'bg-blue-50/80 text-blue-700'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${!selectedGroup ? 'bg-blue-600' : 'bg-slate-300'}`} />
+                    <span>All Lead Groups</span>
+                  </div>
+                  {!selectedGroup && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                </button>
+
+                {/* Lead Group Items */}
+                {leadGroups.map((group) => {
+                  const isSelected = selectedGroup === group.groupName
+                  return (
+                    <button
+                      key={group.id}
+                      onClick={() => {
+                        setSelectedGroup(group.groupName)
+                        setGroupDropdownOpen(false)
+                      }}
+                      className={`flex items-center justify-between w-full px-3.5 py-2 text-xs font-semibold transition-colors ${
+                        isSelected
+                          ? 'bg-blue-50/80 text-blue-700 font-bold'
+                          : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate pr-2">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-blue-600' : 'bg-slate-300'}`} />
+                        <span className="truncate">{group.groupName}</span>
+                      </div>
+                      {isSelected && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                    </button>
+                  )
+                })}
+
+                {!leadGroups.length && (
+                  <div className="px-3.5 py-3 text-center text-xs text-slate-400 font-medium">No lead groups created</div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Date range picker */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="text-[10px] sm:text-xs border border-gray-200 rounded-lg px-1.5 sm:px-2.5 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 max-w-[100px] sm:max-w-full"
-            />
-            <span className="text-gray-400 text-[10px] sm:text-xs px-0.5 sm:px-1">–</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="text-[10px] sm:text-xs border border-gray-200 rounded-lg px-1.5 sm:px-2.5 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 max-w-[100px] sm:max-w-full"
-            />
+          {/* Custom Date Range Picker Component */}
+          <div className="relative" ref={datePickerRef}>
+            <button
+              onClick={() => setDatePickerOpen(!datePickerOpen)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs border ${
+                dateFrom || dateTo
+                  ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+              }`}
+            >
+              <Icon name="mdi:calendar-month-outline" className={`w-4 h-4 ${dateFrom || dateTo ? 'text-blue-600' : 'text-slate-500'}`} />
+              <span>
+                {dateFrom && dateTo
+                  ? `${dateFrom} – ${dateTo}`
+                  : dateFrom
+                  ? `From ${dateFrom}`
+                  : dateTo
+                  ? `Until ${dateTo}`
+                  : 'Custom Dates'}
+              </span>
+              {(dateFrom || dateTo) && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setDateFrom('')
+                    setDateTo('')
+                  }}
+                  className="ml-1 p-0.5 hover:bg-blue-200/60 rounded-full text-blue-700"
+                  title="Clear custom dates"
+                >
+                  <Icon name="mdi:close" className="w-3 h-3" />
+                </span>
+              )}
+              <Icon
+                name="mdi:chevron-down"
+                className={`w-4 h-4 transition-transform duration-200 ${
+                  datePickerOpen ? 'rotate-180 text-blue-600' : 'text-slate-400'
+                }`}
+              />
+            </button>
+
+            {datePickerOpen && (
+              <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white border border-slate-200 shadow-xl p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
+                  <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                    <Icon name="mdi:calendar-filter" className="w-4 h-4 text-blue-600" />
+                    Filter by Custom Dates
+                  </span>
+                  <button
+                    onClick={() => setDatePickerOpen(false)}
+                    className="text-slate-400 hover:text-slate-600 p-0.5"
+                  >
+                    <Icon name="mdi:close" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Start Date (From)
+                    </label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      End Date (To)
+                    </label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <button
+                      onClick={() => {
+                        setDateFrom('')
+                        setDateTo('')
+                        setDatePickerOpen(false)
+                      }}
+                      className="text-xs font-bold text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg hover:bg-slate-100"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      onClick={() => setDatePickerOpen(false)}
+                      className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-xl shadow-2xs transition-colors"
+                    >
+                      Apply Filter
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <button
             onClick={fetchAll}
-            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
-            title="Refresh dashboard"
+            className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 transition-colors shadow-2xs"
+            title="Refresh dashboard data"
           >
-            <Icon name="mdi:refresh" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />
+            <Icon name="mdi:refresh" className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -717,160 +892,154 @@ export default function HomePage() {
       )}
 
       {!loading && !error && (
-        <>
-          {/* KPI Dashboard Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4">
+        <div className="space-y-6">
+          {/* Top KPI Metrics Strip (7 Cards) */}
+          {dhConfig?.dashboard?.showTotalLeadsCard !== false && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
             {/* Card 1: Total Leads */}
-            <div onClick={() => navigateToLeads('all', '')} className="block bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 border-l-4 border-l-blue-500 hover:shadow-md transition-shadow group cursor-pointer">
-              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                <span className="text-[9px] sm:text-xs font-semibold uppercase tracking-wide text-gray-400">Total Leads</span>
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center transition-colors">
-                  <Icon name="mdi:account-multiple-outline" className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" />
+            <div
+              onClick={() => navigateToLeads('all', '')}
+              className="group cursor-pointer rounded-2xl bg-white p-3.5 border border-slate-100 shadow-sm border-l-4 border-l-blue-500 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between min-w-0"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] xl:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">Total Leads</span>
+                <div className="w-7 h-7 rounded-xl bg-blue-50 group-hover:bg-blue-500 group-hover:text-white text-blue-600 flex items-center justify-center transition-colors shrink-0">
+                  <Icon name="mdi:account-multiple-outline" className="w-4 h-4" />
                 </div>
               </div>
-              <p className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.totalLeadsCount}</p>
-              <p className="text-[8px] sm:text-xs text-blue-500 mt-0.5 sm:mt-1 font-semibold truncate">
-                Amt: {formatCurrency(calculatedStats.totalLeadsAmount)}
-              </p>
+              <div>
+                <p className="text-xl sm:text-2xl xl:text-3xl font-extrabold text-slate-900 leading-tight">{calculatedStats.totalLeadsCount}</p>
+                <p className="text-[10px] xl:text-[11px] text-blue-600 mt-1 font-semibold truncate">
+                  Amt: {formatCurrency(calculatedStats.totalLeadsAmount)}
+                </p>
+              </div>
             </div>
 
             {/* Card 2: Qualified Leads */}
-            <div onClick={() => navigateToLeads('status', 'Qualified')} className="block bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 border-l-4 border-l-purple-500 hover:shadow-md transition-shadow group cursor-pointer">
-              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                <span className="text-[9px] sm:text-xs font-semibold uppercase tracking-wide text-gray-400">Qualified</span>
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-purple-50 group-hover:bg-purple-100 flex items-center justify-center transition-colors">
-                  <Icon name="mdi:account-check-outline" className="w-3 h-3 sm:w-4 sm:h-4 text-purple-500" />
+            <div
+              onClick={() => navigateToLeads('status', 'Qualified')}
+              className="group cursor-pointer rounded-2xl bg-white p-3.5 border border-slate-100 shadow-sm border-l-4 border-l-purple-500 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between min-w-0"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] xl:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">Qualified</span>
+                <div className="w-7 h-7 rounded-xl bg-purple-50 group-hover:bg-purple-500 group-hover:text-white text-purple-600 flex items-center justify-center transition-colors shrink-0">
+                  <Icon name="mdi:account-check-outline" className="w-4 h-4" />
                 </div>
               </div>
-              <p className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.qualifiedLeadsCount}</p>
-              <p className="text-[8px] sm:text-xs text-purple-500 mt-0.5 sm:mt-1 font-semibold truncate">
-                Amt: {formatCurrency(calculatedStats.qualifiedLeadsAmount)}
-              </p>
+              <div>
+                <p className="text-xl sm:text-2xl xl:text-3xl font-extrabold text-slate-900 leading-tight">{calculatedStats.qualifiedLeadsCount}</p>
+                <p className="text-[10px] xl:text-[11px] text-purple-600 mt-1 font-semibold truncate">
+                  Amt: {formatCurrency(calculatedStats.qualifiedLeadsAmount)}
+                </p>
+              </div>
             </div>
 
             {/* Card 3: Open Leads */}
-            <div onClick={() => navigateToLeads('leadOutcomeStatus', 'Open')} className="block bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 border-l-4 border-l-indigo-500 hover:shadow-md transition-shadow group cursor-pointer">
-              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                <span className="text-[9px] sm:text-xs font-semibold uppercase tracking-wide text-gray-400">Open</span>
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-indigo-50 group-hover:bg-indigo-100 flex items-center justify-center transition-colors">
-                  <Icon name="mdi:folder-open-outline" className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-500" />
+            <div
+              onClick={() => navigateToLeads('leadOutcomeStatus', 'Open')}
+              className="group cursor-pointer rounded-2xl bg-white p-3.5 border border-slate-100 shadow-sm border-l-4 border-l-indigo-500 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between min-w-0"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] xl:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">Open</span>
+                <div className="w-7 h-7 rounded-xl bg-indigo-50 group-hover:bg-indigo-500 group-hover:text-white text-indigo-600 flex items-center justify-center transition-colors shrink-0">
+                  <Icon name="mdi:folder-open-outline" className="w-4 h-4" />
                 </div>
               </div>
-              <p className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.openLeadsCount}</p>
-              <p className="text-[8px] sm:text-xs text-indigo-500 mt-0.5 sm:mt-1 font-semibold truncate">
-                Amt: {formatCurrency(calculatedStats.openLeadsAmount)}
-              </p>
+              <div>
+                <p className="text-xl sm:text-2xl xl:text-3xl font-extrabold text-slate-900 leading-tight">{calculatedStats.openLeadsCount}</p>
+                <p className="text-[10px] xl:text-[11px] text-indigo-600 mt-1 font-semibold truncate">
+                  Amt: {formatCurrency(calculatedStats.openLeadsAmount)}
+                </p>
+              </div>
             </div>
 
             {/* Card 4: Negotiation Leads */}
             <div
               onClick={() => navigateToLeads("leadOutcomeStatus", "Negotiation")}
-              className="block bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 border-l-4 border-l-yellow-500 hover:shadow-md transition-shadow group cursor-pointer"
+              className="group cursor-pointer rounded-2xl bg-white p-3.5 border border-slate-100 shadow-sm border-l-4 border-l-amber-500 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between min-w-0"
             >
-              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                <span className="text-[9px] sm:text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Negotiation
-                </span>
-
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-yellow-50 group-hover:bg-yellow-100 flex items-center justify-center transition-colors">
-                  <Icon
-                    name="mdi:handshake-outline"
-                    className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-600"
-                  />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] xl:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">Negotiation</span>
+                <div className="w-7 h-7 rounded-xl bg-amber-50 group-hover:bg-amber-500 group-hover:text-white text-amber-600 flex items-center justify-center transition-colors shrink-0">
+                  <Icon name="mdi:handshake-outline" className="w-4 h-4" />
                 </div>
               </div>
-
-              <p className="text-lg sm:text-2xl font-bold text-gray-900">
-                {calculatedStats.negotiationCount}
-              </p>
-
-              <p className="text-[8px] sm:text-xs text-yellow-600 mt-0.5 sm:mt-1 font-semibold truncate">
-                Amt: {formatCurrency(calculatedStats.negotiationAmount)}
-              </p>
+              <div>
+                <p className="text-xl sm:text-2xl xl:text-3xl font-extrabold text-slate-900 leading-tight">{calculatedStats.negotiationCount}</p>
+                <p className="text-[10px] xl:text-[11px] text-amber-600 mt-1 font-semibold truncate">
+                  Amt: {formatCurrency(calculatedStats.negotiationAmount)}
+                </p>
+              </div>
             </div>
+
             {/* Card 5: Closed Leads */}
-            <div onClick={() => navigateToLeads('leadOutcomeStatus', 'Closed')} className="block bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 border-l-4 border-l-gray-500 hover:shadow-md transition-shadow group cursor-pointer">
-              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                <span className="text-[9px] sm:text-xs font-semibold uppercase tracking-wide text-gray-400">Closed</span>
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors">
-                  <Icon name="mdi:close-circle-outline" className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+            <div
+              onClick={() => navigateToLeads('leadOutcomeStatus', 'Closed')}
+              className="group cursor-pointer rounded-2xl bg-white p-3.5 border border-slate-100 shadow-sm border-l-4 border-l-slate-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between min-w-0"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] xl:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">Closed</span>
+                <div className="w-7 h-7 rounded-xl bg-slate-100 group-hover:bg-slate-600 group-hover:text-white text-slate-600 flex items-center justify-center transition-colors shrink-0">
+                  <Icon name="mdi:close-circle-outline" className="w-4 h-4" />
                 </div>
               </div>
-              <p className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.closedLeadsCount}</p>
-              <p className="text-[8px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-semibold truncate">
-                Amt: {formatCurrency(calculatedStats.closedLeadsAmount)}
-              </p>
+              <div>
+                <p className="text-xl sm:text-2xl xl:text-3xl font-extrabold text-slate-900 leading-tight">{calculatedStats.closedLeadsCount}</p>
+                <p className="text-[10px] xl:text-[11px] text-slate-500 mt-1 font-semibold truncate">
+                  Amt: {formatCurrency(calculatedStats.closedLeadsAmount)}
+                </p>
+              </div>
             </div>
 
             {/* Card 6: Won Leads */}
-            <div onClick={() => navigateToLeads('leadOutcomeStatus', 'Won')} className="block bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 border-l-4 border-l-emerald-500 hover:shadow-md transition-shadow group cursor-pointer">
-              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                <span className="text-[9px] sm:text-xs font-semibold uppercase tracking-wide text-gray-400">Won</span>
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 group-hover:bg-emerald-100 flex items-center justify-center transition-colors">
-                  <Icon name="mdi:trophy-outline" className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-500" />
+            <div
+              onClick={() => navigateToLeads('leadOutcomeStatus', 'Won')}
+              className="group cursor-pointer rounded-2xl bg-white p-3.5 border border-slate-100 shadow-sm border-l-4 border-l-emerald-500 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between min-w-0"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] xl:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">Won</span>
+                <div className="w-7 h-7 rounded-xl bg-emerald-50 group-hover:bg-emerald-500 group-hover:text-white text-emerald-600 flex items-center justify-center transition-colors shrink-0">
+                  <Icon name="mdi:trophy-outline" className="w-4 h-4" />
                 </div>
               </div>
-              <p className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.wonLeadsCount}</p>
-              <p className="text-[8px] sm:text-xs text-emerald-500 mt-0.5 sm:mt-1 font-semibold truncate">
-                Amt: {formatCurrency(calculatedStats.wonLeadsAmount)}
-              </p>
+              <div>
+                <p className="text-xl sm:text-2xl xl:text-3xl font-extrabold text-slate-900 leading-tight">{calculatedStats.wonLeadsCount}</p>
+                <p className="text-[10px] xl:text-[11px] text-emerald-600 mt-1 font-semibold truncate">
+                  Amt: {formatCurrency(calculatedStats.wonLeadsAmount)}
+                </p>
+              </div>
             </div>
 
             {/* Card 7: Conversion Ratio */}
-            <div className="block bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 border-l-4 border-l-indigo-500 hover:shadow-md transition-shadow group">
-              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                <span className="text-[9px] sm:text-xs font-semibold uppercase tracking-wide text-gray-400">Conversion</span>
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-indigo-50 group-hover:bg-indigo-100 flex items-center justify-center transition-colors">
-                  <Icon name="mdi:trending-up" className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-500" />
+            <div className="group rounded-2xl bg-white p-3.5 border border-slate-100 shadow-sm border-l-4 border-l-cyan-500 hover:shadow-md transition-all duration-200 flex flex-col justify-between min-w-0">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] xl:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">Conversion</span>
+                <div className="w-7 h-7 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shrink-0">
+                  <Icon name="mdi:trending-up" className="w-4 h-4" />
                 </div>
               </div>
-              <p className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.conversionRatioTotal}%</p>
-              <p className="text-[8px] sm:text-xs text-indigo-500 mt-0.5 sm:mt-1 font-semibold truncate">
-                Qualified: {calculatedStats.conversionRatioQualified}%
-              </p>
+              <div>
+                <p className="text-xl sm:text-2xl xl:text-3xl font-extrabold text-slate-900 leading-tight">{calculatedStats.conversionRatioTotal}%</p>
+                <p className="text-[10px] xl:text-[11px] text-cyan-600 mt-1 font-semibold truncate">
+                  Qualified: {calculatedStats.conversionRatioQualified}%
+                </p>
+              </div>
             </div>
           </div>
+          )}
 
-          {/* Main 2-col Grid */}
-          <div className="grid grid-cols-1 xl:grid-cols-[3fr_2fr] gap-5">
-            {/* LEFT COLUMN */}
-            <div className="space-y-5">
-              {/* Chart Section */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-0">
-                  <div className="flex flex-wrap items-center gap-0.5 sm:gap-1">
-                    {chartTabs.map((tab) => (
-                      <button
-                        key={tab.key}
-                        onClick={() => setActiveChart(tab.key)}
-                        className={`px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-semibold rounded-t-lg transition-all ${activeChart === tab.key
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-                          }`}
-                      >{tab.label}</button>
-                    ))}
-                  </div>
-                  <Link
-                    to={activeChart === 'opp' ? '/lead' : '/lead'}
-                    className="text-[10px] sm:text-xs text-blue-600 hover:text-blue-700 font-semibold pb-1"
-                  >View all →</Link>
-                </div>
-                <div className="px-3 sm:px-5 pb-5 pt-4" style={{ height: 220 }}>
-                  {activeChart === 'status' && leadStatusItems.length > 0 && <Bar data={leadBarData} options={leadBarOptions} />}
-                  {activeChart === 'status' && !leadStatusItems.length && <p className="text-sm text-gray-400 text-center pt-16">No lead data available.</p>}
-                  {activeChart === 'opp' && oppStatusItems.length > 0 && <Doughnut data={oppDoughnutData} options={doughnutOptions} />}
-                  {activeChart === 'opp' && !oppStatusItems.length && <p className="text-sm text-gray-400 text-center pt-16">No pipeline stage data available.</p>}
-                  {activeChart === 'source' && leadSourceItems.length > 0 && <Doughnut data={leadSourceDoughnutData} options={doughnutOptions} />}
-                  {activeChart === 'source' && !leadSourceItems.length && <p className="text-sm text-gray-400 text-center pt-16">No lead source data available.</p>}
-                </div>
-              </div>
-
-              {/* Sales Funnel */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
+          {/* Main 12-Column Dashboard Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* LEFT COLUMN (8 Cols on XL / 7 Cols on LG) */}
+            <div className="lg:col-span-7 xl:col-span-8 space-y-6 min-w-0">
+              
+              {/* Sales Funnel & Stage Intelligence Card */}
+              {dhConfig?.dashboard?.showPipelineStageCard !== false && (
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
                   <div>
-                    <p className="text-xs sm:text-sm font-semibold text-gray-800">Sales Funnel</p>
-                    <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">Click a stage to inspect conversion</p>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-800">Sales Funnel Performance</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Click any stage polygon or button to filter pipeline conversion</p>
                   </div>
                   <button
                     onClick={() => {
@@ -882,79 +1051,87 @@ export default function HomePage() {
                         navigateToLeads('leadOutcomeStatus', selectedFunnelStep.filterValue)
                       }
                     }}
-                    className="text-[10px] sm:text-xs text-blue-600 hover:text-blue-700 font-semibold"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-colors"
                   >
-                    Open stage →
+                    <span>Inspect stage</span>
+                    <Icon name="mdi:arrow-right" className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_240px] gap-5 p-3 sm:p-5">
-                  <div className="min-w-0">
-                    <svg
-                      viewBox="0 0 760 520"
-                      role="img"
-                      aria-label="Sales funnel conversion chart"
-                      className="w-full h-[320px] sm:h-[420px] xl:h-[500px] 2xl:h-[560px]"
-                    >
-                      {funnelSteps.map((step, idx) => {
-                        const sectionHeight = 78
-                        const topY = 20 + idx * sectionHeight
-                        const bottomY = topY + sectionHeight
-                        const maxWidth = 700
-                        const minWidth = 150
-                        const totalSteps = funnelSteps.length
-                        const topWidth = maxWidth - ((maxWidth - minWidth) / totalSteps) * idx
-                        const bottomWidth = maxWidth - ((maxWidth - minWidth) / totalSteps) * (idx + 1)
-                        const centerX = 380
-                        const topLeft = centerX - topWidth / 2
-                        const topRight = centerX + topWidth / 2
-                        const bottomLeft = centerX - bottomWidth / 2
-                        const bottomRight = centerX + bottomWidth / 2
-                        const isSelected = selectedFunnelStep?.key === step.key
 
-                        return (
-                          <g key={step.key} className="cursor-pointer" onClick={() => setSelectedFunnelKey(step.key)}>
-                            <polygon
-                              points={`${topLeft},${topY} ${topRight},${topY} ${bottomRight},${bottomY} ${bottomLeft},${bottomY}`}
-                              fill={step.color}
-                              opacity={isSelected ? 1 : 0.88}
-                              stroke={isSelected ? '#111827' : '#ffffff'}
-                              strokeWidth={isSelected ? 3 : 2}
-                              className="transition-all duration-200 hover:opacity-100"
-                            />
-                            <text
-                              x={centerX}
-                              y={topY + 32}
-                              textAnchor="middle"
-                              className="fill-white text-[18px] font-bold"
-                            >
-                              {step.label}
-                            </text>
-                            <text
-                              x={centerX}
-                              y={topY + 56}
-                              textAnchor="middle"
-                              className="fill-white text-[14px] font-semibold opacity-90"
-                            >
-                              {step.count.toLocaleString('en-IN')} | {step.pct}%
-                            </text>
-                          </g>
-                        )
-                      })}
-                    </svg>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-5 p-4 sm:p-5 items-center">
+                  {/* Funnel SVG & Quick Stage Selector (Left 7 Cols) */}
+                  <div className="md:col-span-7 flex flex-col justify-between min-w-0">
+                    <div className="w-full flex items-center justify-center py-1">
+                      <svg
+                        viewBox="0 0 760 520"
+                        role="img"
+                        aria-label="Sales funnel conversion chart"
+                        className="w-full h-auto max-h-[250px] mx-auto block drop-shadow-xs"
+                      >
+                        {funnelSteps.map((step, idx) => {
+                          const sectionHeight = 78
+                          const topY = 20 + idx * sectionHeight
+                          const bottomY = topY + sectionHeight
+                          const maxWidth = 700
+                          const minWidth = 150
+                          const totalSteps = funnelSteps.length
+                          const topWidth = maxWidth - ((maxWidth - minWidth) / totalSteps) * idx
+                          const bottomWidth = maxWidth - ((maxWidth - minWidth) / totalSteps) * (idx + 1)
+                          const centerX = 380
+                          const topLeft = centerX - topWidth / 2
+                          const topRight = centerX + topWidth / 2
+                          const bottomLeft = centerX - bottomWidth / 2
+                          const bottomRight = centerX + bottomWidth / 2
+                          const isSelected = selectedFunnelStep?.key === step.key
+
+                          return (
+                            <g key={step.key} className="cursor-pointer group" onClick={() => setSelectedFunnelKey(step.key)}>
+                              <polygon
+                                points={`${topLeft},${topY} ${topRight},${topY} ${bottomRight},${bottomY} ${bottomLeft},${bottomY}`}
+                                fill={step.color}
+                                opacity={isSelected ? 1 : 0.88}
+                                stroke={isSelected ? '#0f172a' : '#ffffff'}
+                                strokeWidth={isSelected ? 3 : 2}
+                                className="transition-all duration-200 group-hover:opacity-100"
+                              />
+                              <text
+                                x={centerX}
+                                y={topY + 32}
+                                textAnchor="middle"
+                                className="fill-white text-[17px] font-extrabold select-none"
+                              >
+                                {step.label}
+                              </text>
+                              <text
+                                x={centerX}
+                                y={topY + 56}
+                                textAnchor="middle"
+                                className="fill-white text-[13px] font-bold opacity-90 select-none"
+                              >
+                                {step.count.toLocaleString('en-IN')} | {step.pct}%
+                              </text>
+                            </g>
+                          )
+                        })}
+                      </svg>
+                    </div>
+
+                    {/* Stage Filter Buttons */}
+                    <div className="grid grid-cols-3 gap-1.5 mt-3">
                       {funnelSteps.map((step) => (
                         <button
                           key={step.key}
                           onClick={() => setSelectedFunnelKey(step.key)}
-                          className={`flex items-center gap-1 sm:gap-2 rounded-lg border px-2 sm:px-3 py-2 text-left transition-colors ${selectedFunnelStep?.key === step.key
-                            ? 'border-gray-900 bg-gray-900 text-white'
-                            : 'border-gray-100 bg-gray-50 text-gray-600 hover:bg-gray-100'
-                            }`}
+                          className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-left transition-all ${
+                            selectedFunnelStep?.key === step.key
+                              ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                              : 'border-slate-100 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                          }`}
                         >
-                          <Icon name={step.icon} className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                          <Icon name={step.icon} className="h-3.5 w-3.5 shrink-0" />
                           <span className="min-w-0">
-                            <span className="block truncate text-[10px] sm:text-xs font-semibold">{step.label}</span>
-                            <span className={`block text-[9px] sm:text-[11px] ${selectedFunnelStep?.key === step.key ? 'text-gray-300' : 'text-gray-400'}`}>
+                            <span className="block truncate text-[11px] font-bold">{step.label}</span>
+                            <span className={`block text-[9px] ${selectedFunnelStep?.key === step.key ? 'text-slate-300' : 'text-slate-400'}`}>
                               {step.count.toLocaleString('en-IN')}
                             </span>
                           </span>
@@ -963,42 +1140,51 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 sm:p-4">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-lg text-white" style={{ backgroundColor: selectedFunnelStep?.color }}>
-                        <Icon name={selectedFunnelStep?.icon || 'mdi:chart-funnel'} className="h-4 w-4 sm:h-5 sm:w-5" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-xs sm:text-sm font-semibold text-gray-800">{selectedFunnelStep?.label}</p>
-                        <p className="text-[10px] sm:text-xs text-gray-400">{DATE_LABELS[dateRange]}</p>
-                      </div>
-                    </div>
-                    <p className="mt-3 sm:mt-4 text-xl sm:text-2xl xl:text-3xl font-bold text-gray-900">{(selectedFunnelStep?.count ?? 0).toLocaleString('en-IN')}</p>
-                    <p className="text-[10px] sm:text-xs font-medium text-gray-500">records in this stage</p>
-                    <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
-                      <div>
-                        <div className="mb-1 flex justify-between text-[10px] sm:text-xs font-semibold text-gray-500">
-                          <span>Of total leads</span>
-                          <span>{selectedFunnelStep?.pct ?? 0}%</span>
-                        </div>
-                        <div className="h-1.5 sm:h-2 rounded-full bg-white">
-                          <div className="h-full rounded-full" style={{ width: `${Math.min(selectedFunnelStep?.pct ?? 0, 100)}%`, backgroundColor: selectedFunnelStep?.color }} />
+                  {/* Stage Intelligence Card (Right 5 Cols) */}
+                  <div className="md:col-span-5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 flex flex-col justify-between h-full">
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-xl text-white shadow-xs shrink-0" style={{ backgroundColor: selectedFunnelStep?.color }}>
+                          <Icon name={selectedFunnelStep?.icon || 'mdi:chart-funnel'} className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-xs sm:text-sm font-bold text-slate-900">{selectedFunnelStep?.label}</p>
+                          <p className="text-[10px] text-slate-400">{DATE_LABELS[dateRange]}</p>
                         </div>
                       </div>
-                      <div>
-                        <div className="mb-1 flex justify-between text-[10px] sm:text-xs font-semibold text-gray-500">
-                          <span>From previous</span>
-                          <span>{selectedFunnelStep?.previousPct ?? 0}%</span>
+
+                      <div className="mt-3">
+                        <p className="text-xl sm:text-2xl font-extrabold text-slate-900">{(selectedFunnelStep?.count ?? 0).toLocaleString('en-IN')}</p>
+                        <p className="text-[11px] font-semibold text-slate-500">records in stage</p>
+                      </div>
+
+                      <div className="mt-3 space-y-2">
+                        <div>
+                          <div className="mb-1 flex justify-between text-[11px] font-semibold text-slate-600">
+                            <span>Of total leads</span>
+                            <span>{selectedFunnelStep?.pct ?? 0}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-white border border-slate-100 overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(selectedFunnelStep?.pct ?? 0, 100)}%`, backgroundColor: selectedFunnelStep?.color }} />
+                          </div>
                         </div>
-                        <div className="h-1.5 sm:h-2 rounded-full bg-white">
-                          <div className="h-full rounded-full" style={{ width: `${Math.min(selectedFunnelStep?.previousPct ?? 0, 100)}%`, backgroundColor: selectedFunnelStep?.color }} />
+                        <div>
+                          <div className="mb-1 flex justify-between text-[11px] font-semibold text-slate-600">
+                            <span>From previous stage</span>
+                            <span>{selectedFunnelStep?.previousPct ?? 0}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-white border border-slate-100 overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(selectedFunnelStep?.previousPct ?? 0, 100)}%`, backgroundColor: selectedFunnelStep?.color }} />
+                          </div>
                         </div>
                       </div>
+
+                      <div className="mt-3 rounded-xl bg-white p-2.5 border border-slate-100 text-[11px] text-slate-600">
+                        <span className="font-bold text-slate-800">Drop-off:</span>{' '}
+                        {selectedFunnelStep?.dropOff ? `${selectedFunnelStep.dropOff.toLocaleString('en-IN')} fewer` : 'Top of funnel'}
+                      </div>
                     </div>
-                    <div className="mt-3 sm:mt-4 rounded-lg bg-white p-2 sm:p-3 text-[10px] sm:text-xs text-gray-500">
-                      <span className="font-semibold text-gray-700">Drop-off:</span>{' '}
-                      {selectedFunnelStep?.dropOff ? `${selectedFunnelStep.dropOff.toLocaleString('en-IN')} fewer` : 'Top of funnel'}
-                    </div>
+
                     <button
                       onClick={() => {
                         if (selectedFunnelStep?.filterType === 'all') {
@@ -1009,412 +1195,428 @@ export default function HomePage() {
                           navigateToLeads('leadOutcomeStatus', selectedFunnelStep.filterValue)
                         }
                       }}
-                      className="mt-3 sm:mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-[10px] sm:text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-blue-700 active:scale-[0.99]"
                     >
-                      <Icon name="mdi:open-in-new" className="h-3 w-3 sm:h-4 sm:w-4" />
-                      View records
+                      <Icon name="mdi:open-in-new" className="h-3.5 w-3.5" />
+                      Inspect records in lead list
                     </button>
                   </div>
                 </div>
               </div>
+              )}
 
-              {/* Activity Feed */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
-                  <div>
-                    <p className="text-xs sm:text-sm font-semibold text-gray-800">Recent Activity</p>
-                    <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{DATE_LABELS[dateRange]} actions</p>
+              {/* Analytics Chart Section */}
+              {dhConfig?.dashboard?.showChartsCard !== false && (
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl">
+                    {chartTabs.map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setActiveChart(tab.key)}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                          activeChart === tab.key
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
                   </div>
-                  <Link to="/activities" className="text-[10px] sm:text-xs text-blue-600 hover:text-blue-700 font-semibold">View all →</Link>
+                  <Link
+                    to="/lead"
+                    className="text-xs text-blue-600 hover:text-blue-700 font-bold flex items-center gap-1"
+                  >
+                    <span>View all leads</span>
+                    <Icon name="mdi:arrow-right" className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
-                <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
-                  {filteredActivityFeed.slice(0, 10).map((item) => (
-                    <div key={item.id} className="flex items-start gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 hover:bg-gray-50/80 transition-colors cursor-default">
-                      <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${item.type === 'Call' ? 'bg-indigo-100' : item.type === 'Email' ? 'bg-blue-100' : item.type === 'Meeting' ? 'bg-orange-100' : 'bg-purple-100'
-                        }`}>
-                        <Icon name={item.icon} className={`w-3 h-3 sm:w-4 sm:h-4 ${item.type === 'Call' ? 'text-indigo-500' : item.type === 'Email' ? 'text-blue-500' : item.type === 'Meeting' ? 'text-orange-500' : 'text-purple-500'
-                          }`} />
+
+                <div className="w-full relative" style={{ height: 240 }}>
+                  {activeChart === 'status' && leadStatusItems.length > 0 && <Bar data={leadBarData} options={leadBarOptions} />}
+                  {activeChart === 'status' && !leadStatusItems.length && <p className="text-sm text-slate-400 text-center pt-20">No lead status data available.</p>}
+                  {activeChart === 'opp' && oppStatusItems.length > 0 && <Doughnut data={oppDoughnutData} options={doughnutOptions} />}
+                  {activeChart === 'opp' && !oppStatusItems.length && <p className="text-sm text-slate-400 text-center pt-20">No pipeline stage data available.</p>}
+                  {activeChart === 'source' && leadSourceItems.length > 0 && <Doughnut data={leadSourceDoughnutData} options={doughnutOptions} />}
+                  {activeChart === 'source' && !leadSourceItems.length && <p className="text-sm text-slate-400 text-center pt-20">No lead source data available.</p>}
+                </div>
+              </div>
+              )}
+
+              {/* Activity Timeline Card */}
+              {dhConfig?.dashboard?.showActivityTimelineCard !== false && (
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">Recent Activity Timeline</h3>
+                    <p className="text-xs text-slate-400">{DATE_LABELS[dateRange]} activity actions</p>
+                  </div>
+                  <Link to="/activities" className="text-xs font-bold text-blue-600 hover:text-blue-700">View all →</Link>
+                </div>
+
+                <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+                  {filteredActivityFeed.slice(0, 8).map((item) => (
+                    <div key={item.id} className="flex items-start gap-3.5 px-5 py-3 hover:bg-slate-50/80 transition-colors">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                        item.type === 'Call' ? 'bg-indigo-50 text-indigo-600' :
+                        item.type === 'Email' ? 'bg-blue-50 text-blue-600' :
+                        item.type === 'Meeting' ? 'bg-amber-50 text-amber-600' : 'bg-purple-50 text-purple-600'
+                      }`}>
+                        <Icon name={item.icon} className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-800 leading-snug truncate">{item.title}</p>
-                        <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{item.subject} · {item.owner}</p>
-                        {item.note && <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 line-clamp-1">{item.note}</p>}
+                        <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">{item.title}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{item.subject} · {item.owner}</p>
+                        {item.note && <p className="text-xs text-slate-500 mt-1 line-clamp-1">{item.note}</p>}
                       </div>
-                      <span className="text-[10px] sm:text-[11px] text-gray-400 whitespace-nowrap shrink-0 mt-0.5">{item.time}</span>
+                      <span className="text-[11px] font-semibold text-slate-400 shrink-0">{item.time}</span>
                     </div>
                   ))}
                   {!filteredActivityFeed.length && (
-                    <div className="px-3 sm:px-5 py-6 sm:py-8 text-center text-xs sm:text-sm text-gray-400">No recent activity.</div>
+                    <div className="px-5 py-8 text-center text-xs text-slate-400">No recent activities logged in this date range.</div>
                   )}
                 </div>
               </div>
+              )}
+
             </div>
 
-            {/* RIGHT COLUMN */}
-            <div className="space-y-4">
-              {/* Leads by Grade Section */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
+            {/* RIGHT COLUMN (4 Cols on XL / 5 Cols on LG) */}
+            <div className="lg:col-span-5 xl:col-span-4 space-y-6 min-w-0">
+
+              {/* Star Graded Leads Section */}
+              {dhConfig?.dashboard?.showStarLeadsCard !== false && (
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      {['A', 'B', 'C', 'D'].map((grade) => (
-                        <div key={grade} className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${GRADE_BG[grade]}`} />
-                      ))}
-                    </div>
-                    <div>
-                      <p className="text-xs sm:text-sm font-semibold text-gray-800">Leads by Stars</p>
-                    </div>
+                    <Icon name="mdi:star" className="w-5 h-5 text-amber-400" />
+                    <h3 className="text-sm font-bold text-slate-800">Leads by Star Rating</h3>
                   </div>
-                  <Link to="/lead" className="text-[10px] sm:text-xs text-blue-600 hover:text-blue-700 font-semibold">View all →</Link>
+                  <Link to="/lead" className="text-xs font-bold text-blue-600 hover:text-blue-700">View all →</Link>
                 </div>
 
-                <div className="grid grid-cols-4 gap-2 sm:gap-4 p-3 sm:p-4 border-b border-gray-50">
-                  {[5, 4, 3, 2].map((star) => (
-                    <div key={star} className="text-center p-1.5 sm:p-2 rounded-lg bg-yellow-50 border border-yellow-200">
-                      <p className="text-base sm:text-lg font-bold">{starCounts[star]}</p>
-                      <p className="text-yellow-500 text-[10px] sm:text-sm">{"★".repeat(star)}</p>
-                      <p className="text-[8px] sm:text-[10px] font-semibold text-green-600 truncate">
+                {/* Rating Badges Summary */}
+                <div className="grid grid-cols-5 gap-1.5 p-3 border-b border-slate-100 bg-amber-50/30">
+                  {[5, 4, 3, 2, 1].map((star) => (
+                    <div key={star} className="text-center p-1.5 sm:p-2 rounded-xl bg-white border border-amber-200/70 shadow-2xs">
+                      <p className="text-xs sm:text-sm font-extrabold text-slate-800">{starCounts[star] || 0}</p>
+                      <p className="text-amber-400 text-[10px] sm:text-xs">{"★".repeat(star)}</p>
+                      <p className="text-[8px] sm:text-[9px] font-bold text-emerald-600 truncate mt-0.5" title={formatCurrency(quotationByStar[star] || 0)}>
                         {formatCurrency(quotationByStar[star] || 0)}
                       </p>
                     </div>
                   ))}
                 </div>
 
-                {/* Grade A Leads - 5 Stars */}
+                {/* 5-Star Leads */}
                 {leadsByGrade.A.length > 0 && (
-                  <div className="border-b border-gray-50">
-                    <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-50/30">
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500" />
-                        <span className="text-[10px] sm:text-xs font-semibold text-emerald-700">5 Stars</span>
-                        <span className="text-[10px] sm:text-xs text-emerald-600 ml-auto">{leadsByGrade.A.length} leads</span>
+                  <div className="border-b border-slate-100">
+                    <div className="px-4 py-1.5 bg-emerald-50/40 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="text-xs font-bold text-emerald-800">5-Star High Value Leads</span>
                       </div>
+                      <span className="text-xs font-bold text-emerald-700">{leadsByGrade.A.length} leads</span>
                     </div>
-                    <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
+                    <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
                       {[...leadsByGrade.A]
                         .sort((a, b) => Number(b.quotationAmount || 0) - Number(a.quotationAmount || 0))
                         .map((lead) => (
-                          <Link key={lead.leadId} to={`/lead/${lead.leadId}`} className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 hover:bg-gray-50/80 transition-colors">
-                            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] sm:text-xs font-bold shrink-0">
+                          <Link key={lead.leadId} to={`/lead/${lead.leadId}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                            <div className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">
                               {lead.companyContactPersonName?.[0]?.toUpperCase() || lead.leadOrganisationName?.[0]?.toUpperCase() || 'L'}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate">
+                              <p className="text-xs font-bold text-slate-800 truncate">
                                 {lead.companyContactPersonName || lead.leadOrganisationName || `${lead.leadFirstName || ''} ${lead.leadLastName || ''}`}
                               </p>
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-0.5 sm:mt-1">
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-[10px] sm:text-xs font-semibold text-green-600">
-                                    {formatCurrency(lead.quotationAmount || 0, lead.leadCountry)}
-                                  </span>
-                                  <span className="text-[8px] sm:text-[10px] text-gray-500 truncate cursor-help" title={lead.enquiryDescription || "No enquiry description"}>
-                                    {(lead.enquiryDescription || "No enquiry description").length > 30
-                                      ? `${lead.enquiryDescription.substring(0, 30)}...`
-                                      : lead.enquiryDescription || "No enquiry description"}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-0.5 ml-0 sm:ml-2">
+                              <div className="flex items-center justify-between mt-0.5">
+                                <span className="text-xs font-bold text-emerald-600">
+                                  {formatCurrency(lead.quotationAmount || 0, lead.leadCountry)}
+                                </span>
+                                <div className="flex items-center gap-0.5">
                                   {[...Array(5)].map((_, i) => (
-                                    <Icon key={i} name="mdi:star" className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-amber-400" />
+                                    <Icon key={i} name="mdi:star" className="w-2.5 h-2.5 text-amber-400" />
                                   ))}
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold ${lead.leadOutcomeStatus === 'Won' ? 'bg-green-100 text-green-700' :
-                                lead.leadOutcomeStatus === 'Open' ? 'bg-purple-100 text-purple-700' :
-                                  lead.leadOutcomeStatus === 'Closed' ? 'bg-gray-100 text-gray-600' :
-                                    'bg-gray-100 text-gray-600'
-                                }`}>
-                                {lead.leadOutcomeStatus || lead.leadStatus || 'New'}
-                              </span>
-                            </div>
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-700 shrink-0">
+                              {lead.leadOutcomeStatus || 'Open'}
+                            </span>
                           </Link>
                         ))}
                     </div>
                   </div>
                 )}
 
-                {/* Grade B Leads - 4 Stars */}
+                {/* 4-Star Leads */}
                 {leadsByGrade.B.length > 0 && (
-                  <div className="border-b border-gray-50">
-                    <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-50/30">
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-500" />
-                        <span className="text-[10px] sm:text-xs font-semibold text-blue-700">4 Stars</span>
-                        <span className="text-[10px] sm:text-xs text-blue-600 ml-auto">{leadsByGrade.B.length} leads</span>
+                  <div className="border-b border-slate-100">
+                    <div className="px-4 py-1.5 bg-blue-50/40 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                        <span className="text-xs font-bold text-blue-800">4-Star Leads</span>
                       </div>
+                      <span className="text-xs font-bold text-blue-700">{leadsByGrade.B.length} leads</span>
                     </div>
-                    <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
-                      {leadsByGrade.B.slice(0, 5).map((lead) => (
-                        <Link key={lead.leadId} to={`/lead/${lead.leadId}`} className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 hover:bg-gray-50/80 transition-colors">
-                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] sm:text-xs font-bold shrink-0">
+                    <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                      {leadsByGrade.B.map((lead) => (
+                        <Link key={lead.leadId} to={`/lead/${lead.leadId}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                          <div className="w-7 h-7 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
                             {lead.companyContactPersonName?.[0]?.toUpperCase() || lead.leadOrganisationName?.[0]?.toUpperCase() || 'L'}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate">
+                            <p className="text-xs font-bold text-slate-800 truncate">
                               {lead.companyContactPersonName || lead.leadOrganisationName || `${lead.leadFirstName || ''} ${lead.leadLastName || ''}`}
                             </p>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-0.5 sm:mt-1">
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-[10px] sm:text-xs font-semibold text-green-600">
-                                  {formatCurrency(lead.quotationAmount || 0, lead.leadCountry)}
-                                </span>
-                                <span className="text-[8px] sm:text-[10px] text-gray-500 truncate cursor-help" title={lead.enquiryDescription || "No enquiry description"}>
-                                  {(lead.enquiryDescription || "No enquiry description").length > 30
-                                    ? `${lead.enquiryDescription.substring(0, 30)}...`
-                                    : lead.enquiryDescription || "No enquiry description"}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-0.5 ml-0 sm:ml-2">
+                            <div className="flex items-center justify-between mt-0.5">
+                              <span className="text-xs font-bold text-emerald-600">
+                                {formatCurrency(lead.quotationAmount || 0, lead.leadCountry)}
+                              </span>
+                              <div className="flex items-center gap-0.5">
                                 {[...Array(4)].map((_, i) => (
-                                  <Icon key={i} name="mdi:star" className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-amber-400" />
+                                  <Icon key={i} name="mdi:star" className="w-2.5 h-2.5 text-amber-400" />
                                 ))}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold ${lead.leadOutcomeStatus === 'Won' ? 'bg-green-100 text-green-700' :
-                              lead.leadOutcomeStatus === 'Open' ? 'bg-purple-100 text-purple-700' :
-                                lead.leadOutcomeStatus === 'Closed' ? 'bg-gray-100 text-gray-600' :
-                                  'bg-gray-100 text-gray-600'
-                              }`}>
-                              {lead.leadOutcomeStatus || lead.leadStatus || 'New'}
-                            </span>
-                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-700 shrink-0">
+                            {lead.leadOutcomeStatus || 'Open'}
+                          </span>
                         </Link>
                       ))}
-                      {leadsByGrade.B.length > 5 && (
-                        <Link to="/lead?gradeFilter=B" className="block px-3 sm:px-4 py-1.5 sm:py-2 text-center text-[10px] sm:text-xs text-blue-600 hover:bg-blue-50 font-semibold">
-                          +{leadsByGrade.B.length - 5} more 4 Star leads
-                        </Link>
-                      )}
                     </div>
                   </div>
                 )}
 
-                {/* Grade C Leads - 3 Stars */}
+                {/* 3-Star Leads */}
                 {leadsByGrade.C.length > 0 && (
-                  <div className="border-b border-gray-50">
-                    <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-amber-50/30">
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-500" />
-                        <span className="text-[10px] sm:text-xs font-semibold text-amber-700">3 Stars</span>
-                        <span className="text-[10px] sm:text-xs text-amber-600 ml-auto">{leadsByGrade.C.length} leads</span>
+                  <div className="border-b border-slate-100">
+                    <div className="px-4 py-1.5 bg-amber-50/40 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        <span className="text-xs font-bold text-amber-800">3-Star Leads</span>
                       </div>
+                      <span className="text-xs font-bold text-amber-700">{leadsByGrade.C.length} leads</span>
                     </div>
-                    <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto overflow-x-visible">
-                      {leadsByGrade.C.slice(0, 5).map((lead) => (
-                        <Link key={lead.leadId} to={`/lead/${lead.leadId}`} className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 hover:bg-gray-50/80 transition-colors">
-                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] sm:text-xs font-bold shrink-0">
+                    <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                      {leadsByGrade.C.map((lead) => (
+                        <Link key={lead.leadId} to={`/lead/${lead.leadId}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                          <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold shrink-0">
                             {lead.companyContactPersonName?.[0]?.toUpperCase() || lead.leadOrganisationName?.[0]?.toUpperCase() || 'L'}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate">
+                            <p className="text-xs font-bold text-slate-800 truncate">
                               {lead.companyContactPersonName || lead.leadOrganisationName || `${lead.leadFirstName || ''} ${lead.leadLastName || ''}`}
                             </p>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-0.5 sm:mt-1">
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-[10px] sm:text-xs font-semibold text-green-600">
-                                  {formatCurrency(lead.quotationAmount || 0, lead.leadCountry)}
-                                </span>
-                                <span className="text-[8px] sm:text-[10px] text-gray-500 truncate cursor-help" title={lead.enquiryDescription || "No enquiry description"}>
-                                  {(lead.enquiryDescription || "No enquiry description").length > 30
-                                    ? `${lead.enquiryDescription.substring(0, 30)}...`
-                                    : lead.enquiryDescription || "No enquiry description"}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-0.5 ml-0 sm:ml-2">
+                            <div className="flex items-center justify-between mt-0.5">
+                              <span className="text-xs font-bold text-emerald-600">
+                                {formatCurrency(lead.quotationAmount || 0, lead.leadCountry)}
+                              </span>
+                              <div className="flex items-center gap-0.5">
                                 {[...Array(3)].map((_, i) => (
-                                  <Icon key={i} name="mdi:star" className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-amber-400" />
+                                  <Icon key={i} name="mdi:star" className="w-2.5 h-2.5 text-amber-400" />
                                 ))}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold ${lead.leadOutcomeStatus === 'Won' ? 'bg-green-100 text-green-700' :
-                              lead.leadOutcomeStatus === 'Open' ? 'bg-purple-100 text-purple-700' :
-                                lead.leadOutcomeStatus === 'Closed' ? 'bg-gray-100 text-gray-600' :
-                                  'bg-gray-100 text-gray-600'
-                              }`}>
-                              {lead.leadOutcomeStatus || lead.leadStatus || 'New'}
-                            </span>
-                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-700 shrink-0">
+                            {lead.leadOutcomeStatus || 'Open'}
+                          </span>
                         </Link>
                       ))}
-                      {leadsByGrade.C.length > 5 && (
-                        <Link to="/lead?gradeFilter=C" className="block px-3 sm:px-4 py-1.5 sm:py-2 text-center text-[10px] sm:text-xs text-amber-600 hover:bg-amber-50 font-semibold">
-                          +{leadsByGrade.C.length - 5} more 3 Star leads
-                        </Link>
-                      )}
                     </div>
                   </div>
                 )}
 
-                {/* Grade D Leads - 1-2 Stars */}
+                {/* 2-Star Leads */}
                 {leadsByGrade.D.length > 0 && (
-                  <div>
-                    <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-50/30">
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-500" />
-                        <span className="text-[10px] sm:text-xs font-semibold text-red-700">2 Stars</span>
-                        <span className="text-[10px] sm:text-xs text-red-600 ml-auto">{leadsByGrade.D.length} leads</span>
+                  <div className="border-b border-slate-100">
+                    <div className="px-4 py-1.5 bg-slate-50/60 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-slate-400" />
+                        <span className="text-xs font-bold text-slate-700">2-Star Leads</span>
                       </div>
+                      <span className="text-xs font-bold text-slate-600">{leadsByGrade.D.length} leads</span>
                     </div>
-                    <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
-                      {leadsByGrade.D.slice(0, 5).map((lead) => (
-                        <Link key={lead.leadId} to={`/lead/${lead.leadId}`} className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 hover:bg-gray-50/80 transition-colors">
-                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-[10px] sm:text-xs font-bold shrink-0">
+                    <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                      {leadsByGrade.D.map((lead) => (
+                        <Link key={lead.leadId} to={`/lead/${lead.leadId}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                          <div className="w-7 h-7 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0">
                             {lead.companyContactPersonName?.[0]?.toUpperCase() || lead.leadOrganisationName?.[0]?.toUpperCase() || 'L'}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate">
+                            <p className="text-xs font-bold text-slate-800 truncate">
                               {lead.companyContactPersonName || lead.leadOrganisationName || `${lead.leadFirstName || ''} ${lead.leadLastName || ''}`}
                             </p>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-0.5 sm:mt-1">
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-[10px] sm:text-xs font-semibold text-green-600">
-                                  {formatCurrency(lead.quotationAmount || 0, lead.leadCountry)}
-                                </span>
-                                <span className="text-[8px] sm:text-[10px] text-gray-500 truncate cursor-help" title={lead.enquiryDescription || "No enquiry description"}>
-                                  {(lead.enquiryDescription || "No enquiry description").length > 30
-                                    ? `${lead.enquiryDescription.substring(0, 30)}...`
-                                    : lead.enquiryDescription || "No enquiry description"}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-0.5 ml-0 sm:ml-2">
+                            <div className="flex items-center justify-between mt-0.5">
+                              <span className="text-xs font-bold text-emerald-600">
+                                {formatCurrency(lead.quotationAmount || 0, lead.leadCountry)}
+                              </span>
+                              <div className="flex items-center gap-0.5">
                                 {[...Array(2)].map((_, i) => (
-                                  <Icon key={i} name="mdi:star" className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-amber-400" />
+                                  <Icon key={i} name="mdi:star" className="w-2.5 h-2.5 text-amber-400" />
                                 ))}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold ${lead.leadOutcomeStatus === 'Won' ? 'bg-green-100 text-green-700' :
-                              lead.leadOutcomeStatus === 'Open' ? 'bg-purple-100 text-purple-700' :
-                                lead.leadOutcomeStatus === 'Closed' ? 'bg-gray-100 text-gray-600' :
-                                  'bg-gray-100 text-gray-600'
-                              }`}>
-                              {lead.leadOutcomeStatus || lead.leadStatus || 'New'}
-                            </span>
-                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-700 shrink-0">
+                            {lead.leadOutcomeStatus || 'Open'}
+                          </span>
                         </Link>
                       ))}
-                      {leadsByGrade.D.length > 5 && (
-                        <Link to="/lead?gradeFilter=D" className="block px-3 sm:px-4 py-1.5 sm:py-2 text-center text-[10px] sm:text-xs text-red-600 hover:bg-red-50 font-semibold">
-                          +{leadsByGrade.D.length - 5} more 2 Star leads
-                        </Link>
-                      )}
                     </div>
                   </div>
                 )}
 
-                {(!leadsByGrade.A.length && !leadsByGrade.B.length && !leadsByGrade.C.length && !leadsByGrade.D.length) && (
-                  <div className="px-3 sm:px-5 py-6 sm:py-8 text-center text-xs sm:text-sm text-gray-400">
-                    <Icon name="mdi:star-outline" className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 text-gray-300" />
-                    No graded leads yet. Rate leads with stars to see them here.
+                {/* 1-Star Leads */}
+                {leadsByGrade.E.length > 0 && (
+                  <div>
+                    <div className="px-4 py-1.5 bg-slate-50/40 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-slate-300" />
+                        <span className="text-xs font-bold text-slate-600">1-Star Leads</span>
+                      </div>
+                      <span className="text-xs font-bold text-slate-500">{leadsByGrade.E.length} leads</span>
+                    </div>
+                    <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                      {leadsByGrade.E.map((lead) => (
+                        <Link key={lead.leadId} to={`/lead/${lead.leadId}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                          <div className="w-7 h-7 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center text-xs font-bold shrink-0">
+                            {lead.companyContactPersonName?.[0]?.toUpperCase() || lead.leadOrganisationName?.[0]?.toUpperCase() || 'L'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 truncate">
+                              {lead.companyContactPersonName || lead.leadOrganisationName || `${lead.leadFirstName || ''} ${lead.leadLastName || ''}`}
+                            </p>
+                            <div className="flex items-center justify-between mt-0.5">
+                              <span className="text-xs font-bold text-emerald-600">
+                                {formatCurrency(lead.quotationAmount || 0, lead.leadCountry)}
+                              </span>
+                              <div className="flex items-center gap-0.5">
+                                <Icon name="mdi:star" className="w-2.5 h-2.5 text-amber-400" />
+                              </div>
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-700 shrink-0">
+                            {lead.leadOutcomeStatus || 'Open'}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
+              )}
 
-              {/* Tasks */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
+              {/* Tasks Widget */}
+              {dhConfig?.dashboard?.showTasksCard !== false && (
+                <>
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
                   <div>
-                    <p className="text-xs sm:text-sm font-semibold text-gray-800">Tasks - {DATE_LABELS[dateRange]}</p>
-                    <p className="text-[10px] sm:text-xs text-gray-400">{completedVisibleTasks} / {todaysTasks.length} done</p>
+                    <h3 className="text-sm font-bold text-slate-800">Tasks</h3>
+                    <p className="text-xs text-slate-400">{completedVisibleTasks} / {todaysTasks.length} completed</p>
                   </div>
-                  <Link to="/task" className="text-[10px] sm:text-xs text-blue-600 hover:text-blue-700 font-semibold">View all →</Link>
+                  <Link to="/task" className="text-xs font-bold text-blue-600 hover:text-blue-700">View all →</Link>
                 </div>
-                <div className="h-1 bg-gray-100 mx-3 sm:mx-5 mt-3 rounded-full overflow-hidden">
+                <div className="h-1 bg-slate-100 mx-5 mt-3 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 rounded-full transition-all duration-500"
                     style={{ width: todaysTasks.length ? `${Math.round((completedVisibleTasks / todaysTasks.length) * 100)}%` : '0%' }}
                   />
                 </div>
-                <div className="divide-y divide-gray-50 mt-1">
+                <div className="divide-y divide-slate-100 mt-2">
                   {todaysTasks.map((task) => (
                     <div
                       key={task.id}
-                      className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-gray-50/80 transition-colors cursor-pointer"
+                      className="flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer"
                       onClick={() => toggleTask(task.id)}
                     >
-                      <div className={`w-[14px] h-[14px] sm:w-[18px] sm:h-[18px] rounded border-2 flex items-center justify-center shrink-0 transition-all ${task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 hover:border-blue-400'
-                        }`}>
-                        {task.completed && <Icon name="mdi:check" className="w-2 h-2 sm:w-3 sm:h-3 text-white" />}
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                        task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-blue-500'
+                      }`}>
+                        {task.completed && <Icon name="mdi:check" className="w-3 h-3 text-white" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs sm:text-sm text-gray-700 truncate transition-all ${task.completed ? 'line-through text-gray-400' : ''}`}>{task.title}</p>
-                        <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{task.owner}</p>
+                        <p className={`text-xs font-semibold text-slate-800 truncate ${task.completed ? 'line-through text-slate-400' : ''}`}>{task.title}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{task.owner}</p>
                       </div>
-                      <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 ${PRIORITY_COLORS[task.priority] ?? 'bg-amber-400'}`} />
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_COLORS[task.priority] ?? 'bg-amber-400'}`} />
                     </div>
                   ))}
                   {!todaysTasks.length && (
-                    <div className="px-3 sm:px-5 py-4 sm:py-5 text-center text-xs sm:text-sm text-gray-400">No tasks found.</div>
+                    <div className="px-5 py-6 text-center text-xs text-slate-400">No active tasks for this period.</div>
                   )}
                 </div>
               </div>
 
-              {/* Reminders */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
+              {/* Reminders Widget */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
                   <div>
-                    <p className="text-xs sm:text-sm font-semibold text-gray-800">Reminders - {DATE_LABELS[dateRange]}</p>
-                    <p className="text-[10px] sm:text-xs text-gray-400">{completedVisibleReminders} / {visibleReminders.length} done</p>
+                    <h3 className="text-sm font-bold text-slate-800">Reminders</h3>
+                    <p className="text-xs text-slate-400">{completedVisibleReminders} / {visibleReminders.length} completed</p>
                   </div>
-                  <Link to="/calendar" className="text-[10px] sm:text-xs text-blue-600 hover:text-blue-700 font-semibold">View all →</Link>
+                  <Link to="/calendar" className="text-xs font-bold text-blue-600 hover:text-blue-700">View all →</Link>
                 </div>
-                <div className="h-1 bg-gray-100 mx-3 sm:mx-5 mt-3 rounded-full overflow-hidden">
+                <div className="h-1 bg-slate-100 mx-5 mt-3 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-rose-500 rounded-full transition-all duration-500"
                     style={{ width: visibleReminders.length ? `${Math.round((completedVisibleReminders / visibleReminders.length) * 100)}%` : '0%' }}
                   />
                 </div>
-                <div className="divide-y divide-gray-50 mt-1">
+                <div className="divide-y divide-slate-100 mt-2">
                   {visibleReminders.map((reminder) => (
                     <div
                       key={reminder.id}
-                      className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-gray-50/80 transition-colors cursor-pointer"
+                      className="flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer"
                       onClick={() => toggleReminder(reminder.id)}
                     >
-                      <div className={`w-[14px] h-[14px] sm:w-[18px] sm:h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${reminder.completed ? 'bg-rose-500 border-rose-500' : 'border-gray-300 hover:border-rose-400'
-                        }`}>
-                        {reminder.completed && <Icon name="mdi:check" className="w-2 h-2 sm:w-3 sm:h-3 text-white" />}
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                        reminder.completed ? 'bg-rose-500 border-rose-500' : 'border-slate-300 hover:border-rose-400'
+                      }`}>
+                        {reminder.completed && <Icon name="mdi:check" className="w-3 h-3 text-white" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs sm:text-sm text-gray-700 truncate transition-all ${reminder.completed ? 'line-through text-gray-400' : ''}`}>{reminder.title}</p>
-                        <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 truncate">{reminder.date || reminder.owner}</p>
+                        <p className={`text-xs font-semibold text-slate-800 truncate ${reminder.completed ? 'line-through text-slate-400' : ''}`}>{reminder.title}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 truncate">{reminder.date || reminder.owner}</p>
                       </div>
-                      <Icon name="mdi:bell-outline" className="w-3 h-3 sm:w-4 sm:h-4 text-rose-400 shrink-0" />
+                      <Icon name="mdi:bell-outline" className="w-4 h-4 text-rose-400 shrink-0" />
                     </div>
                   ))}
                   {!visibleReminders.length && (
-                    <div className="px-3 sm:px-5 py-4 sm:py-5 text-center text-xs sm:text-sm text-gray-400">No reminders found.</div>
+                    <div className="px-5 py-6 text-center text-xs text-slate-400">No pending reminders.</div>
                   )}
                 </div>
               </div>
+                </>
+              )}
 
-              {/* Team Leaderboard */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
-                  <p className="text-xs sm:text-sm font-semibold text-gray-800">Team Leaderboard</p>
-                  <Link to="/team-member" className="text-[10px] sm:text-xs text-blue-600 hover:text-blue-700 font-semibold">View all →</Link>
+              {/* Team Leaderboard Card */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+                  <h3 className="text-sm font-bold text-slate-800">Team Leaderboard</h3>
+                  <Link to="/team-member" className="text-xs font-bold text-blue-600 hover:text-blue-700">View all →</Link>
                 </div>
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-slate-100">
                   {(advancedCrmState.repRanking ?? []).slice(0, 5).map((rep, idx) => (
-                    <div key={rep.name} className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3">
-                      <span className="text-base sm:text-lg w-4 sm:w-5 shrink-0 text-center select-none">
+                    <div key={rep.name} className="flex items-center gap-3 px-5 py-3">
+                      <span className="text-base w-5 text-center shrink-0 font-bold">
                         {['🥇', '🥈', '🥉', '4', '5'][idx]}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-0.5 sm:mb-1">
-                          <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate">{rep.name}</p>
-                          <span className={`text-[10px] sm:text-xs font-bold ml-2 shrink-0 ${rep.quota >= 100 ? 'text-emerald-600' : rep.quota >= 80 ? 'text-blue-600' : 'text-amber-600'}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs font-bold text-slate-800 truncate">{rep.name}</p>
+                          <span className={`text-xs font-extrabold shrink-0 ${
+                            rep.quota >= 100 ? 'text-emerald-600' : rep.quota >= 80 ? 'text-blue-600' : 'text-amber-600'
+                          }`}>
                             {rep.quota}%
                           </span>
                         </div>
-                        <div className="h-1 sm:h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all duration-700"
                             style={{
@@ -1423,22 +1625,20 @@ export default function HomePage() {
                             }}
                           />
                         </div>
-                        <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">Win rate {rep.winRate}%</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Win rate {rep.winRate}%</p>
                       </div>
                     </div>
                   ))}
                   {!(advancedCrmState.repRanking ?? []).length && (
-                    <div className="px-3 sm:px-5 py-4 sm:py-6 text-center text-xs sm:text-sm text-gray-400">No team data available.</div>
+                    <div className="px-5 py-6 text-center text-xs text-slate-400">No team data available.</div>
                   )}
                 </div>
               </div>
 
-              {/* Quick Actions */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-                <div className="px-3 sm:px-5 pt-4 pb-3 border-b border-gray-50">
-                  <p className="text-xs sm:text-sm font-semibold text-gray-800">Quick Actions</p>
-                </div>
-                <div className="p-2 sm:p-4 grid grid-cols-3 sm:grid-cols-3 gap-1.5 sm:gap-2">
+              {/* Quick Actions Shortcuts Grid */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+                <p className="text-xs font-bold text-slate-800 mb-3 px-1">Quick Shortcuts</p>
+                <div className="grid grid-cols-3 gap-2">
                   {[
                     { to: '/lead', icon: 'mdi:account-plus-outline', label: 'New Lead', cls: 'bg-blue-50 hover:bg-blue-100 text-blue-700' },
                     { to: '/task', icon: 'mdi:clipboard-plus-outline', label: 'New Task', cls: 'bg-violet-50 hover:bg-violet-100 text-violet-700' },
@@ -1450,18 +1650,18 @@ export default function HomePage() {
                     <Link
                       key={a.label}
                       to={a.to}
-                      className={`flex flex-col items-center gap-0.5 sm:gap-1.5 px-1.5 sm:px-3 py-2 sm:py-3 rounded-xl text-[8px] sm:text-xs font-semibold transition-colors text-center ${a.cls}`}
+                      className={`flex flex-col items-center gap-1 p-2.5 rounded-xl text-[10px] font-bold transition-all text-center ${a.cls}`}
                     >
-                      <Icon name={a.icon} className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-                      <span className="hidden xs:inline">{a.label}</span>
-                      <span className="xs:hidden">{a.label.split(' ')[0]}</span>
+                      <Icon name={a.icon} className="w-4 h-4" />
+                      <span>{a.label}</span>
                     </Link>
                   ))}
                 </div>
               </div>
+
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

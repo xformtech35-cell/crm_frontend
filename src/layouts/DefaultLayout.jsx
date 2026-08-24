@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import AppModal from "../components/common/AppModal";
@@ -9,6 +9,7 @@ import { useOpportunity } from "../hooks/useOpportunity";
 import { useCalendar } from "../hooks/useCalendar";
 import { useTeamMember } from "../hooks/useTeamMember";
 import { getInitials } from "../utils/format";
+import { useDashHeaderConfig } from "../hooks/useDashHeaderConfig";
 
 
 const pageTitles = {
@@ -76,6 +77,7 @@ function sortByNewest(items, getDate) {
 }
 
 export default function DefaultLayout() {
+  const { config: dhConfig } = useDashHeaderConfig();
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -118,8 +120,21 @@ export default function DefaultLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [contextDropdownOpen, setContextDropdownOpen] = useState(false);
+  const contextDropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (contextDropdownRef.current && !contextDropdownRef.current.contains(e.target)) {
+        setContextDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [headerBadge, setHeaderBadge] = useState(null);
@@ -227,10 +242,14 @@ export default function DefaultLayout() {
         const createdDate = getDateValue(lead.leadCreatedDate, lead.inquiryDate, lead.createdAt);
         if (createdDate && leadId) {
           const leadName = `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() || lead.leadOrganisationName || "Lead";
+          const orgName = lead.leadOrganisationName && lead.leadOrganisationName !== leadName ? ` (${lead.leadOrganisationName})` : "";
+          const status = lead.leadStatus || lead.leadOutcomeStatus || "New";
+          const descriptionText = lead.enquiryDescription || lead.leadRequirement || `Lead assigned for follow-up (${status})`;
+
           nextItems.push({
             id: `lead-${leadId}`,
-            title: "New Lead Assigned",
-            description: `${leadName} from ${lead.leadOrganisationName || "No Company"} is ready for follow-up`,
+            title: `Lead (${status}): ${leadName}${orgName}`,
+            description: descriptionText,
             time: formatRelativeTime(createdDate),
             dateValue: createdDate,
             icon: "mdi:account-arrow-right-outline",
@@ -359,13 +378,23 @@ export default function DefaultLayout() {
         }
       });
 
-      // 5. Sort by date value descending
+      // 5. Filter for items strictly within 7 days (past 7 days or upcoming 7 days), exclude ignored items, and sort descending
+      const ignoredSet = new Set(
+        JSON.parse(localStorage.getItem("crm-ignored-notifications") || "[]")
+      );
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+
       const sorted = nextItems
-        .filter((item) => item.dateValue)
+        .filter((item) => {
+          if (!item.dateValue || ignoredSet.has(item.id)) return false;
+          const diffMs = Math.abs(now - item.dateValue.getTime());
+          return diffMs <= sevenDaysMs;
+        })
         .sort((a, b) => b.dateValue.getTime() - a.dateValue.getTime());
 
-      // Limit to top 20 notifications to keep it responsive
-      if (alive) setNotificationItems(sorted.slice(0, 20));
+      // Show ALL notifications within the 7-day window
+      if (alive) setNotificationItems(sorted);
     }
 
     loadNotifications();
@@ -385,6 +414,17 @@ export default function DefaultLayout() {
       window.removeEventListener("crm-notification-refresh", handleRefresh);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (!e.target.closest(".more-menu-container")) {
+        setMoreMenuOpen(false);
+      }
+    };
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, [moreMenuOpen]);
 
   const notifications = useMemo(
     () => (notificationItems || [])
@@ -425,9 +465,21 @@ export default function DefaultLayout() {
   const markAllAsRead = () => {
     setReadNotificationIds((prev) => {
       const next = new Set(prev);
-      notifications.forEach((n) => next.add(n.id));
+      (notificationItems || []).forEach((n) => next.add(n.id));
+      localStorage.setItem("crm-read-notifications", JSON.stringify([...next]));
       return next;
     });
+  };
+
+  const clearAllNotifications = () => {
+    const allIds = (notificationItems || []).map((n) => n.id);
+    setIgnoredNotificationIds((prev) => {
+      const next = new Set(prev);
+      allIds.forEach((id) => next.add(id));
+      localStorage.setItem("crm-ignored-notifications", JSON.stringify([...next]));
+      return next;
+    });
+    setNotificationItems([]);
   };
 
   const clearAllRead = () => {
@@ -435,8 +487,10 @@ export default function DefaultLayout() {
     setIgnoredNotificationIds((prev) => {
       const next = new Set(prev);
       readIds.forEach((id) => next.add(id));
+      localStorage.setItem("crm-ignored-notifications", JSON.stringify([...next]));
       return next;
     });
+    setNotificationItems((prev) => prev.filter((item) => !readIds.includes(item.id)));
   };
 
   const clearNotification = (id, e) => {
@@ -444,8 +498,10 @@ export default function DefaultLayout() {
     setIgnoredNotificationIds((prev) => {
       const next = new Set(prev);
       next.add(id);
+      localStorage.setItem("crm-ignored-notifications", JSON.stringify([...next]));
       return next;
     });
+    setNotificationItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const toggleRead = (id, e) => {
@@ -454,6 +510,7 @@ export default function DefaultLayout() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      localStorage.setItem("crm-read-notifications", JSON.stringify([...next]));
       return next;
     });
   };
@@ -728,10 +785,12 @@ export default function DefaultLayout() {
   }, [navGroups, commandSearch]);
 
   const quickCreateItems = [
-    { to: "/lead", label: "New Lead", icon: "mdi:account-plus-outline", color: "blue" },
-    //{ to: "/deals", label: "New Deal", icon: "mdi:cash-plus", color: "green" },
-    //{ to: "/activities", label: "Log Activity", icon: "mdi:timeline-plus-outline", color: "purple" },
-    //{ to: "/contact", label: "New Contact", icon: "mdi:account-plus", color: "orange" },
+    { to: "/lead", label: "New Lead", icon: "mdi:account-plus-outline", color: "blue", desc: "Create a new lead or inquiry" },
+    { to: "/task", label: "New Task", icon: "mdi:clipboard-plus-outline", color: "purple", desc: "Create an action item task" },
+    { to: "/opportunity", label: "New Opportunity", icon: "mdi:briefcase-plus-outline", color: "emerald", desc: "Create a pipeline deal opportunity" },
+    { to: "/contact", label: "New Contact", icon: "mdi:card-account-details-outline", color: "amber", desc: "Save a new customer contact" },
+    { to: "/activities", label: "Log Activity", icon: "mdi:lightning-bolt-outline", color: "rose", desc: "Log a call, meeting, or note" },
+    { to: "/calendar", label: "Add Event", icon: "mdi:calendar-plus", color: "cyan", desc: "Schedule a calendar event" },
   ];
 
   const pageTitle = useMemo(() => {
@@ -960,7 +1019,7 @@ export default function DefaultLayout() {
       <div className="flex-1 flex flex-col md:ml-72 min-w-0 overflow-hidden">
         {/* Header - Fixed positioning */}
         <header
-          className="flex-shrink-0 border-b sticky top-0 z-30 transition-all duration-300"
+          className="flex-shrink-0 border-b sticky top-0 z-50 transition-all duration-300"
           style={{
             background: theme === "dark" ? "rgba(10, 12, 28, 0.45)" : "rgba(255, 255, 255, 0.85)",
             borderColor: theme === "dark" ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)",
@@ -987,7 +1046,7 @@ export default function DefaultLayout() {
                     <h1 className={`text-lg font-bold truncate ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
                       {pageTitle}
                     </h1>
-                    {headerBadge != null && (
+                    {dhConfig?.header?.showHeaderBadges !== false && headerBadge != null && (
                       <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 whitespace-nowrap">
                         {headerBadge}
                       </span>
@@ -1002,364 +1061,459 @@ export default function DefaultLayout() {
               {/* Right section */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 {/* View Context Selector for Admin */}
-                {canViewTeamContext && (
-                  <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
+                {dhConfig?.header?.showViewContext !== false && canViewTeamContext && (
+                  <div className="flex items-center gap-1.5 mr-1 flex-shrink-0" ref={contextDropdownRef}>
                     <span className={`text-xs font-semibold ${theme === "dark" ? "text-purple-400" : "text-purple-700"} hidden lg:inline`}>
                       View Context:
                     </span>
-                    <select
-                      value={selectedTeamMemberId || ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSelectedTeamMemberId(val ? Number(val) : null);
-                        window.location.reload();
-                      }}
-                      className={`rounded-xl border px-2 py-1 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer max-w-[150px] md:max-w-none ${
-                        theme === "dark"
-                          ? "border-white/10 bg-[#0c0e1c] text-slate-200 hover:bg-[#131730]"
-                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      <option value="">Global (All Team Members)</option>
-                      {teamMemberList.map((tm) => (
-                        <option key={tm.userid || tm.teamMemberId} value={tm.userid || tm.teamMemberId}>
-                          {tm.teamMemberName || tm.teamMemberEmail}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setContextDropdownOpen(!contextDropdownOpen)}
+                        className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all shadow-2xs ${
+                          theme === "dark"
+                            ? "border-white/10 bg-[#0c0e1c] text-slate-200 hover:bg-[#131730]"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="truncate max-w-[160px] md:max-w-[200px]">
+                          {selectedTeamMemberId
+                            ? teamMemberList.find((tm) => (tm.userid || tm.teamMemberId) === selectedTeamMemberId)?.teamMemberName || 'Team Member'
+                            : 'Global (All Team Members)'}
+                        </span>
+                        <Icon
+                          name="mdi:chevron-down"
+                          className={`w-4 h-4 transition-transform duration-200 ${
+                            contextDropdownOpen ? 'rotate-180 text-purple-600' : 'text-slate-400'
+                          }`}
+                        />
+                      </button>
+
+                      {contextDropdownOpen && (
+                        <div
+                          className={`absolute right-0 mt-2 w-64 rounded-2xl border shadow-xl py-1.5 z-[100] animate-in fade-in zoom-in-95 duration-150 ${
+                            theme === "dark"
+                              ? "bg-[#0c0e1c] border-white/10 text-slate-200"
+                              : "bg-white border-slate-200 text-slate-700"
+                          }`}
+                        >
+                          <div className="px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-white/10 mb-1">
+                            Select Team Context
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTeamMemberId(null);
+                              setContextDropdownOpen(false);
+                              window.location.reload();
+                            }}
+                            className={`flex items-center justify-between w-full px-3.5 py-2 text-xs font-bold transition-colors ${
+                              !selectedTeamMemberId
+                                ? "bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                                : "hover:bg-slate-50 dark:hover:bg-white/5"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${!selectedTeamMemberId ? 'bg-purple-600' : 'bg-slate-300'}`} />
+                              <span>Global (All Team Members)</span>
+                            </div>
+                            {!selectedTeamMemberId && <Icon name="mdi:check" className="w-4 h-4 text-purple-600" />}
+                          </button>
+
+                          {teamMemberList.map((tm) => {
+                            const id = tm.userid || tm.teamMemberId;
+                            const isSelected = selectedTeamMemberId === id;
+                            const name = tm.teamMemberName || tm.teamMemberEmail;
+                            return (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTeamMemberId(id);
+                                  setContextDropdownOpen(false);
+                                  window.location.reload();
+                                }}
+                                className={`flex items-center justify-between w-full px-3.5 py-2 text-xs font-semibold transition-colors ${
+                                  isSelected
+                                    ? "bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold"
+                                    : "hover:bg-slate-50 dark:hover:bg-white/5"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate pr-2">
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-purple-600' : 'bg-slate-300'}`} />
+                                  <span className="truncate">{name}</span>
+                                </div>
+                                {isSelected && <Icon name="mdi:check" className="w-4 h-4 text-purple-600 shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
                 {/* Quick Create */}
-                <button
-                  type="button"
-                  className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-950 px-2.5 xl:px-3 text-xs font-semibold text-white shadow-sm whitespace-nowrap hover:bg-slate-800 transition-colors"
-                  onClick={() => setQuickCreateOpen(true)}
-                >
-                  <Icon name="mdi:plus" className="w-3.5 h-3.5" />
-                  <span className="hidden xl:inline">Quick Create</span>
-                </button>
-
-                {/* Calendar */}
-                <div className="hidden 2xl:flex h-9 items-center gap-1.5 rounded-xl border border-slate-100 bg-white px-3 text-xs text-slate-500 shadow-sm whitespace-nowrap">
-                  <Icon name="mdi:calendar-today" className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>{new Date().toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}</span>
-                </div>
-
-                {/* Theme Toggle */}
-                <button
-                  type="button"
-                  onClick={toggleTheme}
-                  className={`h-9 w-9 items-center justify-center rounded-xl border shadow-sm hidden md:inline-flex flex-shrink-0 transition-colors ${theme === "dark"
-                    ? "border-white/5 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
-                    : "border-slate-100 bg-white text-slate-500 hover:text-slate-800"
-                    }`}
-                  title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                >
-                  <Icon name={theme === "dark" ? "mdi:white-balance-sunny" : "mdi:weather-night"} className="w-4 h-4" />
-                </button>
-
-                {/* Notifications */}
-                <div className="relative relative-notif-container">
+                {dhConfig?.header?.showQuickCreate !== false && (
                   <button
                     type="button"
-                    className={`relative h-9 w-9 items-center justify-center rounded-xl border shadow-sm hidden md:inline-flex flex-shrink-0 transition-colors ${theme === "dark"
-                      ? "border-white/5 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
-                      : "border-slate-100 bg-white text-slate-500 hover:text-slate-800"
-                      }`}
-                    onClick={() => setNotificationsOpen((v) => !v)}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-950 px-2.5 xl:px-3 text-xs font-semibold text-white shadow-sm whitespace-nowrap hover:bg-slate-800 transition-colors"
+                    onClick={() => setQuickCreateOpen(true)}
                   >
-                    <Icon name="mdi:bell-outline" className="w-4 h-4" />
-                    {unreadCount > 0 && (
-                      <span
-                        style={{ color: "#ffffff", backgroundColor: "#ef4444" }}
-                        className="absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] px-1.5 rounded-full text-[10.5px] font-extrabold !text-white flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-md leading-none shrink-0 pointer-events-none z-10"
-                      >
-                        {unreadCount > 99 ? "99+" : unreadCount}
-                      </span>
-                    )}
+                    <Icon name="mdi:plus" className="w-3.5 h-3.5" />
+                    <span className="hidden xl:inline">Quick Create</span>
                   </button>
+                )}
+                
+                {/* Notifications */}
+                {dhConfig?.header?.showNotifications !== false && (
+                  <div className="relative relative-notif-container">
+                    <button
+                      type="button"
+                      className={`relative h-9 w-9 items-center justify-center rounded-xl border shadow-sm hidden md:inline-flex flex-shrink-0 transition-colors ${theme === "dark"
+                        ? "border-white/5 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+                        : "border-slate-100 bg-white text-slate-500 hover:text-slate-800"
+                        }`}
+                      onClick={() => setNotificationsOpen((v) => !v)}
+                    >
+                      <Icon name="mdi:bell-outline" className="w-4 h-4" />
+                      {unreadCount > 0 && (
+                        <span
+                          style={{ color: "#ffffff", backgroundColor: "#ef4444" }}
+                          className="absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] px-1.5 rounded-full text-[10.5px] font-extrabold !text-white flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-md leading-none shrink-0 pointer-events-none z-10"
+                        >
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </button>
 
-                  {/* Dropdown Menu */}
-                  {notificationsOpen && (
-                    <div
-                      className="absolute right-[-80px] md:right-[-120px] lg:right-[-140px] top-full mt-2.5 z-50 w-[460px] transition-all duration-200 origin-top-right transform scale-100"
-                    >                      {/* Arrow pointing to bell icon */}
-                      <div className={`absolute -top-1.5 right-[94px] md:right-[134px] lg:right-[154px] w-3 h-3 rotate-45 border-t border-l z-0 shadow-sm ${
-                        theme === "dark" ? "bg-black border-white/10" : "bg-white border-slate-200/50"
-                      }`} />
+                    {/* Dropdown Menu */}
+                    {notificationsOpen && (
+                      <div
+                        className="absolute right-[-80px] md:right-[-120px] lg:right-[-140px] top-full mt-2.5 z-[100] w-[460px] transition-all duration-200 origin-top-right transform scale-100"
+                      >                      {/* Arrow pointing to bell icon */}
+                        <div className={`absolute -top-1.5 right-[94px] md:right-[134px] lg:right-[154px] w-3 h-3 rotate-45 border-t border-l z-0 shadow-sm ${
+                          theme === "dark" ? "bg-black border-white/10" : "bg-white border-slate-200/50"
+                        }`} />
 
-                      {/* Dropdown content wrapper */}
-                      <div className={`relative z-10 rounded-2xl border shadow-2xl flex flex-col max-h-[550px] overflow-hidden ${
-                        theme === "dark" ? "bg-black border-white/10" : "bg-white border-slate-200/50"
-                      }`}>
-                        {/* Header */}
-                        <div className={`p-4 border-b flex items-center justify-between ${
-                          theme === "dark" ? "border-white/5 bg-black" : "border-slate-100 bg-white"
+                        {/* Dropdown content wrapper */}
+                        <div className={`relative z-10 rounded-2xl border shadow-2xl flex flex-col max-h-[550px] overflow-hidden ${
+                          theme === "dark" ? "bg-black border-white/10" : "bg-white border-slate-200/50"
                         }`}>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                              theme === "dark" ? "bg-blue-500/10 text-blue-400" : "bg-blue-50 text-blue-600"
-                            }`}>
-                              <Icon name="mdi:bell" className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <h3 className={`font-semibold text-sm ${theme === "dark" ? "text-white" : "text-gray-900"}`}>Notification Center</h3>
-                              {unreadCount > 0 && (
-                                <p className={`text-[11px] font-semibold ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`}>{unreadCount} unread items</p>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={markAllAsRead}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                theme === "dark"
-                                  ? "text-slate-400 hover:bg-white/5 hover:text-white"
-                                  : "text-gray-500 hover:bg-slate-100 hover:text-gray-800"
-                              }`}
-                              title="Mark all as read"
-                            >
-                              <Icon name="mdi:check-all" className="w-4.5 h-4.5" />
-                            </button>
-                            <button
-                              onClick={clearAllRead}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                theme === "dark"
-                                  ? "text-slate-400 hover:bg-white/5 hover:text-red-400"
-                                  : "text-gray-500 hover:bg-slate-100 hover:text-red-600"
-                              }`}
-                              title="Clear all read"
-                            >
-                              <Icon name="mdi:playlist-remove" className="w-4.5 h-4.5" />
-                            </button>
-                            <button
-                              onClick={() => setNotificationsOpen(false)}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                theme === "dark"
-                                  ? "text-slate-500 hover:bg-white/5 hover:text-white"
-                                  : "text-gray-400 hover:bg-slate-100 hover:text-gray-650"
-                              }`}
-                            >
-                              <Icon name="mdi:close" className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Tabs */}
-                        <div className={`border-b p-2 ${
-                          theme === "dark" ? "border-white/5 bg-neutral-900" : "border-slate-100 bg-slate-50"
-                        }`}>
-                          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-                            {["all", "lead", "reminder", "note", "deal"].map((tab) => (
-                              <button
-                                key={tab}
-                                onClick={() => setActiveNotifTab(tab)}
-                                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all whitespace-nowrap flex items-center gap-1 ${activeNotifTab === tab
-                                  ? "bg-blue-600 text-white shadow-sm"
-                                  : theme === "dark"
-                                    ? "text-slate-400 hover:bg-white/5 hover:text-white"
-                                    : "text-gray-500 hover:bg-slate-200/50 hover:text-gray-800"
-                                  }`}
-                              >
-                                {tab === "all" ? "All" : tab + "s"}
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                  activeNotifTab === tab
-                                    ? "bg-white/25 text-white"
-                                    : theme === "dark"
-                                      ? "bg-white/10 text-slate-300"
-                                      : "bg-slate-200 text-gray-600"
-                                }`}>
-                                  {tabCounts[tab] || 0}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Search Bar */}
-                        <div className="p-3 border-b border-slate-100 dark:border-white/5">
-                          <div className="relative">
-                            <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                              type="text"
-                              value={notifSearch}
-                              onChange={(e) => setNotifSearch(e.target.value)}
-                              placeholder="Search notifications..."
-                              className={`w-full text-xs pl-8 pr-3 py-1.5 rounded-lg border focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-gray-400 ${
-                                theme === "dark"
-                                  ? "border-white/10 bg-slate-900 text-slate-200"
-                                  : "border-slate-200 bg-slate-50 text-gray-700"
-                              }`}
-                            />
-                            {notifSearch && (
-                              <button
-                                onClick={() => setNotifSearch("")}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                              >
-                                <Icon name="mdi:close-circle" className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Notifications List */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-transparent">
-                          {filteredNotifications.length === 0 ? (
-                            <div className="py-12 text-center">
-                              <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto mb-3">
-                                <Icon name="mdi:bell-off" className="h-6 w-6 text-gray-400 dark:text-gray-500" />
+                          {/* Header */}
+                          <div className={`p-4 border-b flex items-center justify-between ${
+                            theme === "dark" ? "border-white/5 bg-black" : "border-slate-100 bg-white"
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                theme === "dark" ? "bg-blue-500/10 text-blue-400" : "bg-blue-50 text-blue-600"
+                              }`}>
+                                <Icon name="mdi:bell" className="w-4 h-4" />
                               </div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">No notifications found</p>
+                              <div>
+                                <h3 className={`font-semibold text-sm ${theme === "dark" ? "text-white" : "text-gray-900"}`}>Notification Center</h3>
+                                {unreadCount > 0 && (
+                                  <p className={`text-[11px] font-semibold ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`}>{unreadCount} unread items</p>
+                                )}
+                              </div>
                             </div>
-                          ) : (
-                            filteredNotifications.map((n) => {
-                              const isExpanded = expandedNotifIds.has(n.id);
 
-                              const typeConfig = {
-                                lead: {
-                                  bg: theme === "dark" ? "bg-blue-500/10" : "bg-blue-50",
-                                  text: theme === "dark" ? "text-blue-400" : "text-blue-600",
-                                  label: "Lead"
-                                },
-                                reminder: {
-                                  bg: theme === "dark" ? "bg-amber-500/10" : "bg-amber-50",
-                                  text: theme === "dark" ? "text-amber-400" : "text-amber-600",
-                                  label: "Reminder"
-                                },
-                                note: {
-                                  bg: theme === "dark" ? "bg-violet-500/10" : "bg-violet-50",
-                                  text: theme === "dark" ? "text-violet-400" : "text-violet-600",
-                                  label: "Note"
-                                },
-                                deal: {
-                                  bg: theme === "dark" ? "bg-emerald-500/10" : "bg-emerald-50",
-                                  text: theme === "dark" ? "text-emerald-400" : "text-emerald-600",
-                                  label: "Deal Won"
-                                }
-                              }[n.type] || {
-                                bg: theme === "dark" ? "bg-white/5" : "bg-gray-50",
-                                text: theme === "dark" ? "text-gray-400" : "text-gray-600",
-                                label: "System"
-                              };
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={markAllAsRead}
+                                className={`px-2 py-1 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-semibold ${
+                                  theme === "dark"
+                                    ? "text-slate-400 hover:bg-white/5 hover:text-white"
+                                    : "text-gray-600 hover:bg-slate-100 hover:text-gray-800"
+                                }`}
+                                title="Mark all notifications as read"
+                              >
+                                <Icon name="mdi:check-all" className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Read all</span>
+                              </button>
 
-                              return (
-                                <div
-                                  key={n.id}
-                                  className={`group relative rounded-xl border p-3.5 transition-all duration-200 hover:shadow-md ${n.read
-                                    ? theme === "dark"
-                                      ? "border-white/5 bg-black opacity-85"
-                                      : "border-slate-100 bg-white opacity-85"
+                              <button
+                                onClick={clearAllNotifications}
+                                className={`px-2 py-1 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-semibold ${
+                                  theme === "dark"
+                                    ? "text-slate-400 hover:bg-white/5 hover:text-red-400"
+                                    : "text-gray-600 hover:bg-red-50 hover:text-red-600"
+                                }`}
+                                title="Dismiss all notifications"
+                              >
+                                <Icon name="mdi:trash-can-outline" className="w-3.5 h-3.5" />
+                                <span>Clear all</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Tabs */}
+                          <div className={`border-b p-2 ${
+                            theme === "dark" ? "border-white/5 bg-neutral-900" : "border-slate-100 bg-slate-50"
+                          }`}>
+                            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+                              {["all", "lead", "reminder", "note", "deal"].map((tab) => (
+                                <button
+                                  key={tab}
+                                  onClick={() => setActiveNotifTab(tab)}
+                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all whitespace-nowrap flex items-center gap-1 ${activeNotifTab === tab
+                                    ? "bg-blue-600 text-white shadow-sm"
                                     : theme === "dark"
-                                      ? "border-blue-500/20 bg-blue-500/5 shadow-sm"
-                                      : "border-blue-100 bg-blue-50/15 shadow-sm"
+                                      ? "text-slate-400 hover:bg-white/5 hover:text-white"
+                                      : "text-gray-500 hover:bg-slate-200/50 hover:text-gray-800"
                                     }`}
                                 >
-                                  <div className="flex items-start gap-3">
-                                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm ${typeConfig.bg} ${typeConfig.text}`}>
-                                      <Icon name={n.icon || "mdi:bell-outline"} className="h-5 w-5" />
-                                    </span>
+                                  {tab === "all" ? "All" : tab + "s"}
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                    activeNotifTab === tab
+                                      ? "bg-white/25 text-white"
+                                      : theme === "dark"
+                                        ? "bg-white/10 text-slate-300"
+                                        : "bg-slate-200 text-gray-600"
+                                  }`}>
+                                    {tabCounts[tab] || 0}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
 
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center gap-2 mb-0.5">
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${typeConfig.bg} ${typeConfig.text}`}>
-                                          {typeConfig.label}
-                                        </span>
-                                        {!n.read && (
-                                          <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                                        )}
-                                      </div>
+                          {/* Search Bar */}
+                          <div className="p-3 border-b border-slate-100 dark:border-white/5">
+                            <div className="relative">
+                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input
+                                type="text"
+                                value={notifSearch}
+                                onChange={(e) => setNotifSearch(e.target.value)}
+                                placeholder="Search notifications..."
+                                className={`w-full pl-8 pr-3 py-1.5 rounded-xl text-xs border outline-none transition-all ${
+                                  theme === "dark"
+                                    ? "bg-white/5 border-white/10 text-slate-200 focus:border-blue-500"
+                                    : "bg-slate-50 border-slate-200 text-slate-700 focus:border-blue-500"
+                                }`}
+                              />
+                            </div>
+                          </div>
 
-                                      <p className={`text-sm font-semibold leading-snug ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
-                                        {n.title}
-                                      </p>
+                          {/* List */}
+                          <div className="divide-y divide-slate-100 dark:divide-white/5 overflow-y-auto max-h-[350px] p-2 space-y-1">
+                            {filteredNotifications.length === 0 ? (
+                              <div className="p-8 text-center">
+                                <Icon name="mdi:bell-off-outline" className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                                <p className={`text-xs font-semibold ${theme === "dark" ? "text-slate-400" : "text-gray-500"}`}>No notifications found</p>
+                              </div>
+                            ) : (
+                              filteredNotifications.map((n) => {
+                                const isExpanded = expandedNotifIds.has(n.id);
+                                const typeConfig = {
+                                  lead: { bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", label: "Lead" },
+                                  reminder: { bg: "bg-amber-50 dark:bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", label: "Reminder" },
+                                  note: { bg: "bg-purple-50 dark:bg-purple-500/10", text: "text-purple-600 dark:text-purple-400", label: "Note" },
+                                  deal: { bg: "bg-blue-50 dark:bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", label: "Deal" },
+                                }[n.type] || { bg: "bg-slate-50 dark:bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", label: "System" };
 
-                                      <p className={`mt-1 text-xs transition-all ${isExpanded ? "" : "line-clamp-2"} ${theme === "dark" ? "text-gray-300" : "text-gray-555"}`}>
-                                        {n.description}
-                                      </p>
+                                return (
+                                  <div
+                                    key={n.id}
+                                    onClick={() => openNotification(n)}
+                                    className={`group relative rounded-xl border p-3.5 transition-all duration-200 hover:shadow-md cursor-pointer ${n.read
+                                      ? theme === "dark"
+                                        ? "border-white/5 bg-black opacity-85"
+                                        : "border-slate-100 bg-white opacity-85"
+                                      : theme === "dark"
+                                        ? "border-blue-500/20 bg-blue-500/5 shadow-sm"
+                                        : "border-blue-100 bg-blue-50/15 shadow-sm"
+                                      }`}
+                                  >
+                                    <div className="flex items-start gap-3">
+                                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm ${typeConfig.bg} ${typeConfig.text}`}>
+                                        <Icon name={n.icon || "mdi:bell-outline"} className="h-5 w-5" />
+                                      </span>
 
-                                      {n.description && n.description.length > 80 && (
-                                        <button
-                                          onClick={(e) => toggleExpand(n.id, e)}
-                                          className="mt-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
-                                        >
-                                          {isExpanded ? "Show Less" : "Show More"}
-                                          <Icon name={isExpanded ? "mdi:chevron-up" : "mdi:chevron-down"} className="w-3.5 h-3.5" />
-                                        </button>
-                                      )}
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${typeConfig.bg} ${typeConfig.text}`}>
+                                            {typeConfig.label}
+                                          </span>
+                                          {!n.read && (
+                                            <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+                                          )}
+                                        </div>
 
-                                      <div className="mt-2.5 flex items-center justify-between">
-                                        <span className="text-[10px] text-gray-400 dark:text-slate-400 flex items-center gap-1">
-                                          <Icon name="mdi:clock-outline" className="w-3 h-3" />
-                                          {n.time}
-                                        </span>
+                                        <p className={`text-sm font-semibold leading-snug ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                                          {n.title}
+                                        </p>
 
-                                        <div className="flex items-center gap-1">
+                                        <p className={`mt-1 text-xs transition-all ${isExpanded ? "" : "line-clamp-2"} ${theme === "dark" ? "text-gray-300" : "text-gray-555"}`}>
+                                          {n.description}
+                                        </p>
+
+                                        {n.description && n.description.length > 80 && (
                                           <button
-                                            onClick={(e) => toggleRead(n.id, e)}
-                                            className={`p-1 rounded-md transition-colors ${n.read ? 'text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-white/10' : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50/50 dark:hover:bg-white/10'}`}
-                                            title={n.read ? "Mark as unread" : "Mark as read"}
+                                            onClick={(e) => toggleExpand(n.id, e)}
+                                            className="mt-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
                                           >
-                                            <Icon name={n.read ? "mdi:email-outline" : "mdi:email-open-outline"} className="w-3.5 h-3.5" />
+                                            {isExpanded ? "Show Less" : "Show More"}
+                                            <Icon name={isExpanded ? "mdi:chevron-up" : "mdi:chevron-down"} className="w-3.5 h-3.5" />
                                           </button>
+                                        )}
 
-                                          {n.type === "reminder" && (
+                                        <div className="mt-2.5 flex items-center justify-between">
+                                          <span className="text-[10px] text-gray-400 dark:text-slate-400 flex items-center gap-1">
+                                            <Icon name="mdi:clock-outline" className="w-3 h-3" />
+                                            {n.time}
+                                          </span>
+
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              onClick={(e) => toggleRead(n.id, e)}
+                                              className={`p-1 rounded-md transition-colors ${n.read ? 'text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-white/10' : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50/50 dark:hover:bg-white/10'}`}
+                                              title={n.read ? "Mark as unread" : "Mark as read"}
+                                            >
+                                              <Icon name={n.read ? "mdi:email-open-outline" : "mdi:email-outline"} className="w-3.5 h-3.5" />
+                                            </button>
+
+                                            {n.type === "reminder" && (
+                                              <button
+                                                onClick={(e) => clearNotification(n.id, e)}
+                                                className="p-1 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-white/10 transition-colors"
+                                                title="Snooze reminder"
+                                              >
+                                                <Icon name="mdi:alarm-snooze" className="w-3.5 h-3.5" />
+                                              </button>
+                                            )}
+
+                                            {n.path && (
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  openNotification(n);
+                                                }}
+                                                className="p-1 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-white/10 transition-colors"
+                                                title="Go to details"
+                                              >
+                                                <Icon name="mdi:open-in-new" className="w-3.5 h-3.5" />
+                                              </button>
+                                            )}
+
                                             <button
                                               onClick={(e) => clearNotification(n.id, e)}
-                                              className="p-1 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-white/10 transition-colors"
-                                              title="Snooze reminder"
+                                              className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-white/10 transition-colors"
+                                              title="Dismiss"
                                             >
-                                              <Icon name="mdi:alarm-snooze" className="w-3.5 h-3.5" />
+                                             <Icon name="mdi:close-circle-outline" className="w-3.5 h-3.5" />
                                             </button>
-                                          )}
-
-                                          {n.path && (
-                                            <button
-                                              onClick={() => openNotification(n)}
-                                              className="p-1 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-white/10 transition-colors"
-                                              title="Go to details"
-                                            >
-                                              <Icon name="mdi:open-in-new" className="w-3.5 h-3.5" />
-                                            </button>
-                                          )}
-
-                                          <button
-                                            onClick={(e) => clearNotification(n.id, e)}
-                                            className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-white/10 transition-colors"
-                                            title="Dismiss"
-                                          >
-                                            <Icon name="mdi:close-circle-outline" className="w-3.5 h-3.5" />
-                                          </button>
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
                                   </div>
-                                </div>
-                              );
-                            })
-                          )}
+                                );
+                              })
+                            )}
+                          </div>
                         </div>
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Back Button */}
+                {dhConfig?.header?.showBackBtn !== false && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(-1)}
+                    title="Go Back"
+                    className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold shadow-sm transition-all flex-shrink-0 ${
+                      theme === "dark"
+                        ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <Icon name="mdi:arrow-left" className="w-4 h-4" />
+                    <span className="hidden sm:inline">Back</span>
+                  </button>
+                )}
+
+                {/* Refresh Button */}
+                {dhConfig?.header?.showRefreshBtn !== false && (
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    title="Refresh Page"
+                    className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold shadow-sm transition-all flex-shrink-0 ${
+                      theme === "dark"
+                        ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <Icon name="mdi:refresh" className="w-4 h-4" />
+                    <span className="hidden sm:inline">Refresh</span>
+                  </button>
+                )}
+
+                {/* More Options Dropdown (Theme Toggle & Logout) */}
+                <div className="relative more-menu-container flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setMoreMenuOpen((v) => !v)}
+                    title="More Options"
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl border shadow-sm transition-all flex-shrink-0 ${
+                      theme === "dark"
+                        ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <Icon name="mdi:dots-vertical" className="w-5 h-5" />
+                  </button>
+
+                  {moreMenuOpen && (
+                    <div
+                      className={`absolute right-0 top-full mt-2 w-48 rounded-xl border shadow-xl z-[100] p-1.5 transition-all origin-top-right ${
+                        theme === "dark"
+                          ? "bg-[#0c0e1c] border-white/10 text-slate-200"
+                          : "bg-white border-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {/* Theme Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleTheme();
+                          setMoreMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors text-left ${
+                          theme === "dark"
+                            ? "hover:bg-white/10 text-slate-200"
+                            : "hover:bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        <Icon
+                          name={theme === "dark" ? "mdi:white-balance-sunny" : "mdi:weather-night"}
+                          className="w-4 h-4 text-amber-500 shrink-0"
+                        />
+                        <span>{theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}</span>
+                      </button>
+
+                      <div className={`my-1 border-t ${theme === "dark" ? "border-white/10" : "border-slate-100"}`} />
+
+                      {/* Logout Option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMoreMenuOpen(false);
+                          logout();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left"
+                      >
+                        <Icon name="mdi:logout-variant" className="w-4 h-4 text-red-500 shrink-0" />
+                        <span>Logout</span>
+                      </button>
                     </div>
                   )}
                 </div>
-
-                {/* Logout Button */}
-                <button
-                  onClick={logout}
-                  className={`flex h-9 items-center gap-1.5 rounded-xl border transition-all shadow-sm whitespace-nowrap px-2.5 ${theme === "dark"
-                    ? "border-red-500/20 text-red-400 hover:bg-red-500/10 bg-red-500/5"
-                    : "border-red-200 bg-white text-xs font-semibold text-red-600 hover:bg-red-50 hover:border-red-300"
-                    }`}
-                >
-                  <Icon name="mdi:logout-variant" className="w-3.5 h-3.5" />
-                  <span className="hidden xl:inline">Logout</span>
-                </button>
 
                 {/* User Avatar */}
                 <button

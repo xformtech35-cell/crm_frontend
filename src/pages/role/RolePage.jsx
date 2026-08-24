@@ -156,7 +156,8 @@ const groupedPermissions = [
         name: "Team Leads",
         viewPermission: { key: "team_leads.view", label: "View Team Leads" },
         actions: [
-          { key: "team_leads.edit", label: "Manage Team Leads" }
+          { key: "team_leads.edit", label: "Manage Team Leads" },
+          { key: "team_leads.delete", label: "Delete Team Leads" }
         ]
       },
       {
@@ -249,7 +250,7 @@ const DEFAULT_ROLE_PERMISSIONS = {
     "opportunities.view", "opportunities.create", "opportunities.edit", "opportunities.delete",
     "projects.view", "projects.create", "projects.edit", "projects.delete",
     "tasks.view", "tasks.create", "tasks.edit", "tasks.delete",
-    "teams.view", "teams.create", "teams.edit", "teams.delete", "team_leads.view", "team_leads.edit",
+    "teams.view", "teams.create", "teams.edit", "teams.delete", "team_leads.view", "team_leads.edit", "team_leads.delete",
     "users.view", "users.create", "users.edit", "users.delete",
     "analytics.view", "reports.view", "automation.view", "roles.view", "roles.create", "roles.edit", "roles.delete",
     "integrations.view", "integrations.edit", "data_access.view", "data_access.edit", "settings.view",

@@ -77,7 +77,7 @@ const TABS = [
   { key: "notes", label: "Notes", icon: "mdi:note-text-outline" },
   { key: "reminders", label: "Reminders", icon: "mdi:bell-outline" },
   { key: "documents", label: "Documents", icon: "mdi:file-multiple-outline" },
- // { key: "related", label: "Related", icon: "mdi:link-variant" },
+  // { key: "related", label: "Related", icon: "mdi:link-variant" },
 ];
 
 /* ─── Main Component ─── */
@@ -204,6 +204,14 @@ export default function LeadDetailPage() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  useEffect(() => {
+    const handleDataRefresh = () => {
+      loadAll();
+    };
+    window.addEventListener("crm-data-updated", handleDataRefresh);
+    return () => window.removeEventListener("crm-data-updated", handleDataRefresh);
+  }, [loadAll]);
+
   // Load revision history when documents tab is active
   useEffect(() => {
     if (activeTab === "documents" && id) {
@@ -239,9 +247,9 @@ export default function LeadDetailPage() {
   const filesFromLead = useMemo(() => {
     if (!lead) return [];
     const docs = [];
-    const docFields = ['uploadDocument', 'uploadDocument1', 'uploadDocument2', 'uploadDocument3'];
-    
-    docFields.forEach((field, idx) => {
+    const docFields = ['uploadDocument', 'uploadDocument1'];
+
+    docFields.forEach((field) => {
       const path = lead[field];
       if (path) {
         docs.push({
@@ -254,8 +262,8 @@ export default function LeadDetailPage() {
         });
       }
     });
-    
-    return docs;
+
+    return docs.slice(0, 2);
   }, [lead]);
 
   const relatedOpportunity = useMemo(() => opportunities.find((o) => o.leadIdFk === id) || null, [opportunities, id]);
@@ -280,12 +288,14 @@ export default function LeadDetailPage() {
     { label: "Email", key: "leadEmail", icon: "mdi:email-outline", value: lead?.leadEmail },
     { label: "Lead Source", key: "leadSource", icon: "mdi:source-branch", value: lead?.leadSource },
     { label: "Lead Group", key: "leadGroup", icon: "mdi:group", value: lead?.leadGroup },
-    { label: "Enquiry Date", key: "inquiryDate", icon: "mdi:calendar-outline", value: lead?.inquiryDate ? formatDate(lead.inquiryDate) : null },
+    { label: "Enquiry Date", key: "inquiryDate", icon: "mdi:calendar-outline", value: (lead?.inquiryDate || lead?.leadCreatedDate || lead?.createdDate) ? formatDate(lead?.inquiryDate || lead?.leadCreatedDate || lead?.createdDate) : null },
     { label: "Enquiry Description", key: "enquiryDescription", icon: "mdi:text-box-outline", value: lead?.enquiryDescription },
     { label: "Enquiry Type", key: "enquiryType", icon: "mdi:tag-outline", value: lead?.enquiryType },
     { label: "Enquiry Status", key: "enquiryStatus", icon: "mdi:clipboard-check-outline", value: lead?.enquiryStatus },
     { label: "Quotation Number", key: "quotationNumber", icon: "mdi:receipt-outline", value: lead?.quotationNumber },
     { label: "Quotation Revision", key: "quotationRevision", icon: "mdi:refresh", value: lead?.quotationRevision },
+    { label: "Quotation Working Date", key: "quotationWorkingDate", icon: "mdi:calendar-clock", value: (lead?.quotationWorkingDate || lead?.quotationDate) ? formatDate(lead?.quotationWorkingDate || lead?.quotationDate) : null },
+    { label: "Sent Quotation Date", key: "sentQuotationDate", icon: "mdi:calendar-check", value: lead?.sentQuotationDate ? formatDate(lead.sentQuotationDate) : null },
     { label: "Quotation Amount", key: "quotationAmount", icon: getCurrencyConfig(lead?.leadCountry).icon, value: lead?.quotationAmount != null ? formatCurrency(lead.quotationAmount, lead.leadCountry) : null },
     { label: "Follow Up Remark", key: "followUpRemark", icon: "mdi:comment-text-outline", value: lead?.followUpRemark },
   ];
@@ -293,8 +303,8 @@ export default function LeadDetailPage() {
   const customFields = useMemo(() => {
     if (!lead) return [];
     return [
-     // { label: "Lead Reason", icon: "mdi:information-outline", value: lead.leadReason || "Not set" },
-     // { label: "Unique Query ID", icon: "mdi:identifier", value: lead.uniqueQueryId || "Not set" },
+      // { label: "Lead Reason", icon: "mdi:information-outline", value: lead.leadReason || "Not set" },
+      // { label: "Unique Query ID", icon: "mdi:identifier", value: lead.uniqueQueryId || "Not set" },
       { label: "Created", icon: "mdi:clock-outline", value: lead.leadCreatedDate ? formatDateTime(lead.leadCreatedDate) : "Not set" },
       { label: "Created By", icon: "mdi:account-outline", value: lead.createdBy || "Admin" },
       { label: "Updated By", icon: "mdi:account-edit-outline", value: lead.updatedBy || lead.createdBy || "Admin" },
@@ -337,33 +347,33 @@ export default function LeadDetailPage() {
     }
   }
 
- async function transitionToStage(newStage) {
-  setActionLoading(true);
-  try {
-    if (newStage === "Won") {
-      await updateLeadOutcomeStatus(lead.leadId, "Won");
-    } else if (newStage === "Closed") {
-      await updateLeadOutcomeStatus(lead.leadId, "Closed");
-    } else if (newStage === "Open") {
-      await updateLeadOutcomeStatus(lead.leadId, "Open");
-    } else if (newStage === "Negotiation") {
-      await updateLeadOutcomeStatus(lead.leadId, "Negotiation");
-    } else if (newStage === "Qualified") {
-      await updateStatus(lead.leadId, "Qualified");
-      await updateLeadOutcomeStatus(lead.leadId, "");
-    } else if (newStage === "New Lead") {
-      await updateStatus(lead.leadId, "New Lead");
-      await updateLeadOutcomeStatus(lead.leadId, "");
+  async function transitionToStage(newStage) {
+    setActionLoading(true);
+    try {
+      if (newStage === "Won") {
+        await updateLeadOutcomeStatus(lead.leadId, "Won");
+      } else if (newStage === "Closed") {
+        await updateLeadOutcomeStatus(lead.leadId, "Closed");
+      } else if (newStage === "Open") {
+        await updateLeadOutcomeStatus(lead.leadId, "Open");
+      } else if (newStage === "Negotiation") {
+        await updateLeadOutcomeStatus(lead.leadId, "Negotiation");
+      } else if (newStage === "Qualified") {
+        await updateStatus(lead.leadId, "Qualified");
+        await updateLeadOutcomeStatus(lead.leadId, "");
+      } else if (newStage === "New Lead") {
+        await updateStatus(lead.leadId, "New Lead");
+        await updateLeadOutcomeStatus(lead.leadId, "");
+      }
+      showToastMsg("success", `Lead moved to ${newStage}`);
+      await loadAll();
+    } catch (err) {
+      console.error(err);
+      showToastMsg("error", "Failed to update status");
+    } finally {
+      setActionLoading(false);
     }
-    showToastMsg("success", `Lead moved to ${newStage}`);
-    await loadAll();
-  } catch (err) {
-    console.error(err);
-    showToastMsg("error", "Failed to update status");
-  } finally {
-    setActionLoading(false);
   }
-}
 
   async function submitNote(e) {
     e.preventDefault();
@@ -492,7 +502,7 @@ export default function LeadDetailPage() {
   const getReminderBadge = (reminderDateStr, isDone) => {
     if (isDone) return { label: "Completed", color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: "mdi:check-circle" };
     if (!reminderDateStr) return { label: "Scheduled", color: "bg-gray-50 text-gray-700 border-gray-200", icon: "mdi:clock-outline" };
-    
+
     const dateObj = new Date(reminderDateStr.replace(" ", "T"));
     if (isNaN(dateObj.getTime())) return { label: "Scheduled", color: "bg-gray-50 text-gray-700 border-gray-200", icon: "mdi:clock-outline" };
 
@@ -530,37 +540,37 @@ export default function LeadDetailPage() {
 
   const handleConvert = async () => {
     setActionLoading(true);
-  
+
     try {
       const response = await convertToNegotiation(id);
-  
+
       showToastMsg(
         "success",
         response?.message || "Lead converted successfully."
       );
-  
+
       // Explicitly sync leadOutcomeStatus so the Negotiation page sees 'Negotiation'
       // instead of the stale 'Open' value that was set before conversion.
       await updateLeadOutcomeStatus(id, "Negotiation");
-  
+
       // Patch local state immediately so any re-render before loadAll reflects the new status
       setLead((prev) => prev ? { ...prev, leadOutcomeStatus: "Negotiation" } : prev);
-  
+
       await loadAll();
-  
+
       navigate("/negotiation");
     } catch (error) {
       console.error("Convert Error:", error);
-  
+
       const message = error?.response?.data?.message;
-  
+
       if (message === "Lead already converted to negotiation") {
         showToastMsg("info", "Lead is already converted.");
-  
+
         navigate("/negotiation");
         return;
       }
-  
+
       showToastMsg(
         "error",
         message || "Failed to convert lead."
@@ -582,9 +592,15 @@ export default function LeadDetailPage() {
     setActionLoading(true);
     try {
       const payload = formData && typeof formData === "object" ? formData : leadForm;
-      const updated = await update(lead.leadId, payload, {});
+      const finalPayload = {
+        ...payload,
+        quotationWorkingDate: payload.quotationDate || payload.quotationWorkingDate,
+        quotationDate: payload.quotationDate || payload.quotationWorkingDate,
+      };
+      const updated = await update(lead.leadId, finalPayload, {});
       setLead(updated); setShowEditPanel(false);
       showToastMsg("success", "Lead updated."); await loadAll();
+      window.dispatchEvent(new CustomEvent("crm-data-updated"));
     } catch { showToastMsg("error", "Failed to update lead."); }
     finally { setActionLoading(false); }
   }
@@ -601,27 +617,35 @@ export default function LeadDetailPage() {
 
   async function uploadFiles(files) {
     if (!files?.length || !lead) return;
-    const file = files[0];
-    setSelectedFiles([file]);
+    const fileList = Array.from(files).slice(0, 2);
     try {
       setUploading(true);
       setUploadProgress(0);
-      
-      // Simulate progress
+
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      await update(lead.leadId, { ...lead }, { uploadDocument: file });
-      
+      const fileMap = {};
+      if (!lead.uploadDocument) {
+        fileMap.uploadDocument = fileList[0];
+        if (fileList[1]) fileMap.uploadDocument1 = fileList[1];
+      } else if (!lead.uploadDocument1) {
+        fileMap.uploadDocument1 = fileList[0];
+      } else {
+        fileMap.uploadDocument1 = fileList[0];
+      }
+
+      await update(lead.leadId, { ...lead }, fileMap);
+
       clearInterval(progressInterval);
       setUploadProgress(100);
-      
+
       setTimeout(() => {
         setUploading(false);
         setUploadProgress(0);
       }, 500);
-      showToastMsg("success", "Document uploaded successfully.");
+      showToastMsg("success", "Quotation document uploaded successfully (max 2 files).");
       await loadAll();
     } catch (err) {
       console.error(err);
@@ -631,17 +655,35 @@ export default function LeadDetailPage() {
     }
   }
 
+  async function handleDeleteLeadFile(field) {
+    if (!field || !lead) return;
+    if (!window.confirm("Are you sure you want to delete / replace this document?")) return;
+    setActionLoading(true);
+    try {
+      const payload = { ...lead, [field]: null };
+      const updated = await update(lead.leadId, payload, {});
+      setLead(updated);
+      showToastMsg("success", "Document deleted successfully.");
+      await loadAll();
+    } catch (err) {
+      console.error("Delete document failed:", err);
+      showToastMsg("error", "Failed to delete document.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function handleUploadFiles(fileMap) {
     try {
       // Upload files using the update function
       const updated = await update(lead.leadId, { ...lead }, fileMap);
-      
+
       // Update the lead state with the new data
       setLead(updated);
-      
+
       // Reload all data to refresh the documents tab
       await loadAll();
-      
+
       showToastMsg("success", "Files uploaded successfully");
       return updated;
     } catch (error) {
@@ -776,15 +818,14 @@ export default function LeadDetailPage() {
                   {lead.leadStatus}
                 </span>
                 {lead.leadOutcomeStatus && (
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                    lead.leadOutcomeStatus === "Negotiation"
-                      ? "bg-yellow-400/20 text-yellow-200 border-yellow-400/30"
-                      : lead.leadOutcomeStatus === "Won"
-                        ? "bg-emerald-400/20 text-emerald-200 border-emerald-400/30"
-                        : lead.leadOutcomeStatus === "Open"
-                          ? "bg-purple-400/20 text-purple-200 border-purple-400/30"
-                          : "bg-white/10 text-white/90 border-white/20"
-                  }`}>
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${lead.leadOutcomeStatus === "Negotiation"
+                    ? "bg-yellow-400/20 text-yellow-200 border-yellow-400/30"
+                    : lead.leadOutcomeStatus === "Won"
+                      ? "bg-emerald-400/20 text-emerald-200 border-emerald-400/30"
+                      : lead.leadOutcomeStatus === "Open"
+                        ? "bg-purple-400/20 text-purple-200 border-purple-400/30"
+                        : "bg-white/10 text-white/90 border-white/20"
+                    }`}>
                     {lead.leadOutcomeStatus}
                   </span>
                 )}
@@ -1231,36 +1272,36 @@ export default function LeadDetailPage() {
                               </div>
                             </div>
                           </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleSendReminderEmail(r.leadReminderId)}
-                            disabled={actionLoading || reminderDone[r.leadReminderId]}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-violet-100 bg-violet-50 text-xs font-semibold text-violet-700 hover:bg-violet-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                            title="Send email reminder now"
-                          >
-                            <Icon name="mdi:email-send-outline" className="h-3.5 w-3.5" />
-                            Send Email
-                          </button>
-                          <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer shrink-0">
-                            <input type="checkbox" checked={!!reminderDone[r.leadReminderId]} onChange={() => toggleReminderDone(r.leadReminderId)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
-                            <span className={reminderDone[r.leadReminderId] ? "text-emerald-600 font-semibold" : ""}>
-                              {reminderDone[r.leadReminderId] ? "Done" : "Mark done"}
-                            </span>
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteReminder(r.leadReminderId)}
-                            disabled={actionLoading}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-all shrink-0"
-                            title="Delete reminder"
-                          >
-                            <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleSendReminderEmail(r.leadReminderId)}
+                              disabled={actionLoading || reminderDone[r.leadReminderId]}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-violet-100 bg-violet-50 text-xs font-semibold text-violet-700 hover:bg-violet-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                              title="Send email reminder now"
+                            >
+                              <Icon name="mdi:email-send-outline" className="h-3.5 w-3.5" />
+                              Send Email
+                            </button>
+                            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer shrink-0">
+                              <input type="checkbox" checked={!!reminderDone[r.leadReminderId]} onChange={() => toggleReminderDone(r.leadReminderId)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                              <span className={reminderDone[r.leadReminderId] ? "text-emerald-600 font-semibold" : ""}>
+                                {reminderDone[r.leadReminderId] ? "Done" : "Mark done"}
+                              </span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteReminder(r.leadReminderId)}
+                              disabled={actionLoading}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-all shrink-0"
+                              title="Delete reminder"
+                            >
+                              <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                   </div>
                 )}
               </section>
@@ -1294,7 +1335,7 @@ export default function LeadDetailPage() {
                 >
                   <Icon name={uploading ? "mdi:loading" : "mdi:cloud-upload-outline"} className={`h-10 w-10 text-gray-400 mx-auto mb-2 ${uploading ? "animate-spin" : ""}`} />
                   <p className="text-sm font-medium text-gray-700">{uploading ? "Uploading..." : "Drag & drop additional files here"}</p>
-                  <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, Images, Documents (up to 4 files)</p>
+                  <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, Images, Documents (up to 2 files)</p>
                   <button type="button" className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 shadow-sm">
                     <Icon name="mdi:plus" className="h-4 w-4" /> Choose Files
                   </button>
@@ -1325,9 +1366,9 @@ export default function LeadDetailPage() {
                       return (
                         <div key={doc.id || index} className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 flex items-center gap-3 hover:border-blue-200 hover:bg-blue-50/20 transition-all">
                           <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${isImage ? "bg-pink-50" : isPdf ? "bg-red-50" : "bg-blue-50"}`}>
-                            <Icon 
-                              name={isImage ? "mdi:image-outline" : isPdf ? "mdi:file-pdf-box" : "mdi:file-document-outline"} 
-                              className={`h-6 w-6 ${isImage ? "text-pink-500" : isPdf ? "text-red-500" : "text-blue-500"}`} 
+                            <Icon
+                              name={isImage ? "mdi:image-outline" : isPdf ? "mdi:file-pdf-box" : "mdi:file-document-outline"}
+                              className={`h-6 w-6 ${isImage ? "text-pink-500" : isPdf ? "text-red-500" : "text-blue-500"}`}
                             />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -1336,24 +1377,34 @@ export default function LeadDetailPage() {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {isImage && (
-                              <button 
-                                type="button" 
-                                onClick={() => { setPreviewFile(fileUrl); setShowPreview(true); }} 
+                              <button
+                                type="button"
+                                onClick={() => { setPreviewFile(fileUrl); setShowPreview(true); }}
                                 className="px-2.5 py-1.5 rounded-lg bg-blue-100 text-blue-700 text-xs font-medium hover:bg-blue-200 transition-colors"
                               >
-                                <Icon name="mdi:eye-outline" className="h-3.5 w-3.5 inline mr-1" />View
+                                <Icon name="mdi:eye-outline" className="h-3.5 w-3.5 inline mr-1" />
                               </button>
                             )}
                             <button
                               type="button"
                               onClick={() =>
-                               negotiationApi.handleViewDocument(
+                                negotiationApi.handleViewDocument(
                                   doc.path
                                 )
                               }
                               className="px-2.5 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-medium hover:bg-emerald-200 transition-colors"
                             >
-                              <Icon name="mdi:download" className="h-3.5 w-3.5 inline mr-1" />Download
+                              <Icon name="mdi:download" className="h-3.5 w-3.5 inline mr-1" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLeadFile(doc.field)}
+                              disabled={actionLoading}
+                              className="px-2.5 py-1.5 rounded-lg bg-red-100 text-red-700 text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
+                              title="Delete or replace this document"
+                            >
+                              <Icon name="mdi:trash-can-outline" className="h-3.5 w-3.5 inline mr-1" />
                             </button>
                           </div>
                         </div>
@@ -1447,8 +1498,8 @@ export default function LeadDetailPage() {
                     <p className="text-xs text-gray-400">out of 100</p>
                   </div>
                 </div> */}
-                {/* Score bar */}
-                {/* <div className="space-y-1">
+          {/* Score bar */}
+          {/* <div className="space-y-1">
                   <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full transition-all duration-700 ${score.score >= 80 ? "bg-emerald-500" : score.score >= 60 ? "bg-blue-500" : score.score >= 40 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${score.score}%` }} />
                   </div>
@@ -1497,11 +1548,10 @@ export default function LeadDetailPage() {
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Active Tags</p>
               <div className="flex flex-wrap gap-1.5">
                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${statusChip(lead.leadStatus)}`}>{lead.leadStatus}</span>
-                {lead.leadOutcomeStatus && <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                    lead.leadOutcomeStatus === "Negotiation" ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                    : lead.leadOutcomeStatus === "Open" ? "bg-purple-50 text-purple-700 border-purple-200"
+                {lead.leadOutcomeStatus && <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${lead.leadOutcomeStatus === "Negotiation" ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                  : lead.leadOutcomeStatus === "Open" ? "bg-purple-50 text-purple-700 border-purple-200"
                     : lead.leadOutcomeStatus === "Won" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                      : "bg-indigo-50 text-indigo-700 border-indigo-200"
                   }`}>{lead.leadOutcomeStatus}</span>}
                 {lead.leadSource && <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">{lead.leadSource}</span>}
                 {lead.leadType && <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">{lead.leadType}</span>}

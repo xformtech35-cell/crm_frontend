@@ -75,7 +75,7 @@ export default function LeadGroup() {
     const isDuplicate = groups.some(
       (item) =>
         item.groupName?.trim().toLowerCase() === targetName.toLowerCase() &&
-        (!editingGroup || String(item.id) !== String(editingGroup.id))
+        (!editingGroup || String(item.id || item.groupId || item.leadGroupId) !== String(editingGroup.id || editingGroup.groupId || editingGroup.leadGroupId))
     );
  
     if (isDuplicate) {

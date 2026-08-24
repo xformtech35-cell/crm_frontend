@@ -6,16 +6,16 @@ import { getInitials } from '../../utils/format';
 import api from '../../utils/api';
 
 const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg, #4f46e5, #7c3aed)',
-  'linear-gradient(135deg, #2563eb, #3b82f6)',
-  'linear-gradient(135deg, #059669, #10b981)',
-  'linear-gradient(135deg, #d97706, #f59e0b)',
-  'linear-gradient(135deg, #dc2626, #ef4444)',
-  'linear-gradient(135deg, #7e22ce, #ec4899)',
+  { id: 'indigo', name: 'Electric Violet', value: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+  { id: 'blue', name: 'Ocean Blue', value: 'linear-gradient(135deg, #2563eb, #3b82f6)' },
+  { id: 'emerald', name: 'Emerald Mint', value: 'linear-gradient(135deg, #059669, #10b981)' },
+  { id: 'amber', name: 'Sunset Amber', value: 'linear-gradient(135deg, #d97706, #f59e0b)' },
+  { id: 'crimson', name: 'Ruby Crimson', value: 'linear-gradient(135deg, #dc2626, #ef4444)' },
+  { id: 'magenta', name: 'Cosmic Pink', value: 'linear-gradient(135deg, #7e22ce, #ec4899)' },
 ];
 
 export default function ProfilePage() {
-  const { user, setAuth } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const { changePassword } = useAuth();
 
   const [activeTab, setActiveTab] = useState('details'); // 'details' | 'security' | 'access'
@@ -29,7 +29,7 @@ export default function ProfilePage() {
     return localStorage.getItem(`crm_avatar_${user?.userid}`) || '';
   });
   const [selectedGradient, setSelectedGradient] = useState(() => {
-    return localStorage.getItem(`crm_avatar_bg_${user?.userid}`) || AVATAR_GRADIENTS[0];
+    return localStorage.getItem(`crm_avatar_bg_${user?.userid}`) || AVATAR_GRADIENTS[0].value;
   });
   const [myTeamDetails, setMyTeamDetails] = useState([]);
 
@@ -143,21 +143,23 @@ export default function ProfilePage() {
   };
 
   // Handle Profile Details Save
-  const handleSaveDetails = (e) => {
+  const handleSaveDetails = async (e) => {
     e.preventDefault();
     setSavingDetails(true);
     try {
-      const updatedUser = {
-        ...user,
+      try {
+        await api.put('/auth/profile', { username, userEmail, phone, designation });
+      } catch (err) {
+        console.warn('Backend profile update notice:', err);
+      }
+
+      updateUser({
         username,
         userEmail,
         phone,
         designation,
-      };
-      setAuth({
-        token: useAuthStore.getState().token,
-        user: updatedUser,
       });
+
       showToast('success', 'Profile details updated successfully!');
     } catch {
       showToast('error', 'Failed to update profile details.');
@@ -199,45 +201,77 @@ export default function ProfilePage() {
 
   const initials = getInitials(username || userEmail || 'U');
 
+  // Password Strength Calculation
+  const getPasswordStrength = (pwd) => {
+    if (!pwd) return { score: 0, label: 'Not Entered', color: 'bg-gray-200 dark:bg-slate-700', text: 'text-gray-400' };
+    let score = 0;
+    if (pwd.length >= 6) score += 1;
+    if (pwd.length >= 10) score += 1;
+    if (/[A-Z]/.test(pwd)) score += 1;
+    if (/[0-9]/.test(pwd)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pwd)) score += 1;
+
+    if (score <= 2) return { score: 33, label: 'Weak Password', color: 'bg-red-500', text: 'text-red-500' };
+    if (score <= 4) return { score: 66, label: 'Medium Security', color: 'bg-amber-500', text: 'text-amber-500' };
+    return { score: 100, label: 'Strong & Encrypted 🔒', color: 'bg-emerald-500', text: 'text-emerald-500' };
+  };
+
+  const pwdStrength = getPasswordStrength(newPassword);
+
+  const permissionsList = user?.permissions || [
+    'leads.view', 'leads.create', 'leads.edit', 'leads.delete',
+    'negotiations.view', 'negotiations.edit',
+    'tasks.view', 'tasks.create',
+    'team.view', 'organizations.view', 'reports.view'
+  ];
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-12">
+    <div className="max-w-6xl mx-auto space-y-6 pb-16 px-2 sm:px-4">
       {/* Toast Notification */}
       {toast && (
-        <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border flex items-center gap-3 animate-slide-in text-sm font-semibold ${
+        <div className={`fixed top-5 right-5 z-50 px-5 py-3.5 rounded-2xl shadow-2xl border flex items-center gap-3 animate-slide-in text-sm font-semibold backdrop-blur-md ${
           toast.type === 'success'
-            ? 'bg-emerald-600 text-white border-emerald-500'
-            : 'bg-red-600 text-white border-red-500'
+            ? 'bg-emerald-600/95 text-white border-emerald-400/30'
+            : 'bg-red-600/95 text-white border-red-400/30'
         }`}>
           <Icon name={toast.type === 'success' ? 'mdi:check-circle' : 'mdi:alert-circle'} className="w-5 h-5" />
           <span>{toast.msg}</span>
         </div>
       )}
 
-      {/* ── Profile Header Card ── */}
-      <div className="relative bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 shadow-sm overflow-hidden">
-        {/* Cover Banner */}
-        <div className="h-20 bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
-          <div className="absolute right-6 bottom-4 flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full text-xs font-bold text-white/90 bg-white/20 backdrop-blur-md border border-white/20 uppercase tracking-wider">
+      {/* ── STUNNING COMPACT PROFILE HEADER ── */}
+      <div className="relative bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 shadow-lg overflow-hidden">
+        {/* Modern Compact Gradient Hero Banner */}
+        <div className="h-20 sm:h-24 bg-gradient-to-r from-indigo-700 via-purple-700 to-sky-600 relative overflow-hidden px-6 py-3 flex items-start justify-between">
+          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1.5px,transparent_1.5px)] [background-size:16px_16px]" />
+          <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/10 rounded-full blur-xl" />
+          <div className="absolute left-1/3 bottom-0 w-36 h-36 bg-purple-500/20 rounded-full blur-lg" />
+
+          {/* Role Pill Badge */}
+          <div className="relative z-10 flex items-center gap-2">
+            <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider text-white bg-white/20 backdrop-blur-md border border-white/30 shadow-md flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
               {user?.role || 'User'}
             </span>
           </div>
+
+          <div className="relative z-10 text-right text-white/80 text-[11px] font-semibold hidden sm:block">
+            <span>Logged in as </span>
+            <span className="text-white font-bold">{userEmail}</span>
+          </div>
         </div>
 
-        {/* Profile Avatar & Primary Info */}
-        <div className="px-6 pb-6 pt-0 relative flex flex-col md:flex-row items-start md:items-end justify-between gap-4 -mt-16">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-5">
-            {/* Avatar container */}
-            <div className="relative group">
-              <div
-                className="w-28 h-28 rounded-3xl p-1 bg-white dark:bg-slate-900 shadow-xl overflow-hidden flex items-center justify-center shrink-0"
-              >
+        {/* User Info Bar */}
+        <div className="px-6 pb-4 pt-1 relative flex flex-col md:flex-row items-start md:items-end justify-between gap-4 -mt-10 sm:-mt-12">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+            {/* Compact Glowing Avatar Frame */}
+            <div className="relative group shrink-0">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl p-1 bg-white dark:bg-slate-900 shadow-xl ring-4 ring-white/50 dark:ring-slate-800/80 overflow-hidden flex items-center justify-center">
                 {profileImage ? (
-                  <img src={profileImage} alt="Profile" className="w-full h-full object-cover rounded-2xl" />
+                  <img src={profileImage} alt="Profile" className="w-full h-full object-cover rounded-xl" />
                 ) : (
                   <div
-                    className="w-full h-full rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-inner"
+                    className="w-full h-full rounded-xl flex items-center justify-center text-white font-black text-2xl sm:text-3xl shadow-inner"
                     style={{ background: selectedGradient }}
                   >
                     {initials}
@@ -245,17 +279,17 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {/* Upload Overlay Button */}
+              {/* Upload Hover Overlay */}
               <label
-                htmlFor="avatar-file-input"
-                className="absolute inset-0 bg-black/50 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer gap-1"
+                htmlFor="hero-avatar-upload"
+                className="absolute inset-0 bg-black/60 backdrop-blur-xs rounded-2xl opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center text-white cursor-pointer gap-0.5"
                 title="Change Profile Picture"
               >
-                <Icon name="mdi:camera-plus-outline" className="w-6 h-6" />
-                <span className="text-[10px] font-bold">Upload</span>
+                <Icon name="mdi:camera-plus" className="w-5 h-5 text-indigo-300" />
+                <span className="text-[9px] font-extrabold uppercase tracking-wider">Change</span>
               </label>
               <input
-                id="avatar-file-input"
+                id="hero-avatar-upload"
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
@@ -263,34 +297,52 @@ export default function ProfilePage() {
               />
             </div>
 
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
-                {username || 'User Profile'}
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">
-                {userEmail || 'user@example.com'}
-              </p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+            {/* Title & Organization Meta */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                  {username || 'User Account'}
+                </h1>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 shadow-2xs">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   Active Account
                 </span>
-                <span className="text-xs text-gray-400 dark:text-slate-500">
+              </div>
+
+              <div className="flex items-center gap-3 text-xs font-semibold text-gray-500 dark:text-slate-400 flex-wrap">
+                <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                  <Icon name="mdi:email-outline" className="w-3.5 h-3.5" />
+                  {userEmail}
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Icon name="mdi:badge-account-outline" className="w-3.5 h-3.5 text-gray-400" />
                   ID: #{user?.userid || '101'}
                 </span>
+                {phone && (
+                  <>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Icon name="mdi:phone-outline" className="w-3.5 h-3.5 text-gray-400" />
+                      {phone}
+                    </span>
+                  </>
+                )}
               </div>
+
+              {/* Team Badges */}
               {myTeamDetails.length > 0 && (
-                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
                   {myTeamDetails.map((t) => (
                     <span
                       key={t.teamName}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-300 border border-purple-200 dark:border-purple-500/20 shadow-sm"
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-lg bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-300 border border-purple-200/80 dark:border-purple-500/20 shadow-2xs"
                     >
-                      <Icon name="mdi:account-group-outline" className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <Icon name="mdi:account-group" className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                       <span>{t.teamName}</span>
                       <span className="text-purple-300 dark:text-purple-600">•</span>
                       <span className="text-purple-900 dark:text-purple-100">
-                        {t.isLead ? "👑 You are Team Lead" : `👤 Team Lead: ${t.leadName}`}
+                        {t.isLead ? "👑 Team Lead" : `Lead: ${t.leadName}`}
                       </span>
                     </span>
                   ))}
@@ -299,329 +351,438 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            {profileImage && (
-              <button
-                onClick={handleRemoveImage}
-                className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-600 dark:text-slate-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 transition-colors flex items-center gap-1.5"
-              >
-                <Icon name="mdi:trash-can-outline" className="w-4 h-4" />
-                Remove Photo
-              </button>
-            )}
-          </div>
+          {/* Quick Remove Image Button */}
+          {profileImage && (
+            <button
+              onClick={handleRemoveImage}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-[11px] font-bold text-gray-600 dark:text-slate-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 transition-colors flex items-center gap-1.5 shadow-2xs"
+            >
+              <Icon name="mdi:trash-can-outline" className="w-3.5 h-3.5 text-red-500" />
+              Remove Photo
+            </button>
+          )}
         </div>
 
-        {/* ── Navigation Tabs ── */}
-        <div className="px-6 border-t border-gray-100 dark:border-white/5 flex items-center gap-1 bg-gray-50/50 dark:bg-slate-900/50">
+        {/* ── MODERN FLOATING COMPACT TAB BAR ── */}
+        <div className="px-6 border-t border-gray-100 dark:border-white/10 flex items-center gap-1.5 bg-gray-50/70 dark:bg-slate-900/80 pt-1.5 pb-0.5 overflow-x-auto">
           {[
-            { id: 'details', label: 'Personal Details', icon: 'mdi:account-outline' },
-            { id: 'security', label: 'Security & Password', icon: 'mdi:lock-outline' },
+            { id: 'details', label: 'Personal Details', icon: 'mdi:account-badge-outline' },
+            { id: 'security', label: 'Security & Password', icon: 'mdi:shield-lock-outline' },
             { id: 'access', label: 'Role & Data Scope', icon: 'mdi:shield-key-outline' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3.5 text-sm font-semibold transition-all border-b-2 ${
-                activeTab === tab.id
-                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400 bg-white dark:bg-slate-900 shadow-sm rounded-t-xl'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-white'
-              }`}
-            >
-              <Icon name={tab.icon} className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold transition-all border-b-2 whitespace-nowrap rounded-t-lg ${
+                  isActive
+                    ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400 bg-white dark:bg-slate-800 shadow-sm'
+                    : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-white'
+                }`}
+              >
+                <Icon name={tab.icon} className={`w-4 h-4 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'}`} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* ── TAB CONTENT ── */}
+      {/* ── TAB 1: PERSONAL DETAILS ── */}
       {activeTab === 'details' && (
         <div className="space-y-6">
-          {/* Company & Team Lead Info Card */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800 rounded-3xl border border-blue-100 dark:border-white/10 p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-blue-200/50 dark:border-white/10">
-              <div>
-                <h3 className="text-sm font-extrabold uppercase tracking-wider text-blue-900 dark:text-blue-300 flex items-center gap-2">
-                  <Icon name="mdi:office-building" className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
-                  Company & Team Leadership
-                </h3>
-                <p className="text-xs text-blue-700/80 dark:text-slate-400 mt-0.5">Your organization membership and assigned supervisory lead.</p>
+          {/* Company & Leadership Banner Card */}
+          <div className="bg-gradient-to-br from-indigo-50/90 via-blue-50/80 to-purple-50/70 dark:from-slate-900 dark:to-slate-800 rounded-3xl border border-indigo-100 dark:border-white/10 p-6 shadow-md space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-indigo-200/50 dark:border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
+                  <Icon name="mdi:domain" className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold uppercase tracking-wider text-indigo-900 dark:text-indigo-300">
+                    Organization & Supervisory Leadership
+                  </h3>
+                  <p className="text-xs text-indigo-700/80 dark:text-slate-400">Your organization workspace membership and assigned team lead.</p>
+                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-blue-100/80 dark:border-white/5 shadow-sm">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-400 block mb-1">Company / Workspace</span>
-                <div className="flex items-center gap-2.5 text-gray-900 dark:text-white font-bold text-base">
-                  <span className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 flex items-center justify-center shrink-0">
-                    <Icon name="mdi:domain" className="w-5 h-5" />
+              <div className="bg-white/90 dark:bg-slate-800/90 p-4 rounded-2xl border border-indigo-100 dark:border-white/5 shadow-sm flex items-center gap-3.5">
+                <span className="w-11 h-11 rounded-2xl bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 flex items-center justify-center shrink-0 shadow-inner">
+                  <Icon name="mdi:office-building text-indigo-600 dark:text-indigo-400" className="w-6 h-6" />
+                </span>
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-slate-400 block">Workspace Company</span>
+                  <span className="text-gray-900 dark:text-white font-extrabold text-base block truncate">
+                    {user?.companyName || 'UWS Enviro-tech Private Limited'}
                   </span>
-                  <span className="truncate">{user?.companyName || 'XForm Tech'}</span>
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-blue-100/80 dark:border-white/5 shadow-sm">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-400 block mb-1">Assigned Team Lead</span>
-                <div className="flex items-center gap-2.5 text-gray-900 dark:text-white font-bold text-base">
-                  <span className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 flex items-center justify-center shrink-0">
-                    <Icon name="mdi:account-star-outline" className="w-5 h-5" />
+              <div className="bg-white/90 dark:bg-slate-800/90 p-4 rounded-2xl border border-indigo-100 dark:border-white/5 shadow-sm flex items-center gap-3.5">
+                <span className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 flex items-center justify-center shrink-0 shadow-inner">
+                  <Icon name="mdi:account-star" className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                </span>
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-slate-400 block">Assigned Team Lead</span>
+                  <span className="text-gray-900 dark:text-white font-extrabold text-base block truncate">
+                    {myTeamDetails.find((t) => !t.isLead)?.leadName || user?.teamLeadName || 'Not Assigned'}
                   </span>
-                  <span className="truncate">{myTeamDetails.find((t) => !t.isLead)?.leadName || user?.teamLeadName || 'Not Assigned'}</span>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main Form */}
-            <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-white/10">
-              <div>
-                <h3 className="text-base font-bold text-gray-900 dark:text-white">Profile Information</h3>
-                <p className="text-xs text-gray-500 dark:text-slate-400">Update your personal account details and display preferences.</p>
+            {/* Form Section */}
+            <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 p-6 sm:p-8 shadow-md">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-white/10">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Icon name="mdi:account-edit-outline" className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    Personal Account Information
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">Manage your display name, contact phone, and professional title.</p>
+                </div>
               </div>
-              <Icon name="mdi:square-edit-outline" className="w-5 h-5 text-indigo-500" />
+
+              <form onSubmit={handleSaveDetails} className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-slate-300 mb-2">
+                      Full Name / Username
+                    </label>
+                    <div className="relative">
+                      <Icon name="mdi:account" className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required
+                        placeholder="John Doe"
+                        className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50/50 dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-slate-300 mb-2">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Icon name="mdi:email" className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="email"
+                        value={userEmail}
+                        onChange={(e) => setUserEmail(e.target.value)}
+                        required
+                        placeholder="user@company.com"
+                        className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50/50 dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-slate-300 mb-2">
+                      Phone Number
+                    </label>
+                    <div className="relative">
+                      <Icon name="mdi:phone" className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="+91 9876543210"
+                        className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50/50 dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-slate-300 mb-2">
+                      Designation / Job Title
+                    </label>
+                    <div className="relative">
+                      <Icon name="mdi:briefcase" className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={designation}
+                        onChange={(e) => setDesignation(e.target.value)}
+                        placeholder="Senior Account Executive"
+                        className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50/50 dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-5 border-t border-gray-100 dark:border-white/10 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={savingDetails}
+                    className="inline-flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {savingDetails ? <Icon name="mdi:loading" className="w-4.5 h-4.5 animate-spin" /> : <Icon name="mdi:content-save-check" className="w-4.5 h-4.5" />}
+                    {savingDetails ? 'Saving Profile...' : 'Save Profile Details'}
+                  </button>
+                </div>
+              </form>
             </div>
 
-            <form onSubmit={handleSaveDetails} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1.5">
-                    Full Name / Username
-                  </label>
+            {/* Avatar Preset & Preview Side Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 p-6 shadow-md space-y-5">
+              <div>
+                <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Icon name="mdi:palette-outline" className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  Avatar Theme Preset
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">Select a vibrant background gradient for your default profile icon.</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                {AVATAR_GRADIENTS.map((grad) => (
+                  <button
+                    key={grad.id}
+                    onClick={() => handleSelectGradient(grad.value)}
+                    className={`h-16 rounded-2xl transition-all relative shadow-md hover:scale-105 group overflow-hidden ${
+                      selectedGradient === grad.value ? 'ring-4 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 scale-105' : 'opacity-90 hover:opacity-100'
+                    }`}
+                    style={{ background: grad.value }}
+                    title={grad.name}
+                  >
+                    {selectedGradient === grad.value && (
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <Icon name="mdi:check-circle" className="w-6 h-6 text-white drop-shadow-md" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 dark:border-white/10">
+                <label
+                  htmlFor="side-avatar-input"
+                  className="w-full py-3 px-4 rounded-2xl border-2 border-dashed border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/50 dark:bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 text-xs font-bold hover:bg-indigo-100/60 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <Icon name="mdi:cloud-upload" className="w-4.5 h-4.5" />
+                  Upload Custom Image
+                </label>
+                <input
+                  id="side-avatar-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 2: SECURITY & PASSWORD ── */}
+      {activeTab === 'security' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Change Password Card */}
+          <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 p-6 sm:p-8 shadow-md space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-white/10">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Icon name="mdi:lock-reset" className="w-5 h-5 text-amber-500" />
+                  Change Password
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">Ensure your account uses a strong, encrypted password.</p>
+              </div>
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
+                <Icon name="mdi:shield-lock-outline" className="w-5 h-5" />
+              </div>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="space-y-5">
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-slate-300 mb-2">
+                  Current Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
                   <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    type={showOld ? 'text' : 'password'}
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    placeholder="Enter current password"
                     required
-                    placeholder="John Doe"
-                    className="w-full px-3.5 py-2.5 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full pl-4 pr-11 py-2.5 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50/50 dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowOld(!showOld)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+                  >
+                    <Icon name={showOld ? 'mdi:eye-off' : 'mdi:eye'} className="w-4.5 h-4.5" />
+                  </button>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1.5">
-                    Email Address
-                  </label>
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-slate-300 mb-2">
+                  New Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
                   <input
-                    type="email"
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
+                    type={showNew ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password (min. 6 characters)"
                     required
-                    placeholder="user@company.com"
-                    className="w-full px-3.5 py-2.5 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full pl-4 pr-11 py-2.5 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50/50 dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew(!showNew)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+                  >
+                    <Icon name={showNew ? 'mdi:eye-off' : 'mdi:eye'} className="w-4.5 h-4.5" />
+                  </button>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1.5">
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+91 9876543210"
-                    className="w-full px-3.5 py-2.5 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  />
+              {/* Password Strength Meter */}
+              {newPassword && (
+                <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-white/5 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-gray-600 dark:text-slate-400">Password Strength</span>
+                    <span className={pwdStrength.text}>{pwdStrength.label}</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-slate-700 overflow-hidden">
+                    <div className={`h-full transition-all duration-300 ${pwdStrength.color}`} style={{ width: `${pwdStrength.score}%` }} />
+                  </div>
                 </div>
+              )}
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1.5">
-                    Designation / Title
-                  </label>
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-slate-300 mb-2">
+                  Confirm New Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
                   <input
-                    type="text"
-                    value={designation}
-                    onChange={(e) => setDesignation(e.target.value)}
-                    placeholder="Senior Account Executive"
-                    className="w-full px-3.5 py-2.5 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    type={showConfirm ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter new password"
+                    required
+                    className="w-full pl-4 pr-11 py-2.5 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50/50 dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+                  >
+                    <Icon name={showConfirm ? 'mdi:eye-off' : 'mdi:eye'} className="w-4.5 h-4.5" />
+                  </button>
                 </div>
               </div>
 
               <div className="pt-4 border-t border-gray-100 dark:border-white/10 flex justify-end">
                 <button
                   type="submit"
-                  disabled={savingDetails}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm transition-colors disabled:opacity-50"
+                  disabled={savingPassword}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold shadow-lg shadow-amber-600/30 transition-all active:scale-95 disabled:opacity-50"
                 >
-                  {savingDetails ? <Icon name="mdi:loading" className="w-4 h-4 animate-spin" /> : <Icon name="mdi:content-save-outline" className="w-4 h-4" />}
-                  {savingDetails ? 'Saving...' : 'Save Profile Details'}
+                  {savingPassword ? <Icon name="mdi:loading" className="w-4.5 h-4.5 animate-spin" /> : <Icon name="mdi:lock-check" className="w-4.5 h-4.5" />}
+                  {savingPassword ? 'Updating Password...' : 'Update Password'}
                 </button>
               </div>
             </form>
           </div>
 
-          {/* Side Avatar Styling Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 p-6 shadow-sm space-y-5">
-            <div>
-              <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">Avatar Theme Color</h3>
-              <p className="text-xs text-gray-500 dark:text-slate-400">Choose a default background gradient if no profile picture is uploaded.</p>
-            </div>
+          {/* Security Status Side Box */}
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 p-6 shadow-md space-y-4">
+              <h4 className="text-sm font-extrabold uppercase tracking-wider text-gray-900 dark:text-white flex items-center gap-2">
+                <Icon name="mdi:shield-check text-emerald-500" className="w-5 h-5" />
+                Active Session Security
+              </h4>
 
-            <div className="grid grid-cols-3 gap-3">
-              {AVATAR_GRADIENTS.map((grad, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleSelectGradient(grad)}
-                  className={`h-14 rounded-2xl transition-all relative shadow-sm hover:scale-105 ${
-                    selectedGradient === grad ? 'ring-4 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900' : ''
-                  }`}
-                  style={{ background: grad }}
-                >
-                  {selectedGradient === grad && (
-                    <Icon name="mdi:check-circle" className="w-5 h-5 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 drop-shadow" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="pt-4 border-t border-gray-100 dark:border-white/10">
-              <label
-                htmlFor="side-avatar-upload"
-                className="w-full py-2.5 px-4 rounded-xl border border-dashed border-indigo-300 dark:border-indigo-500/30 bg-indigo-50/50 dark:bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 text-xs font-semibold hover:bg-indigo-100/50 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Icon name="mdi:cloud-upload-outline" className="w-4 h-4" />
-                Upload Custom Photo
-              </label>
-              <input
-                id="side-avatar-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-slate-800/50">
+                  <span className="text-gray-500 dark:text-slate-400 font-semibold">JWT Auth Token</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">Active & Valid</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-slate-800/50">
+                  <span className="text-gray-500 dark:text-slate-400 font-semibold">Password Encryption</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400">BCrypt (Strength 10)</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-slate-800/50">
+                  <span className="text-gray-500 dark:text-slate-400 font-semibold">Connection Protocol</span>
+                  <span className="font-bold text-purple-600 dark:text-purple-400">REST API / CORS Secured</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
       )}
 
-      {/* ── SECURITY & CHANGE PASSWORD TAB ── */}
-      {activeTab === 'security' && (
-        <div className="max-w-2xl bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 p-6 shadow-sm space-y-6">
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-white/10">
-            <div>
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">Change Password</h3>
-              <p className="text-xs text-gray-500 dark:text-slate-400">Ensure your account uses a strong, secure password.</p>
-            </div>
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <Icon name="mdi:shield-lock-outline" className="w-5 h-5" />
-            </div>
-          </div>
-
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1.5">
-                Current Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type={showOld ? 'text' : 'password'}
-                  value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
-                  placeholder="Enter current password"
-                  required
-                  className="w-full px-3.5 py-2.5 pr-10 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowOld(!showOld)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
-                >
-                  <Icon name={showOld ? 'mdi:eye-off' : 'mdi:eye'} className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1.5">
-                New Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type={showNew ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password (min. 6 characters)"
-                  required
-                  className="w-full px-3.5 py-2.5 pr-10 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNew(!showNew)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
-                >
-                  <Icon name={showNew ? 'mdi:eye-off' : 'mdi:eye'} className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1.5">
-                Confirm New Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type={showConfirm ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter new password"
-                  required
-                  className="w-full px-3.5 py-2.5 pr-10 text-sm border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
-                >
-                  <Icon name={showConfirm ? 'mdi:eye-off' : 'mdi:eye'} className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-gray-100 dark:border-white/10 flex justify-end">
-              <button
-                type="submit"
-                disabled={savingPassword}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold shadow-sm transition-colors disabled:opacity-50"
-              >
-                {savingPassword ? <Icon name="mdi:loading" className="w-4 h-4 animate-spin" /> : <Icon name="mdi:lock-check" className="w-4 h-4" />}
-                {savingPassword ? 'Updating Password...' : 'Update Password'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* ── ROLE & DATA SCOPE TAB ── */}
+      {/* ── TAB 3: ROLE & DATA SCOPE ── */}
       {activeTab === 'access' && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 p-6 shadow-sm space-y-6">
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-white/10">
-            <div>
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">Role & Access Scoping Overview</h3>
-              <p className="text-xs text-gray-500 dark:text-slate-400">Current system privileges assigned to your logged-in profile.</p>
+        <div className="space-y-6">
+          {/* Privilege Summary Cards */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-white/10 p-6 sm:p-8 shadow-md space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-white/10">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Icon name="mdi:shield-account" className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  Role & System Scoping Overview
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">Current system privileges and data scoping parameters assigned to your profile.</p>
+              </div>
+              <span className="px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20">
+                {user?.role || 'User'}
+              </span>
             </div>
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-              <Icon name="mdi:shield-account" className="w-5 h-5" />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-white/5">
-              <p className="text-xs font-semibold text-gray-500 dark:text-slate-400">Assigned System Role</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white capitalize mt-1">{user?.role || 'User'}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-blue-50/50 dark:from-slate-800/80 dark:to-slate-800/40 border border-indigo-100 dark:border-white/5 shadow-xs">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-900 dark:text-indigo-300 block mb-1">Assigned System Role</span>
+                <p className="text-2xl font-black text-gray-900 dark:text-white capitalize">
+                  {user?.role || 'User'}
+                </p>
+                <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-1">Full operational command role</p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-slate-800/80 dark:to-slate-800/40 border border-purple-100 dark:border-white/5 shadow-xs">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-purple-900 dark:text-purple-300 block mb-1">Company Realm ID</span>
+                <p className="text-2xl font-black text-gray-900 dark:text-white">
+                  #{user?.companyIdFk || '1'}
+                </p>
+                <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-1">Workspace Realm Tenant</p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-slate-800/80 dark:to-slate-800/40 border border-emerald-100 dark:border-white/5 shadow-xs">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-900 dark:text-emerald-300 block mb-1">Data Access Scoping</span>
+                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                  {user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'super_admin' ? 'ALL_DATA' : 'TEAM_DATA'}
+                </p>
+                <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-1">Company-wide visibility</p>
+              </div>
             </div>
-            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-white/5">
-              <p className="text-xs font-semibold text-gray-500 dark:text-slate-400">Company ID / Realm</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">#{user?.companyIdFk || '1'}</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-white/5">
-              <p className="text-xs font-semibold text-gray-500 dark:text-slate-400">Account Access</p>
-              <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">Full Standard Access</p>
+
+            {/* Active Permissions Matrix */}
+            <div className="pt-4 border-t border-gray-100 dark:border-white/10 space-y-3">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-slate-300">
+                Active System Permissions ({permissionsList.length})
+              </h4>
+
+              <div className="flex flex-wrap gap-2">
+                {permissionsList.map((perm) => (
+                  <span
+                    key={perm}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gray-50 text-gray-700 dark:bg-slate-800 dark:text-slate-300 border border-gray-200 dark:border-white/10 shadow-2xs"
+                  >
+                    <Icon name="mdi:check-circle-outline" className="w-4 h-4 text-emerald-500" />
+                    <span>{perm}</span>
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>

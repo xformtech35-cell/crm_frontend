@@ -41,6 +41,13 @@ export default function TeamMemberPage() {
   const [editingMember, setEditingMember] = useState(null);
   const [form, setForm] = useState(emptyMember);
 
+  const extractArray = (res) => {
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res?.data)) return res.data;
+    if (Array.isArray(res?.data?.data)) return res.data.data;
+    return [];
+  };
+
   async function loadData() {
     setLoading(true);
     try {
@@ -50,10 +57,10 @@ export default function TeamMemberPage() {
         createTeamHook.getAll(),
         roleHook.getAll(),
       ]);
-      setMembers(Array.isArray(memberData) ? memberData : []);
-      setTeams(Array.isArray(teamData) ? teamData : []);
-      setAssignments(Array.isArray(assignmentData) ? assignmentData : []);
-      setRoles(Array.isArray(roleData) ? roleData : []);
+      setMembers(extractArray(memberData));
+      setTeams(extractArray(teamData));
+      setAssignments(extractArray(assignmentData));
+      setRoles(extractArray(roleData));
     } catch (error) {
       console.error('Failed to load team members:', error);
       setMembers([]);
@@ -70,10 +77,15 @@ export default function TeamMemberPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getRoleName = (roleId) => {
-    if (!roleId) return '-';
-    const roleObj = roles.find((r) => r.roleId === roleId || r.roleId?.toString() === roleId?.toString());
-    return roleObj ? roleObj.roleName : String(roleId);
+  const getRoleName = (roleId, member) => {
+    if (member?.teamMemberId < 0 || member?.teamMemberEmail?.includes('admin')) return 'Company Admin';
+    if (!roleId && !member?.userRole) return 'Unassigned';
+    if (typeof roleId === 'string' && isNaN(Number(roleId))) return roleId;
+    const roleObj = roles.find((r) => String(r.roleId || r.id) === String(roleId));
+    if (roleObj) return roleObj.roleName;
+    if (String(roleId) === '75') return 'Team Lead';
+    if (String(roleId) === '76') return 'Sales Executive';
+    return member?.userRole || String(roleId || 'Unassigned');
   };
 
   const isTeamLeadRole = (roleId, roleNameStr) => {
@@ -93,7 +105,7 @@ export default function TeamMemberPage() {
     const text = query.trim().toLowerCase();
     if (!text) return members;
     return members.filter((member) => {
-      const linkedTeams = teamsForMember(getMemberId(member), teams, assignments);
+      const linkedTeams = teamsForMember(getMemberId(member), teams, assignments, member);
       const roleName = getRoleName(member.teamMemberRole);
       return [getMemberLabel(member), member.teamMemberMobile, member.teamMemberEmail, roleName, ...linkedTeams.map(getTeamLabel)]
         .filter(Boolean)
@@ -324,9 +336,10 @@ export default function TeamMemberPage() {
                   const name = getMemberLabel(member);
                   const email = member.teamMemberEmail;
                   const mobile = member.teamMemberMobile;
-                  const roleName = getRoleName(member.teamMemberRole);
+                  const roleName = getRoleName(member.teamMemberRole, member);
                   const isLead = isTeamLeadRole(member.teamMemberRole, roleName);
-                  const linkedTeams = teamsForMember(memberId, teams, assignments);
+                  const linkedTeams = teamsForMember(memberId, teams, assignments, member);
+                  const isAdminMember = memberId < 0 || email?.includes('admin');
 
                   return (
                     <tr key={memberId} className="hover:bg-slate-50/70 transition-colors dark:hover:bg-slate-800/50">
@@ -356,13 +369,18 @@ export default function TeamMemberPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold ${
-                          isLead ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                          isAdminMember ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : isLead ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
                         }`}>
                           {roleName}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {linkedTeams.length === 0 ? (
+                        {isAdminMember ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-[11px] border border-indigo-200">
+                            <Icon name="mdi:shield-check-outline" className="w-3 h-3" />
+                            All Departments (Admin)
+                          </span>
+                        ) : linkedTeams.length === 0 ? (
                           <span className="text-gray-400 italic">Unassigned</span>
                         ) : (
                           <div className="flex flex-wrap gap-1">
@@ -413,7 +431,7 @@ export default function TeamMemberPage() {
             const mobile = member.teamMemberMobile;
             const roleName = getRoleName(member.teamMemberRole);
             const isLead = isTeamLeadRole(member.teamMemberRole, roleName);
-            const linkedTeams = teamsForMember(memberId, teams, assignments);
+            const linkedTeams = teamsForMember(memberId, teams, assignments, member);
 
             return (
               <div

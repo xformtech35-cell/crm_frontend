@@ -3,12 +3,23 @@ import { useEffect, useMemo, useState } from 'react';
 import AppDrawer from '/src/components/common/AppDrawer';
 import Icon from '/src/components/Icon';
 import { useLeadSource } from '/src/hooks/useMaster';
- 
-const emptyForm = { sourceName: '' };
- 
+import { useTeamMember } from '/src/hooks/useTeamMember';
+import { useTeam } from '/src/hooks/useTeam';
+import { useCreateTeam } from '/src/hooks/useCreateTeam';
+import { getMemberId, getTeamId, getTeamLabel, groupMembersByTeam } from '/src/utils/teamRelations';
+
+const emptyForm = { sourceName: '', teamId: '', assignedMember: '' };
+
 export default function LeadSource() {
   const leadSourceHook = useLeadSource();
+  const teamMemberHook = useTeamMember();
+  const teamHook = useTeam();
+  const createTeamHook = useCreateTeam();
+
   const [sources, setSources] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState('');
@@ -17,13 +28,24 @@ export default function LeadSource() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [form, setForm] = useState(emptyForm);
- 
+
   async function loadData() {
     setLoading(true);
     try {
-      const data = await leadSourceHook.getAll();
+      const [data, membersRes, teamsRes, assignRes] = await Promise.all([
+        leadSourceHook.getAll().catch(() => []),
+        teamMemberHook.getAll().catch(() => []),
+        teamHook.getAll().catch(() => []),
+        createTeamHook.getAll().catch(() => []),
+      ]);
       const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+      const membersList = Array.isArray(membersRes) ? membersRes : Array.isArray(membersRes?.data) ? membersRes.data : [];
+      const teamsList = Array.isArray(teamsRes) ? teamsRes : Array.isArray(teamsRes?.data) ? teamsRes.data : [];
+      const assignList = Array.isArray(assignRes) ? assignRes : Array.isArray(assignRes?.data) ? assignRes.data : [];
       setSources(list);
+      setTeamMembers(membersList);
+      setTeams(teamsList);
+      setAssignments(assignList);
     } catch (error) {
       console.error('Failed to load lead sources:', error);
       setSources([]);
@@ -45,15 +67,29 @@ export default function LeadSource() {
     );
   }, [sources, query]);
  
+  const groupedData = useMemo(() => {
+    return groupMembersByTeam(teams, teamMembers, assignments);
+  }, [teams, teamMembers, assignments]);
+
+  const selectedTeamLabel = useMemo(() => {
+    if (!form.teamId) return '';
+    const t = teams.find((item) => String(getTeamId(item)) === String(form.teamId));
+    return t ? getTeamLabel(t) : '';
+  }, [form.teamId, teams]);
+
   function openCreate() {
     setEditingSource(null);
     setForm(emptyForm);
     setModalOpen(true);
   }
- 
+
   function openEdit(source) {
     setEditingSource(source);
-    setForm({ sourceName: source.sourceName || '' });
+    setForm({
+      sourceName: source.sourceName || '',
+      teamId: source.teamId || '',
+      assignedMember: source.assignedMember || '',
+    });
     setModalOpen(true);
   }
  
@@ -65,7 +101,7 @@ export default function LeadSource() {
     const isDuplicate = sources.some(
       (item) =>
         item.sourceName?.trim().toLowerCase() === targetName.toLowerCase() &&
-        (!editingSource || String(item.id) !== String(editingSource.id))
+        (!editingSource || String(item.id || item.leadSourceId || item.sourceId) !== String(editingSource.id || editingSource.leadSourceId || editingSource.sourceId))
     );
 
     if (isDuplicate) {
@@ -304,6 +340,112 @@ export default function LeadSource() {
               />
             </div>
             <p className="text-xs text-gray-400 mt-1">Enter a unique name for this lead source</p>
+          </div>
+
+          {/* Assigned Team */}
+          <div>
+            <label className="block mb-1.5">
+              <span className="text-sm font-semibold text-gray-700">Assigned Team</span>
+            </label>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <Icon name="mdi:account-group-outline" className="h-4 w-4" />
+              </div>
+              <select
+                value={form.teamId || ''}
+                onChange={(e) =>
+                  setForm((current) => ({
+                    ...current,
+                    teamId: e.target.value,
+                  }))
+                }
+                className="input-field pl-9"
+              >
+                <option value="">All Teams / Show All Members</option>
+                {teams.map((t) => (
+                  <option key={getTeamId(t)} value={getTeamId(t)}>
+                    📁 {getTeamLabel(t)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Filter members by team or select from any team below</p>
+          </div>
+
+          {/* Assigned Team Member - Select of that team or other */}
+          <div>
+            <label className="block mb-1.5">
+              <span className="text-sm font-semibold text-gray-700">Assigned Team Member</span>
+            </label>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <Icon name="mdi:account-outline" className="h-4 w-4" />
+              </div>
+              <select
+                value={form.assignedMember || ''}
+                onChange={(e) =>
+                  setForm((current) => ({
+                    ...current,
+                    assignedMember: e.target.value,
+                  }))
+                }
+                className="input-field pl-9"
+              >
+                <option value="">Select Team Member (Optional)</option>
+                {form.teamId ? (
+                  <>
+                    <optgroup label={`🎯 ${selectedTeamLabel || 'Selected Team'} Members`}>
+                      {(groupedData.groupedTeams.find(
+                        (g) => String(getTeamId(g.team)) === String(form.teamId)
+                      )?.members || []).map((m) => (
+                        <option key={getMemberId(m)} value={m.teamMemberName}>
+                          {m.teamMemberName} ({m.teamMemberRole || 'Member'})
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="👥 Other Teams & All Members">
+                      {teamMembers
+                        .filter((m) => {
+                          const teamGroup = groupedData.groupedTeams.find(
+                            (g) => String(getTeamId(g.team)) === String(form.teamId)
+                          );
+                          const memberIdsInSelectedTeam = (teamGroup?.members || []).map((tm) =>
+                            getMemberId(tm)
+                          );
+                          return !memberIdsInSelectedTeam.includes(getMemberId(m));
+                        })
+                        .map((m) => (
+                          <option key={getMemberId(m)} value={m.teamMemberName}>
+                            {m.teamMemberName} ({m.teamMemberRole || 'Member'})
+                          </option>
+                        ))}
+                    </optgroup>
+                  </>
+                ) : (
+                  <>
+                    {groupedData.groupedTeams.map(({ team, members }) => (
+                      <optgroup key={getTeamId(team)} label={`📁 ${getTeamLabel(team)}`}>
+                        {members.map((member) => (
+                          <option key={getMemberId(member)} value={member.teamMemberName}>
+                            {member.teamMemberName} ({member.teamMemberRole || 'Member'})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                    {groupedData.unassigned.length > 0 && (
+                      <optgroup label="👤 General / Unassigned Members">
+                        {groupedData.unassigned.map((member) => (
+                          <option key={getMemberId(member)} value={member.teamMemberName}>
+                            {member.teamMemberName} ({member.teamMemberRole || 'Member'})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </>
+                )}
+              </select>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Select team member of that team or other team</p>
           </div>
  
           {editingSource && (

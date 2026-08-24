@@ -63,7 +63,7 @@ export default function IndiaMARTLeadsPage() {
       // Filter strictly for IndiaMART leads
       const imLeads = leadsList.filter((l) => {
         const src = (l?.leadSource || "").trim().toLowerCase();
-        return src.includes("indiamart");
+        return src.includes("indiamart") || src.includes("india mart") || src.includes("india-mart");
       });
 
       setAllLeads(imLeads);
@@ -186,6 +186,25 @@ export default function IndiaMARTLeadsPage() {
       showToast("success", `Status updated to ${newStatus}`);
     } catch (err) {
       showToast("error", "Failed to update status");
+    }
+  };
+
+  const handleToggleSendToMainLeads = async (lead, sendState) => {
+    try {
+      await update(lead.leadId, {
+        ...lead,
+        sendToMainLeads: sendState
+      });
+      setAllLeads((prev) =>
+        prev.map((l) =>
+          l.leadId === lead.leadId ? { ...l, sendToMainLeads: sendState } : l
+        )
+      );
+      showToast("success", sendState ? "Lead sent to Main Leads pipeline" : "Lead removed from Main Leads");
+      window.dispatchEvent(new CustomEvent("crm-data-updated"));
+    } catch (err) {
+      console.error("Failed to update sendToMainLeads:", err);
+      showToast("error", "Failed to update lead status");
     }
   };
 
@@ -316,20 +335,7 @@ export default function IndiaMARTLeadsPage() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="text-xs border border-slate-200 rounded-xl px-2.5 py-1.5 bg-slate-50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-          />
-          <span className="text-slate-400 text-xs">–</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="text-xs border border-slate-200 rounded-xl px-2.5 py-1.5 bg-slate-50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-          />
-          {(dateFrom || dateTo || searchQuery || activeStatusPill !== "All") && (
+          {(searchQuery || activeStatusPill !== "All") && (
             <button
               onClick={() => {
                 setSearchQuery("");
@@ -358,20 +364,21 @@ export default function IndiaMARTLeadsPage() {
                 <th className="py-3 px-3">ENQUIRY DESCRIPTION</th>
                 <th className="py-3 px-3">INQUIRY DATE</th>
                 <th className="py-3 px-3">LEAD STATUS</th>
+                <th className="py-3 px-3">MAIN LEADS PIPELINE</th>
                 <th className="py-3 px-4 text-right">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     <Icon name="mdi:loading" className="w-6 h-6 animate-spin mx-auto mb-2 text-orange-500" />
                     Loading IndiaMART leads...
                   </td>
                 </tr>
               ) : filteredLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     <Icon name="mdi:storefront-outline" className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                     No IndiaMART leads found matching your criteria.
                   </td>
@@ -468,6 +475,32 @@ export default function IndiaMARTLeadsPage() {
                           <option value="Closed">Closed</option>
                           <option value="Disqualified">Disqualified</option>
                         </select>
+                      </td>
+
+                      {/* MAIN LEADS PIPELINE TOGGLE */}
+                      <td className="py-3 px-3">
+                        {lead.sendToMainLeads ? (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSendToMainLeads(lead, false)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-all text-xs font-bold shadow-sm"
+                            title="Click to remove from Main Leads list"
+                          >
+                            <Icon name="mdi:check-circle" className="w-4 h-4 text-emerald-600" />
+                            <span>In Main Leads</span>
+                            <span className="ml-1 text-[10px] bg-emerald-200/80 hover:bg-emerald-300 text-emerald-900 px-1.5 py-0.5 rounded font-bold">Unsend</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSendToMainLeads(lead, true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white transition-all text-xs font-bold shadow-sm group"
+                            title="Click to send lead to Main Leads pipeline"
+                          >
+                            <Icon name="mdi:send-outline" className="w-4 h-4 text-blue-600 group-hover:text-white transition-colors" />
+                            <span>Send to Main Leads</span>
+                          </button>
+                        )}
                       </td>
 
                       {/* ACTIONS */}

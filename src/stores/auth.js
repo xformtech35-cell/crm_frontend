@@ -37,8 +37,28 @@ export const useAuthStore = create(
       },
 
       setAuth: (data) => {
-        const { token, ...user } = data
-        set({ token, user, selectedCompanyId: null, selectedTeamMemberId: null }) // ✅ reset impersonation & view filters on new login
+        if (!data) return;
+        let token = get().token;
+        let userObj = get().user;
+
+        if (typeof data === 'object') {
+          if ('token' in data && data.token) token = data.token;
+          if ('user' in data && data.user) {
+            userObj = data.user;
+          } else if ('username' in data || 'userid' in data || 'userEmail' in data) {
+            const { token: t, ...userFields } = data;
+            userObj = userFields;
+          }
+        }
+        set({ token, user: userObj, selectedCompanyId: null, selectedTeamMemberId: null });
+      },
+
+      updateUser: (updatedFields) => {
+        set((state) => {
+          const currentUser = state.user || {};
+          const mergedUser = { ...currentUser, ...updatedFields };
+          return { user: mergedUser };
+        });
       },
 
       logout: () => {

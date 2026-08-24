@@ -76,7 +76,7 @@ export default function LeadStatus() {
     const isDuplicate = statuses.some(
       (item) =>
         item.statusName?.trim().toLowerCase() === targetName.toLowerCase() &&
-        (!editingStatus || String(item.id) !== String(editingStatus.id))
+        (!editingStatus || String(item.id || item.statusId || item.leadStatusId) !== String(editingStatus.id || editingStatus.statusId || editingStatus.leadStatusId))
     );
 
     if (isDuplicate) {
