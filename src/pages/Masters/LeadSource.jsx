@@ -8,7 +8,33 @@ import { useTeam } from '/src/hooks/useTeam';
 import { useCreateTeam } from '/src/hooks/useCreateTeam';
 import { getMemberId, getTeamId, getTeamLabel, groupMembersByTeam } from '/src/utils/teamRelations';
 
-const emptyForm = { sourceName: '', teamId: '', assignedMember: '' };
+const emptyForm = { sourceName: '', teamId: '', assignedMember: '', description: '' };
+
+function parseMetadata(desc) {
+  if (!desc) return { teamId: '', assignedMember: '', description: '' };
+  try {
+    if (desc.startsWith('{') && desc.endsWith('}')) {
+      const parsed = JSON.parse(desc);
+      return {
+        teamId: parsed.teamId || '',
+        assignedMember: parsed.assignedMember || '',
+        description: parsed.description || parsed.note || '',
+      };
+    }
+  } catch (e) {}
+  return { teamId: '', assignedMember: '', description: desc };
+}
+
+function serializeMetadata(teamId, assignedMember, description) {
+  if (!teamId && !assignedMember) {
+    return description || '';
+  }
+  return JSON.stringify({
+    teamId: teamId || '',
+    assignedMember: assignedMember || '',
+    description: description || '',
+  });
+}
 
 export default function LeadSource() {
   const leadSourceHook = useLeadSource();
@@ -23,6 +49,8 @@ export default function LeadSource() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState('');
+  const [selectedTeamFilter, setSelectedTeamFilter] = useState('');
+  const [selectedMemberFilter, setSelectedMemberFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSource, setEditingSource] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -53,20 +81,11 @@ export default function LeadSource() {
       setLoading(false);
     }
   }
- 
+
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
- 
-  const filteredSources = useMemo(() => {
-    const text = query.trim().toLowerCase();
-    if (!text) return sources;
-    return sources.filter((item) =>
-      item.sourceName?.toLowerCase().includes(text)
-    );
-  }, [sources, query]);
- 
+
   const groupedData = useMemo(() => {
     return groupMembersByTeam(teams, teamMembers, assignments);
   }, [teams, teamMembers, assignments]);
@@ -77,6 +96,36 @@ export default function LeadSource() {
     return t ? getTeamLabel(t) : '';
   }, [form.teamId, teams]);
 
+  const filteredSources = useMemo(() => {
+    let list = sources;
+    const text = query.trim().toLowerCase();
+    if (text) {
+      list = list.filter((item) =>
+        item.sourceName?.toLowerCase().includes(text) ||
+        item.description?.toLowerCase().includes(text)
+      );
+    }
+
+    if (selectedTeamFilter) {
+      list = list.filter((item) => {
+        const meta = parseMetadata(item.description);
+        return String(meta.teamId) === String(selectedTeamFilter);
+      });
+    }
+
+    if (selectedMemberFilter) {
+      list = list.filter((item) => {
+        const meta = parseMetadata(item.description);
+        return (
+          meta.assignedMember?.toLowerCase().includes(selectedMemberFilter.toLowerCase()) ||
+          meta.assignedMember === selectedMemberFilter
+        );
+      });
+    }
+
+    return list;
+  }, [sources, query, selectedTeamFilter, selectedMemberFilter]);
+
   function openCreate() {
     setEditingSource(null);
     setForm(emptyForm);
@@ -85,14 +134,16 @@ export default function LeadSource() {
 
   function openEdit(source) {
     setEditingSource(source);
+    const meta = parseMetadata(source.description);
     setForm({
       sourceName: source.sourceName || '',
-      teamId: source.teamId || '',
-      assignedMember: source.assignedMember || '',
+      teamId: meta.teamId || '',
+      assignedMember: meta.assignedMember || '',
+      description: meta.description || '',
     });
     setModalOpen(true);
   }
- 
+
   async function saveSource(e) {
     e.preventDefault();
     const targetName = form.sourceName.trim();
@@ -110,16 +161,18 @@ export default function LeadSource() {
     }
 
     setSaving(true);
+    const serializedDesc = serializeMetadata(form.teamId, form.assignedMember, form.description);
+
     try {
       if (editingSource) {
         const updatedSource = {
           ...editingSource,
           sourceName: targetName,
-          description: form.description,
+          description: serializedDesc,
         };
         await leadSourceHook.update(editingSource.id, updatedSource);
       } else {
-        await leadSourceHook.create({ sourceName: targetName, description: form.description });
+        await leadSourceHook.create({ sourceName: targetName, description: serializedDesc });
       }
       setModalOpen(false);
       await loadData();
@@ -130,23 +183,20 @@ export default function LeadSource() {
       setSaving(false);
     }
   }
- 
+
   function deleteSource(source) {
     setSelectedSource(source);
     setDeleteModalOpen(true);
   }
- 
+
   async function confirmDelete() {
     if (!selectedSource) return;
- 
     setSaving(true);
- 
+
     try {
       await leadSourceHook.remove(selectedSource.id);
- 
       setDeleteModalOpen(false);
       setSelectedSource(null);
- 
       await loadData();
     } catch (error) {
       console.error(error);
@@ -155,35 +205,87 @@ export default function LeadSource() {
       setSaving(false);
     }
   }
- 
+
   return (
     <div className="animate-fade-in space-y-3 pb-6">
-      {/* Search Bar with New Source Button - Compact */}
-      <div className="flex items-center justify-between px-2 gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Icon name="mdi:magnify" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-9 pr-8 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
-            placeholder="Search lead sources..."
-            type="search"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+      {/* Top Filter Bar with Search, Team & Member Selectors */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-2 bg-white/60 p-2.5 rounded-xl border border-gray-100 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 flex-1 max-w-3xl">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Icon
+              name="mdi:magnify"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-9 pr-8 text-xs sm:text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+              placeholder="Search lead sources..."
+              type="search"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <Icon name="mdi:close-circle" className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Team Filter */}
+          <div className="relative min-w-[160px]">
+            <select
+              value={selectedTeamFilter}
+              onChange={(e) => setSelectedTeamFilter(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white py-1.5 px-3 text-xs sm:text-sm font-medium text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
             >
-              <Icon name="mdi:close-circle" className="h-4 w-4" />
+              <option value="">📁 All Teams</option>
+              {teams.map((t) => (
+                <option key={getTeamId(t)} value={getTeamId(t)}>
+                  📁 {getTeamLabel(t)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Team Member Filter */}
+          <div className="relative min-w-[170px]">
+            <select
+              value={selectedMemberFilter}
+              onChange={(e) => setSelectedMemberFilter(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white py-1.5 px-3 text-xs sm:text-sm font-medium text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
+            >
+              <option value="">👤 All Members</option>
+              {teamMembers.map((m) => (
+                <option key={getMemberId(m)} value={m.teamMemberName}>
+                  👤 {m.teamMemberName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(query || selectedTeamFilter || selectedMemberFilter) && (
+            <button
+              onClick={() => {
+                setQuery('');
+                setSelectedTeamFilter('');
+                setSelectedMemberFilter('');
+              }}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline px-1 py-1"
+            >
+              Reset Filters
             </button>
           )}
         </div>
-        <button onClick={openCreate} className="ml-2 btn-primary flex items-center gap-1.5 px-3 py-1.5 text-sm whitespace-nowrap">
+
+        <button onClick={openCreate} className="btn-primary flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap shadow-sm">
           <Icon name="mdi:plus" className="h-4 w-4" />
           New Source
         </button>
       </div>
- 
+
       {/* Table */}
       <section className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         {loading ? (
@@ -198,12 +300,12 @@ export default function LeadSource() {
             </div>
             <h3 className="text-lg font-semibold text-gray-700 mb-1">No lead sources found</h3>
             <p className="text-sm text-gray-500">
-              {query ? 'No sources match your search criteria' : 'Create your first lead source to get started'}
+              {query || selectedTeamFilter || selectedMemberFilter ? 'No sources match your active filter criteria' : 'Create your first lead source to get started'}
             </p>
-            {!query && (
+            {(!query && !selectedTeamFilter && !selectedMemberFilter) && (
               <button
                 onClick={openCreate}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
               >
                 <Icon name="mdi:plus" className="h-4 w-4" />
                 Create Source
@@ -212,59 +314,91 @@ export default function LeadSource() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left text-sm">
+            <table className="w-full min-w-[700px] text-left text-sm">
               <thead className="bg-gray-50/80 border-b border-gray-100">
                 <tr>
-                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sr.No</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">Sr.No</th>
                   <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Lead Source</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned Team</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned Member</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredSources.map((source, index) => (
-                  <tr key={source.id} className="hover:bg-gray-50/60 transition-colors duration-150">
-                    <td className="px-4 py-3 font-medium text-gray-400 text-sm">
-                      {String(index + 1).padStart(2, '0')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 bg-blue-50 rounded-lg">
-                          <Icon name="mdi:tag" className="h-3.5 w-3.5 text-blue-500" />
+                {filteredSources.map((source, index) => {
+                  const meta = parseMetadata(source.description);
+                  const assignedTeamObj = teams.find((t) => String(getTeamId(t)) === String(meta.teamId));
+                  const teamName = assignedTeamObj ? getTeamLabel(assignedTeamObj) : (meta.teamId ? `Team #${meta.teamId}` : 'All Teams');
+
+                  return (
+                    <tr key={source.id} className="hover:bg-gray-50/60 transition-colors duration-150">
+                      <td className="px-4 py-3 font-medium text-gray-400 text-xs">
+                        {String(index + 1).padStart(2, '0')}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 bg-blue-50 rounded-lg border border-blue-100">
+                            <Icon name="mdi:tag" className="h-4 w-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900 text-sm">{source.sourceName}</p>
+                            {meta.description && (
+                              <p className="text-xs text-gray-400 line-clamp-1">{meta.description}</p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{source.sourceName}</p>
-                          {/* <p className="text-xs text-gray-400">ID: {source.id}</p> */}
+                      </td>
+                      <td className="px-4 py-3">
+                        {meta.teamId ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                            <Icon name="mdi:account-group-outline" className="w-3.5 h-3.5" />
+                            {teamName}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                            🌐 All Teams
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {meta.assignedMember ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <Icon name="mdi:account-outline" className="w-3.5 h-3.5" />
+                            {meta.assignedMember}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">👥 Shared across members</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
+                            onClick={() => openEdit(source)}
+                            title="Edit Source"
+                          >
+                            <Icon name="mdi:pencil-outline" className="h-4 w-4" />
+                          </button>
+                          <button
+                            className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
+                            onClick={() => deleteSource(source)}
+                            title="Delete Source"
+                          >
+                            <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
+                          </button>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
-                          onClick={() => openEdit(source)}
-                          title="Edit Source"
-                        >
-                          <Icon name="mdi:pencil-outline" className="h-4 w-4" />
-                        </button>
-                        <button
-                          className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
-                          onClick={() => deleteSource(source)}
-                          title="Delete Source"
-                        >
-                          <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
-       
+
         {/* Table footer with count */}
         {filteredSources.length > 0 && (
-          <div className="border-t border-gray-100 px-4 py-2 bg-gray-50/50">
+          <div className="border-t border-gray-100 px-4 py-2.5 bg-gray-50/50">
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500">
                 Showing {filteredSources.length} source{filteredSources.length !== 1 ? 's' : ''}
@@ -276,13 +410,13 @@ export default function LeadSource() {
           </div>
         )}
       </section>
- 
+
       {/* Drawer */}
       <AppDrawer
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingSource ? 'Edit Lead Source' : 'Create New Lead Source'}
-        subtitle={editingSource ? 'Update source details' : 'Add a new source to the system'}
+        subtitle={editingSource ? 'Update source details and team assignment' : 'Add a new source with optional team or member assignment'}
         icon={editingSource ? 'mdi:pencil-outline' : 'mdi:plus-circle-outline'}
         footer={
           <div className="flex items-center gap-3 w-full">
@@ -361,7 +495,7 @@ export default function LeadSource() {
                 }
                 className="input-field pl-9"
               >
-                <option value="">All Teams / Show All Members</option>
+                <option value="">All Teams (Shared Source)</option>
                 {teams.map((t) => (
                   <option key={getTeamId(t)} value={getTeamId(t)}>
                     📁 {getTeamLabel(t)}
@@ -369,10 +503,10 @@ export default function LeadSource() {
                 ))}
               </select>
             </div>
-            <p className="text-xs text-gray-400 mt-1">Filter members by team or select from any team below</p>
+            <p className="text-xs text-gray-400 mt-1">Assign to a specific team or make it available across all teams</p>
           </div>
 
-          {/* Assigned Team Member - Select of that team or other */}
+          {/* Assigned Team Member */}
           <div>
             <label className="block mb-1.5">
               <span className="text-sm font-semibold text-gray-700">Assigned Team Member</span>
@@ -391,7 +525,7 @@ export default function LeadSource() {
                 }
                 className="input-field pl-9"
               >
-                <option value="">Select Team Member (Optional)</option>
+                <option value="">All Members in Team (Optional Specific Member)</option>
                 {form.teamId ? (
                   <>
                     <optgroup label={`🎯 ${selectedTeamLabel || 'Selected Team'} Members`}>
@@ -445,66 +579,62 @@ export default function LeadSource() {
                 )}
               </select>
             </div>
-            <p className="text-xs text-gray-400 mt-1">Select team member of that team or other team</p>
+            <p className="text-xs text-gray-400 mt-1">Assign to specific team member or leave open for the team</p>
           </div>
- 
-          {editingSource && (
-            <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Icon name="mdi:information-outline" className="h-4 w-4 text-blue-500" />
-                <span>Editing source: <strong className="text-gray-900">{editingSource.sourceName}</strong></span>
-              </div>
-            </div>
-          )}
+
+          {/* Description */}
+          <div>
+            <label className="block mb-1.5">
+              <span className="text-sm font-semibold text-gray-700">Description / Remarks</span>
+            </label>
+            <textarea
+              value={form.description}
+              onChange={(e) =>
+                setForm((current) => ({
+                  ...current,
+                  description: e.target.value,
+                }))
+              }
+              rows={3}
+              className="input-field py-2"
+              placeholder="Add optional notes or purpose for this lead source..."
+            />
+          </div>
         </form>
       </AppDrawer>
- 
+
+      {/* Delete Confirmation Modal */}
       {deleteModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-[340px] rounded-xl bg-white shadow-2xl">
-            {/* Body */}
-            <div className="px-5 py-5 text-center">
-              {/* Icon */}
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                <Icon
-                  name="mdi:alert-outline"
-                  className="h-6 w-6 text-red-500"
-                />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-red-50 text-red-600 rounded-xl">
+                <Icon name="mdi:alert-circle-outline" className="h-6 w-6" />
               </div>
-              {/* Title */}
-              <h2 className="mt-3 text-xl font-bold text-gray-900">
-                Delete Source
-              </h2>
-              {/* Description */}
-              <p className="mt-2 text-sm text-gray-500 leading-5">
-                Are you sure you want to delete this source?
-              </p>
-              {/* Source Name */}
-              <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-                <Icon
-                  name="mdi:tag"
-                  className="h-4 w-4"
-                />
-                {selectedSource?.sourceName}
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Delete Lead Source</h3>
+                <p className="text-xs text-gray-500">This action cannot be undone.</p>
               </div>
             </div>
-            {/* Footer */}
-            <div className="flex gap-2 border-t border-gray-100 p-4">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete lead source <strong className="text-gray-900">"{selectedSource?.sourceName}"</strong>?
+            </p>
+            <div className="flex items-center gap-3 justify-end pt-2">
               <button
-                onClick={() => {
-                  setDeleteModalOpen(false);
-                  setSelectedSource(null);
-                }}
-                className="flex-1 rounded-lg border border-gray-300 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                type="button"
+                className="btn-secondary text-sm px-4 py-2"
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={saving}
               >
                 Cancel
               </button>
               <button
+                type="button"
+                className="btn-danger text-sm px-4 py-2"
                 onClick={confirmDelete}
                 disabled={saving}
-                className="flex-1 rounded-lg bg-red-500 py-2 text-sm font-semibold text-white hover:bg-red-600"
               >
-                {saving ? "Deleting..." : "Delete"}
+                {saving ? 'Deleting...' : 'Yes, Delete Source'}
               </button>
             </div>
           </div>
@@ -513,4 +643,3 @@ export default function LeadSource() {
     </div>
   );
 }
- 

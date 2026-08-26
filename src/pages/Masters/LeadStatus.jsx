@@ -1,17 +1,56 @@
+// src/pages/masters/LeadStatus.jsx
 import { useEffect, useMemo, useState } from 'react';
 import AppDrawer from '/src/components/common/AppDrawer';
 import Icon from '/src/components/Icon';
 import { useLeadStatus } from '/src/hooks/useMaster';
+import { useTeamMember } from '/src/hooks/useTeamMember';
+import { useTeam } from '/src/hooks/useTeam';
+import { useCreateTeam } from '/src/hooks/useCreateTeam';
+import { getMemberId, getTeamId, getTeamLabel, groupMembersByTeam } from '/src/utils/teamRelations';
 
-const emptyForm = { statusName: '', description: '' };
+const emptyForm = { statusName: '', teamId: '', assignedMember: '', description: '' };
+
+function parseMetadata(desc) {
+  if (!desc) return { teamId: '', assignedMember: '', description: '' };
+  try {
+    if (desc.startsWith('{') && desc.endsWith('}')) {
+      const parsed = JSON.parse(desc);
+      return {
+        teamId: parsed.teamId || '',
+        assignedMember: parsed.assignedMember || '',
+        description: parsed.description || parsed.note || '',
+      };
+    }
+  } catch (e) {}
+  return { teamId: '', assignedMember: '', description: desc };
+}
+
+function serializeMetadata(teamId, assignedMember, description) {
+  if (!teamId && !assignedMember) {
+    return description || '';
+  }
+  return JSON.stringify({
+    teamId: teamId || '',
+    assignedMember: assignedMember || '',
+    description: description || '',
+  });
+}
 
 export default function LeadStatus() {
   const leadStatusHook = useLeadStatus();
+  const teamMemberHook = useTeamMember();
+  const teamHook = useTeam();
+  const createTeamHook = useCreateTeam();
 
   const [statuses, setStatuses] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState('');
+  const [selectedTeamFilter, setSelectedTeamFilter] = useState('');
+  const [selectedMemberFilter, setSelectedMemberFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStatus, setEditingStatus] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -21,11 +60,21 @@ export default function LeadStatus() {
 
   async function loadData() {
     setLoading(true);
-
     try {
-      const data = await leadStatusHook.getAll();
+      const [data, membersRes, teamsRes, assignRes] = await Promise.all([
+        leadStatusHook.getAll().catch(() => []),
+        teamMemberHook.getAll().catch(() => []),
+        teamHook.getAll().catch(() => []),
+        createTeamHook.getAll().catch(() => []),
+      ]);
       const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+      const membersList = Array.isArray(membersRes) ? membersRes : Array.isArray(membersRes?.data) ? membersRes.data : [];
+      const teamsList = Array.isArray(teamsRes) ? teamsRes : Array.isArray(teamsRes?.data) ? teamsRes.data : [];
+      const assignList = Array.isArray(assignRes) ? assignRes : Array.isArray(assignRes?.data) ? assignRes.data : [];
       setStatuses(list);
+      setTeamMembers(membersList);
+      setTeams(teamsList);
+      setAssignments(assignList);
     } catch (error) {
       console.error('Failed to load lead statuses:', error);
       setStatuses([]);
@@ -38,17 +87,47 @@ export default function LeadStatus() {
     loadData();
   }, []);
 
+  const groupedData = useMemo(() => {
+    return groupMembersByTeam(teams, teamMembers, assignments);
+  }, [teams, teamMembers, assignments]);
+
+  const selectedTeamLabel = useMemo(() => {
+    if (!form.teamId) return '';
+    const t = teams.find((item) => String(getTeamId(item)) === String(form.teamId));
+    return t ? getTeamLabel(t) : '';
+  }, [form.teamId, teams]);
+
   const filteredStatuses = useMemo(() => {
+    let list = statuses;
     const text = query.trim().toLowerCase();
 
-    if (!text) return statuses;
+    if (text) {
+      list = list.filter(
+        (item) =>
+          item.statusName?.toLowerCase().includes(text) ||
+          item.description?.toLowerCase().includes(text)
+      );
+    }
 
-    return statuses.filter(
-      (item) =>
-        item.statusName?.toLowerCase().includes(text) ||
-        item.description?.toLowerCase().includes(text)
-    );
-  }, [statuses, query]);
+    if (selectedTeamFilter) {
+      list = list.filter((item) => {
+        const meta = parseMetadata(item.description);
+        return String(meta.teamId) === String(selectedTeamFilter);
+      });
+    }
+
+    if (selectedMemberFilter) {
+      list = list.filter((item) => {
+        const meta = parseMetadata(item.description);
+        return (
+          meta.assignedMember?.toLowerCase().includes(selectedMemberFilter.toLowerCase()) ||
+          meta.assignedMember === selectedMemberFilter
+        );
+      });
+    }
+
+    return list;
+  }, [statuses, query, selectedTeamFilter, selectedMemberFilter]);
 
   function openCreate() {
     setEditingStatus(null);
@@ -58,18 +137,18 @@ export default function LeadStatus() {
 
   function openEdit(status) {
     setEditingStatus(status);
-
+    const meta = parseMetadata(status.description);
     setForm({
       statusName: status.statusName || '',
-      description: status.description || '',
+      teamId: meta.teamId || '',
+      assignedMember: meta.assignedMember || '',
+      description: meta.description || '',
     });
-
     setModalOpen(true);
   }
 
   async function saveStatus(e) {
     e.preventDefault();
-
     const targetName = form.statusName.trim();
     if (!targetName) return;
 
@@ -85,17 +164,18 @@ export default function LeadStatus() {
     }
 
     setSaving(true);
+    const serializedDesc = serializeMetadata(form.teamId, form.assignedMember, form.description);
 
     try {
       if (editingStatus) {
         const updatedStatus = {
           ...editingStatus,
           statusName: targetName,
-          description: form.description,
+          description: serializedDesc,
         };
         await leadStatusHook.update(editingStatus.id, updatedStatus);
       } else {
-        await leadStatusHook.create({ statusName: targetName, description: form.description });
+        await leadStatusHook.create({ statusName: targetName, description: serializedDesc });
       }
 
       setModalOpen(false);
@@ -115,19 +195,16 @@ export default function LeadStatus() {
 
   async function confirmDelete() {
     if (!selectedStatus) return;
-
     setSaving(true);
 
     try {
       await leadStatusHook.remove(selectedStatus.id);
-
       setDeleteModalOpen(false);
       setSelectedStatus(null);
-
       await loadData();
     } catch (error) {
       console.error(error);
-      alert('Unable to delete Lead Status');
+      alert("Unable to delete Lead Status");
     } finally {
       setSaving(false);
     }
@@ -135,33 +212,79 @@ export default function LeadStatus() {
 
   return (
     <div className="animate-fade-in space-y-3 pb-6">
-      {/* Search Bar with New Status Button - Compact */}
-      <div className="flex items-center gap-2 justify-between px-2">
-        <div className="relative flex-1 max-w-sm">
-          <Icon
-            name="mdi:magnify"
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-9 pr-8 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
-            placeholder="Search lead statuses..."
-            type="search"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+      {/* Top Filter Bar with Search, Team & Member Selectors */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-2 bg-white/60 p-2.5 rounded-xl border border-gray-100 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 flex-1 max-w-3xl">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Icon
+              name="mdi:magnify"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-9 pr-8 text-xs sm:text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+              placeholder="Search lead statuses..."
+              type="search"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <Icon name="mdi:close-circle" className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Team Filter */}
+          <div className="relative min-w-[160px]">
+            <select
+              value={selectedTeamFilter}
+              onChange={(e) => setSelectedTeamFilter(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white py-1.5 px-3 text-xs sm:text-sm font-medium text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
             >
-              <Icon name="mdi:close-circle" className="h-4 w-4" />
+              <option value="">📁 All Teams</option>
+              {teams.map((t) => (
+                <option key={getTeamId(t)} value={getTeamId(t)}>
+                  📁 {getTeamLabel(t)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Team Member Filter */}
+          <div className="relative min-w-[170px]">
+            <select
+              value={selectedMemberFilter}
+              onChange={(e) => setSelectedMemberFilter(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white py-1.5 px-3 text-xs sm:text-sm font-medium text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
+            >
+              <option value="">👤 All Members</option>
+              {teamMembers.map((m) => (
+                <option key={getMemberId(m)} value={m.teamMemberName}>
+                  👤 {m.teamMemberName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(query || selectedTeamFilter || selectedMemberFilter) && (
+            <button
+              onClick={() => {
+                setQuery('');
+                setSelectedTeamFilter('');
+                setSelectedMemberFilter('');
+              }}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline px-1 py-1"
+            >
+              Reset Filters
             </button>
           )}
         </div>
-        <button
-          onClick={openCreate}
-          className="btn-primary flex items-center gap-1.5 px-3 py-1.5 text-sm whitespace-nowrap"
-        >
+
+        <button onClick={openCreate} className="btn-primary flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm whitespace-nowrap shadow-sm">
           <Icon name="mdi:plus" className="h-4 w-4" />
           New Status
         </button>
@@ -177,20 +300,16 @@ export default function LeadStatus() {
         ) : filteredStatuses.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-16 text-center">
             <div className="p-4 bg-gray-50 rounded-full mb-4">
-              <Icon name="mdi:tag-off-outline" className="h-12 w-12 text-gray-400" />
+              <Icon name="mdi:flag-outline" className="h-12 w-12 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-1">
-              No lead statuses found
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-700 mb-1">No lead statuses found</h3>
             <p className="text-sm text-gray-500">
-              {query
-                ? 'No statuses match your search criteria'
-                : 'Create your first lead status to get started'}
+              {query || selectedTeamFilter || selectedMemberFilter ? 'No statuses match your active filter criteria' : 'Create your first lead status to get started'}
             </p>
-            {!query && (
+            {(!query && !selectedTeamFilter && !selectedMemberFilter) && (
               <button
                 onClick={openCreate}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
               >
                 <Icon name="mdi:plus" className="h-4 w-4" />
                 Create Status
@@ -199,70 +318,83 @@ export default function LeadStatus() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left text-sm">
+            <table className="w-full min-w-[700px] text-left text-sm">
               <thead className="bg-gray-50/80 border-b border-gray-100">
                 <tr>
-                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    SR.NO
-                  </th>
-                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Lead Status
-                  </th>
-                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">Sr.No</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Lead Status</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned Team</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned Member</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredStatuses.map((status, index) => (
-                  <tr
-                    key={status.id}
-                    className="hover:bg-gray-50/60 transition-colors duration-150"
-                  >
-                    <td className="px-4 py-3 font-medium text-gray-400 text-sm">
-                      {String(index + 1).padStart(2, '0')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 bg-blue-50 rounded-lg">
-                          <Icon
-                            name="mdi:tag-outline"
-                            className="h-3.5 w-3.5 text-blue-500"
-                          />
+                {filteredStatuses.map((status, index) => {
+                  const meta = parseMetadata(status.description);
+                  const assignedTeamObj = teams.find((t) => String(getTeamId(t)) === String(meta.teamId));
+                  const teamName = assignedTeamObj ? getTeamLabel(assignedTeamObj) : (meta.teamId ? `Team #${meta.teamId}` : 'All Teams');
+
+                  return (
+                    <tr key={status.id} className="hover:bg-gray-50/60 transition-colors duration-150">
+                      <td className="px-4 py-3 font-medium text-gray-400 text-xs">
+                        {String(index + 1).padStart(2, '0')}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                            <Icon name="mdi:flag" className="h-4 w-4 text-emerald-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900 text-sm">{status.statusName}</p>
+                            {meta.description && (
+                              <p className="text-xs text-gray-400 line-clamp-1">{meta.description}</p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {status.statusName}
-                          </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {meta.teamId ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                            <Icon name="mdi:account-group-outline" className="w-3.5 h-3.5" />
+                            {teamName}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                            🌐 All Teams
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {meta.assignedMember ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <Icon name="mdi:account-outline" className="w-3.5 h-3.5" />
+                            {meta.assignedMember}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">👥 Shared across members</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
+                            onClick={() => openEdit(status)}
+                            title="Edit Status"
+                          >
+                            <Icon name="mdi:pencil-outline" className="h-4 w-4" />
+                          </button>
+                          <button
+                            className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
+                            onClick={() => deleteStatus(status)}
+                            title="Delete Status"
+                          >
+                            <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
+                          </button>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 text-sm">
-                      {status.description || <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
-                          onClick={() => openEdit(status)}
-                          title="Edit Status"
-                        >
-                          <Icon name="mdi:pencil-outline" className="h-4 w-4" />
-                        </button>
-                        <button
-                          className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
-                          onClick={() => deleteStatus(status)}
-                          title="Delete Status"
-                        >
-                          <Icon name="mdi:trash-can-outline" className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -270,15 +402,13 @@ export default function LeadStatus() {
 
         {/* Table footer with count */}
         {filteredStatuses.length > 0 && (
-          <div className="border-t border-gray-100 px-4 py-2 bg-gray-50/50">
+          <div className="border-t border-gray-100 px-4 py-2.5 bg-gray-50/50">
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500">
-                Showing {filteredStatuses.length} status
-                {filteredStatuses.length !== 1 ? 'es' : ''}
+                Showing {filteredStatuses.length} status{filteredStatuses.length !== 1 ? 'es' : ''}
               </span>
               <span className="text-xs text-gray-400">
-                Total: {statuses.length} status
-                {statuses.length !== 1 ? 'es' : ''}
+                Total: {statuses.length} status{statuses.length !== 1 ? 'es' : ''}
               </span>
             </div>
           </div>
@@ -290,10 +420,8 @@ export default function LeadStatus() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingStatus ? 'Edit Lead Status' : 'Create New Lead Status'}
-        subtitle={
-          editingStatus ? 'Update status details' : 'Add a new status to the system'
-        }
-        icon={editingStatus ? 'mdi:pencil-outline' : 'mdi:tag-plus-outline'}
+        subtitle={editingStatus ? 'Update status details and team assignment' : 'Add a new lead status to your pipeline'}
+        icon={editingStatus ? 'mdi:pencil-outline' : 'mdi:plus-circle-outline'}
         footer={
           <div className="flex items-center gap-3 w-full">
             <button
@@ -316,10 +444,7 @@ export default function LeadStatus() {
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
-                  <Icon
-                    name={editingStatus ? 'mdi:content-save' : 'mdi:plus-circle'}
-                    className="h-4 w-4"
-                  />
+                  <Icon name={editingStatus ? 'mdi:content-save' : 'mdi:plus-circle'} className="h-4 w-4" />
                   {editingStatus ? 'Update Status' : 'Create Status'}
                 </span>
               )}
@@ -336,7 +461,7 @@ export default function LeadStatus() {
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <Icon name="mdi:tag-outline" className="h-4 w-4" />
+                <Icon name="mdi:flag-outline" className="h-4 w-4" />
               </div>
               <input
                 value={form.statusName}
@@ -347,21 +472,124 @@ export default function LeadStatus() {
                   }))
                 }
                 className="input-field pl-9"
-                placeholder="e.g. Open, Negotiation, Won, Closed"
+                placeholder="e.g., Open, Negotiation, Won, Closed, Hold, Follow Up"
                 required
                 autoFocus
               />
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              Enter a unique name for this lead status
-            </p>
+            <p className="text-xs text-gray-400 mt-1">Enter a unique name for this lead status</p>
           </div>
 
+          {/* Assigned Team */}
           <div>
             <label className="block mb-1.5">
-              <span className="text-sm font-semibold text-gray-700">
-                Description
-              </span>
+              <span className="text-sm font-semibold text-gray-700">Assigned Team</span>
+            </label>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <Icon name="mdi:account-group-outline" className="h-4 w-4" />
+              </div>
+              <select
+                value={form.teamId || ''}
+                onChange={(e) =>
+                  setForm((current) => ({
+                    ...current,
+                    teamId: e.target.value,
+                  }))
+                }
+                className="input-field pl-9"
+              >
+                <option value="">All Teams (Shared Status)</option>
+                {teams.map((t) => (
+                  <option key={getTeamId(t)} value={getTeamId(t)}>
+                    📁 {getTeamLabel(t)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Assign to a specific team or make it available across all teams</p>
+          </div>
+
+          {/* Assigned Team Member */}
+          <div>
+            <label className="block mb-1.5">
+              <span className="text-sm font-semibold text-gray-700">Assigned Team Member</span>
+            </label>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <Icon name="mdi:account-outline" className="h-4 w-4" />
+              </div>
+              <select
+                value={form.assignedMember || ''}
+                onChange={(e) =>
+                  setForm((current) => ({
+                    ...current,
+                    assignedMember: e.target.value,
+                  }))
+                }
+                className="input-field pl-9"
+              >
+                <option value="">All Members in Team (Optional Specific Member)</option>
+                {form.teamId ? (
+                  <>
+                    <optgroup label={`🎯 ${selectedTeamLabel || 'Selected Team'} Members`}>
+                      {(groupedData.groupedTeams.find(
+                        (g) => String(getTeamId(g.team)) === String(form.teamId)
+                      )?.members || []).map((m) => (
+                        <option key={getMemberId(m)} value={m.teamMemberName}>
+                          {m.teamMemberName} ({m.teamMemberRole || 'Member'})
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="👥 Other Teams & All Members">
+                      {teamMembers
+                        .filter((m) => {
+                          const teamGroup = groupedData.groupedTeams.find(
+                            (g) => String(getTeamId(g.team)) === String(form.teamId)
+                          );
+                          const memberIdsInSelectedTeam = (teamGroup?.members || []).map((tm) =>
+                            getMemberId(tm)
+                          );
+                          return !memberIdsInSelectedTeam.includes(getMemberId(m));
+                        })
+                        .map((m) => (
+                          <option key={getMemberId(m)} value={m.teamMemberName}>
+                            {m.teamMemberName} ({m.teamMemberRole || 'Member'})
+                          </option>
+                        ))}
+                    </optgroup>
+                  </>
+                ) : (
+                  <>
+                    {groupedData.groupedTeams.map(({ team, members }) => (
+                      <optgroup key={getTeamId(team)} label={`📁 ${getTeamLabel(team)}`}>
+                        {members.map((member) => (
+                          <option key={getMemberId(member)} value={member.teamMemberName}>
+                            {member.teamMemberName} ({member.teamMemberRole || 'Member'})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                    {groupedData.unassigned.length > 0 && (
+                      <optgroup label="👤 General / Unassigned Members">
+                        {groupedData.unassigned.map((member) => (
+                          <option key={getMemberId(member)} value={member.teamMemberName}>
+                            {member.teamMemberName} ({member.teamMemberRole || 'Member'})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </>
+                )}
+              </select>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Assign to specific team member or leave open for the team</p>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block mb-1.5">
+              <span className="text-sm font-semibold text-gray-700">Description / Remarks</span>
             </label>
             <textarea
               value={form.description}
@@ -371,80 +599,46 @@ export default function LeadStatus() {
                   description: e.target.value,
                 }))
               }
-              className="w-full rounded-lg border border-gray-200 bg-white p-3 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
               rows={3}
-              placeholder="Optional description of this status..."
+              className="input-field py-2"
+              placeholder="Add optional notes or purpose for this lead status..."
             />
           </div>
-
-          {editingStatus && (
-            <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Icon
-                  name="mdi:information-outline"
-                  className="h-4 w-4 text-blue-500"
-                />
-                <span>
-                  Editing status:{' '}
-                  <strong className="text-gray-900">
-                    {editingStatus.statusName}
-                  </strong>
-                </span>
-              </div>
-            </div>
-          )}
         </form>
       </AppDrawer>
 
       {/* Delete Confirmation Modal */}
       {deleteModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-[340px] rounded-xl bg-white shadow-2xl">
-            {/* Body */}
-            <div className="px-5 py-5 text-center">
-              {/* Icon */}
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                <Icon
-                  name="mdi:alert-outline"
-                  className="h-6 w-6 text-red-500"
-                />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-red-50 text-red-600 rounded-xl">
+                <Icon name="mdi:alert-circle-outline" className="h-6 w-6" />
               </div>
-
-              {/* Title */}
-              <h2 className="mt-3 text-xl font-bold text-gray-900">
-                Delete Status
-              </h2>
-
-              {/* Description */}
-              <p className="mt-2 text-sm text-gray-500 leading-5">
-                Are you sure you want to delete this status?
-              </p>
-
-              {/* Status Name */}
-              <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-                <Icon name="mdi:tag-outline" className="h-4 w-4" />
-                {selectedStatus?.statusName}
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Delete Lead Status</h3>
+                <p className="text-xs text-gray-500">This action cannot be undone.</p>
               </div>
             </div>
-
-            {/* Footer */}
-            <div className="flex gap-2 border-t border-gray-100 p-4">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete lead status <strong className="text-gray-900">"{selectedStatus?.statusName}"</strong>?
+            </p>
+            <div className="flex items-center gap-3 justify-end pt-2">
               <button
-                onClick={() => {
-                  setDeleteModalOpen(false);
-                  setSelectedStatus(null);
-                }}
-                className="flex-1 rounded-lg border border-gray-300 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                type="button"
+                className="btn-secondary text-sm px-4 py-2"
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={saving}
               >
                 Cancel
               </button>
-
               <button
+                type="button"
+                className="btn-danger text-sm px-4 py-2"
                 onClick={confirmDelete}
                 disabled={saving}
-                className="flex-1 rounded-lg bg-red-500 py-2 text-sm font-semibold text-white hover:bg-red-600"
               >
-                {saving ? 'Deleting...' : 'Delete'}
+                {saving ? 'Deleting...' : 'Yes, Delete Status'}
               </button>
             </div>
           </div>
