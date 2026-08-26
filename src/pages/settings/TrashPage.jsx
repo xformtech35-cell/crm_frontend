@@ -99,20 +99,20 @@ export default function TrashPage() {
 
   const handlePermanentDelete = async () => {
     if (!deleteTarget) return
-    if (!isAdmin) {
-      showToast(`Permanent deletion request for "${deleteTarget.name}" has been notified to Administrator.`, 'success')
-      setDeleteTarget(null)
-      return
-    }
     setDeleting(true)
     try {
-      await trashHook.permanentDelete(deleteTarget.moduleKey, deleteTarget.recordId)
-      showToast(`Permanently deleted "${deleteTarget.name}"`, 'success')
-      setItems((prev) => prev.filter((i) => i.id !== deleteTarget.id))
+      if (!isAdmin) {
+        await trashHook.requestDelete(deleteTarget.moduleKey, deleteTarget.recordId, 'Permanent deletion requested by user')
+        showToast(`Permanent deletion request for "${deleteTarget.name}" submitted. Company Administrator & Team Lead have been notified.`, 'success')
+      } else {
+        await trashHook.permanentDelete(deleteTarget.moduleKey, deleteTarget.recordId)
+        showToast(`Permanently deleted "${deleteTarget.name}"`, 'success')
+        setItems((prev) => prev.filter((i) => i.id !== deleteTarget.id))
+      }
       setDeleteTarget(null)
     } catch (err) {
-      console.error('Failed to permanently delete item:', err)
-      showToast(err.message || 'Failed to delete item', 'error')
+      console.error('Failed to process delete request:', err)
+      showToast(err.message || 'Failed to process request', 'error')
     } finally {
       setDeleting(false)
     }

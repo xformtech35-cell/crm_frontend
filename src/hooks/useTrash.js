@@ -15,9 +15,14 @@ export function useTrash() {
     return api.del(`/trash/permanent/${moduleKey}/${recordId}`)
   }
 
+  async function requestDelete(moduleKey, recordId, reason) {
+    return api.post(`/trash/request-delete/${moduleKey}/${recordId}`, { reason })
+  }
+
   return {
     getAll,
     restore,
     permanentDelete,
+    requestDelete,
   }
 }
