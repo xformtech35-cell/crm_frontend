@@ -327,7 +327,7 @@ export default function LeadStatus() {
           </div>
         }
       >
-        <form id="lead-status-form" onSubmit={saveStatus} className="space-y-5">
+        <form id="lead-status-form" onSubmit={saveStatus} autoComplete="off" data-lpignore="true" className="space-y-5">
           <div>
             <label className="block mb-1.5">
               <span className="text-sm font-semibold text-gray-700">

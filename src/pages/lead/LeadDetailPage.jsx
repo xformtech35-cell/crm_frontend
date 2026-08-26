@@ -7,6 +7,7 @@ import { useOpportunity } from "../../hooks/useOpportunity";
 import { useOrganization } from "../../hooks/useOrganization";
 import { useContact } from "../../hooks/useContact";
 import { LEAD_STATUSES } from "../../utils/constants";
+import { useLeadStatus } from "../../hooks/useMaster";
 import { formatDate, formatDateTime, formatCurrency, cleanFileName } from "../../utils/format";
 import { getCurrencyConfig } from "../../utils/currency";
 import AppConfirmDialog from "../../components/common/AppConfirmDialog";
@@ -94,7 +95,10 @@ export default function LeadDetailPage() {
   const negotiationApi = useNegotiation();
   const { getRevisionsByLeadId } = negotiationApi;
   const teamMemberApi = useTeamMember();
+  const statusMaster = useLeadStatus();
   const currentUser = useAuthStore((s) => s.user);
+
+  const [leadStatuses, setLeadStatuses] = useState([]);
 
   const [previewFile, setPreviewFile] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -134,6 +138,10 @@ export default function LeadDetailPage() {
       else if (Array.isArray(res?.data?.data)) list = res.data.data;
       setTeamMembers(list);
     }).catch(() => setTeamMembers([]));
+
+    statusMaster.getAll()
+      .then((data) => setLeadStatuses(Array.isArray(data) ? data : []))
+      .catch(() => setLeadStatuses([]));
   }, []);
   const [editingField, setEditingField] = useState(null);
   const [inlineValue, setInlineValue] = useState("");
@@ -294,8 +302,8 @@ export default function LeadDetailPage() {
     { label: "Enquiry Status", key: "enquiryStatus", icon: "mdi:clipboard-check-outline", value: lead?.enquiryStatus },
     { label: "Quotation Number", key: "quotationNumber", icon: "mdi:receipt-outline", value: lead?.quotationNumber },
     { label: "Quotation Revision", key: "quotationRevision", icon: "mdi:refresh", value: lead?.quotationRevision },
-    { label: "Quotation Working Date", key: "quotationWorkingDate", icon: "mdi:calendar-clock", value: (lead?.quotationWorkingDate || lead?.quotationDate) ? formatDate(lead?.quotationWorkingDate || lead?.quotationDate) : null },
-    { label: "Sent Quotation Date", key: "sentQuotationDate", icon: "mdi:calendar-check", value: lead?.sentQuotationDate ? formatDate(lead.sentQuotationDate) : null },
+    { label: "Quotation Working Date", key: "quotationDate", icon: "mdi:calendar-clock", value: (lead?.quotationWorkingDate || lead?.quotationDate) ? formatDate(lead?.quotationWorkingDate || lead?.quotationDate) : null },
+    { label: "Sent Quotation Date", key: "quotationSentDate", icon: "mdi:calendar-check", value: (lead?.quotationSentDate || lead?.sentQuotationDate || lead?.QuotationSentDate) ? formatDate(lead?.quotationSentDate || lead?.sentQuotationDate || lead?.QuotationSentDate) : null },
     { label: "Quotation Amount", key: "quotationAmount", icon: getCurrencyConfig(lead?.leadCountry).icon, value: lead?.quotationAmount != null ? formatCurrency(lead.quotationAmount, lead.leadCountry) : null },
     { label: "Follow Up Remark", key: "followUpRemark", icon: "mdi:comment-text-outline", value: lead?.followUpRemark },
   ];
@@ -1538,10 +1546,15 @@ export default function LeadDetailPage() {
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Outcome Status (Pipeline)</label>
               <select value={lead.leadOutcomeStatus || ""} disabled={actionLoading} onChange={(e) => changeOutcomeStatus(e.target.value)} className="input-field text-sm w-full">
                 <option value="">None</option>
-                <option value="Negotiation">Negotiation</option>
-                <option value="Open">Open (In Progress)</option>
-                <option value="Won">Won (Deal Won)</option>
-                <option value="Closed">Closed (Lost)</option>
+                {leadStatuses.length > 0 ? (
+                  leadStatuses.map((st) => (
+                    <option key={st.id || st.statusName} value={st.statusName}>
+                      {st.statusName}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>Lead statuses could not be loaded</option>
+                )}
               </select>
             </div>
             <div>

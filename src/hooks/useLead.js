@@ -57,6 +57,15 @@ export function useLead() {
     [api],
   );
 
+  const updateSendToMainLeads = useCallback(
+    (leadId, sendToMainLeads) => {
+      return api.patch(`/leads/${leadId}/send-to-main-leads`, {
+        sendToMainLeads,
+      });
+    },
+    [api],
+  );
+
   const getByUser = (userId) =>
     api.get(`/negotiations/user/${userId}`);
 
@@ -155,8 +164,8 @@ export function useLead() {
     getScore,
     getAllScores,
     updateLeadOutcomeStatus,
+    updateSendToMainLeads,
     convertToNegotiation,
-    getAllNotes,
     getAllNotes,
     // Document methods
     uploadDocuments,

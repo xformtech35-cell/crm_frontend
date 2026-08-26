@@ -5,6 +5,15 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement,
   ArcElement, Tooltip, Legend,
 } from 'chart.js'
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  CartesianGrid,
+} from 'recharts'
 import { useLead } from '../hooks/useLead'
 import { useOpportunity } from '../hooks/useOpportunity'
 import { useProject } from '../hooks/useProject'
@@ -223,11 +232,27 @@ export default function HomePage() {
 
   const filteredLeads = useMemo(() =>
     (leadsData ?? []).filter((lead) => {
-      const matchesDate =
-        isInRange(
-          lead.inquiryDate || lead.leadCreatedDate,
-          rangeBounds
-        );
+      // Exclude IndiaMART and TradeIndia leads UNLESS sendToMainLeads is true
+      // (mirrors the same rule in LeadListPage so counts stay in sync)
+      const src = (lead?.leadSource || '').trim().toLowerCase();
+      const isMarketplace =
+        src.includes('indiamart') ||
+        src.includes('tradeindia') ||
+        src.includes('india mart') ||
+        src.includes('trade india');
+      if (isMarketplace) {
+        const promoted =
+          lead?.sendToMainLeads === true ||
+          lead?.sendToMainLeads === 1 ||
+          String(lead?.sendToMainLeads).toLowerCase() === 'true' ||
+          String(lead?.sendToMainLeads) === '1';
+        if (!promoted) return false;
+      }
+
+      const matchesDate = isInRange(
+        lead.inquiryDate || lead.leadCreatedDate,
+        rangeBounds
+      );
       const matchesGroup =
         !selectedGroup ||
         lead.leadGroup === selectedGroup;
@@ -237,7 +262,22 @@ export default function HomePage() {
   );
 
   const filteredLeadsDate = useMemo(() => {
-    let list = [...(leadsData || [])];
+    // Start from leadsData with marketplace exclusion (same rule as LeadListPage)
+    let list = (leadsData || []).filter((lead) => {
+      const src = (lead?.leadSource || '').trim().toLowerCase();
+      const isMarketplace =
+        src.includes('indiamart') ||
+        src.includes('tradeindia') ||
+        src.includes('india mart') ||
+        src.includes('trade india');
+      if (!isMarketplace) return true;
+      return (
+        lead?.sendToMainLeads === true ||
+        lead?.sendToMainLeads === 1 ||
+        String(lead?.sendToMainLeads).toLowerCase() === 'true' ||
+        String(lead?.sendToMainLeads) === '1'
+      );
+    });
     if (dateFrom) {
       list = list.filter((lead) => {
         if (!lead.quotationDate) return false;
@@ -287,14 +327,31 @@ export default function HomePage() {
     const oppStatuses = filteredOpportunities.map((opp) => opp.oppStatus)
     return {
       leadAll: filteredLeads.length,
-      leadQualified: countByStatus(leadStatuses, (s) => s.includes('qualified')),
+      leadQualified: filteredLeads.filter(l => !(String(l.leadStatus).toLowerCase() === 'disqualified' || String(l.enquiryType).toLowerCase() === 'disqualified' || String(l.leadOutcomeStatus).toLowerCase() === 'disqualified')).length,
       leadWorking: countByStatus(leadStatuses, (s) => s.includes('working')),
       leadQuotationSent: countByStatus(leadStatuses, (s) => s.includes('quotation')),
-      leadNegotiation: countByStatus(leadStatuses, (s) => s.includes('negotiation')),
+      leadNegotiation: filteredLeads.filter(l => {
+        const o = String(l.leadOutcomeStatus || '').toLowerCase();
+        const s = String(l.leadStatus || '').toLowerCase();
+        const n = String(l.negotiationStatus || '').toLowerCase();
+        return o === 'negotiation' || s === 'negotiation' || n === 'negotiation';
+      }).length,
       leadConverted: countByStatus(leadStatuses, (s) => s.includes('converted')),
-      leadWon: countByStatus(leadOutcomeStatuses, (s) => s === 'won'),
-      leadOpen: countByStatus(leadOutcomeStatuses, (s) => s === 'open'),
-      leadClosed: countByStatus(leadOutcomeStatuses, (s) => s === 'closed'),
+      leadWon: filteredLeads.filter(l => {
+        const o = String(l.leadOutcomeStatus || '').toLowerCase();
+        const s = String(l.leadStatus || '').toLowerCase();
+        return o === 'won' || o === 'converted' || s === 'won' || s === 'converted';
+      }).length,
+      leadOpen: filteredLeads.filter(l => {
+        const o = String(l.leadOutcomeStatus || '').toLowerCase();
+        const s = String(l.leadStatus || '').toLowerCase();
+        return o === 'open' || o === 'hold' || o === 'budgetory' || o === 'budgetary' || (!o && (s === 'open' || s === 'hold' || s === 'budgetory' || s === 'budgetary' || s === 'new lead' || s === 'new'));
+      }).length,
+      leadClosed: filteredLeads.filter(l => {
+        const o = String(l.leadOutcomeStatus || '').toLowerCase();
+        const s = String(l.leadStatus || '').toLowerCase();
+        return o === 'closed' || o === 'lost' || s === 'closed' || s === 'lost';
+      }).length,
       opportunityWon: countByStatus(oppStatuses, (s) => s.includes('won')),
       opportunityLost: countByStatus(oppStatuses, (s) => s.includes('closed')),
       opportunityOpen: countByStatus(oppStatuses, (s) => s.includes('open')),
@@ -325,27 +382,38 @@ export default function HomePage() {
     filteredLeads.forEach((lead) => {
       const amt = Number(lead.quotationAmount || 0)
       totalLeadsAmount += amt
-      if (lead.enquiryType === 'Qualified' || lead.leadStatus === 'Qualified') {
+
+      const rawOutcome = String(lead.leadOutcomeStatus || '').trim().toLowerCase()
+      const rawStatus = String(lead.leadStatus || '').trim().toLowerCase()
+      const rawEnquiry = String(lead.enquiryType || '').trim().toLowerCase()
+      const rawNego = String(lead.negotiationStatus || '').trim().toLowerCase()
+
+      const isDisqualified = rawStatus === 'disqualified' || rawEnquiry === 'disqualified' || rawOutcome === 'disqualified'
+      if (!isDisqualified) {
         qualifiedLeadsCount++
         qualifiedLeadsAmount += amt
       }
-      if (lead.leadOutcomeStatus === 'Open') {
+      // OPEN (Open + HOLD + Budgetory)
+      if (rawOutcome === 'open' || rawOutcome === 'hold' || rawOutcome === 'budgetory' || rawOutcome === 'budgetary' || (!rawOutcome && (rawStatus === 'open' || rawStatus === 'hold' || rawStatus === 'budgetory' || rawStatus === 'budgetary' || rawStatus === 'new lead' || rawStatus === 'new'))) {
         openLeadsCount++
         openLeadsAmount += amt
       }
-      if (lead.leadOutcomeStatus === "Negotiation") {
-        negotiationCount++;
-        negotiationAmount += amt;
+      // NEGOTIATION (Strictly LEAD STATUS 'Negotiation')
+      if (rawOutcome === 'negotiation' || rawStatus === 'negotiation' || rawNego === 'negotiation') {
+        negotiationCount++
+        negotiationAmount += amt
       }
-      if (lead.leadOutcomeStatus === 'Closed') {
+      // CLOSED (Closed + Lost)
+      if (rawOutcome === 'closed' || rawOutcome === 'lost' || rawStatus === 'closed' || rawStatus === 'lost') {
         closedLeadsCount++
         closedLeadsAmount += amt
       }
-      if (lead.leadOutcomeStatus === 'Won') {
+      // WON (Won + Converted)
+      if (rawOutcome === 'won' || rawOutcome === 'converted' || rawStatus === 'won' || rawStatus === 'converted') {
         wonLeadsCount++
         wonLeadsAmount += amt
       }
-      if (lead.leadStatus === 'Ongoing') {
+      if (rawStatus === 'ongoing') {
         ongoingLeadsCount++
         if (lead.ongoingPriority === 'A') {
           ongoingImportantCount++
@@ -527,13 +595,12 @@ export default function HomePage() {
 
   const oppStatusItems = useMemo(() => {
     return [
-      { label: 'Open', value: filteredLeads.filter(l => l.leadOutcomeStatus === 'Open').length },
-      { label: 'Negotiation', value: filteredLeads.filter(l => l.leadOutcomeStatus === 'Negotiation').length },
-      // { label: 'Ongoing', value: filteredLeads.filter(l => l.leadStatus === 'Ongoing').length },
-      { label: 'Won', value: filteredLeads.filter(l => l.leadOutcomeStatus === 'Won').length },
-      { label: 'Closed', value: filteredLeads.filter(l => l.leadOutcomeStatus === 'Closed').length },
+      { label: 'Open', value: calculatedStats.openLeadsCount },
+      { label: 'Negotiation', value: calculatedStats.negotiationCount },
+      { label: 'Won', value: calculatedStats.wonLeadsCount },
+      { label: 'Closed', value: calculatedStats.closedLeadsCount },
     ].filter((i) => i.value > 0)
-  }, [filteredLeads])
+  }, [calculatedStats])
 
   const oppDoughnutData = useMemo(() => ({
     labels: oppStatusItems.map((i) => i.label),
@@ -561,15 +628,25 @@ export default function HomePage() {
     }],
   }), [leadSourceItems])
 
+  const pipelineChartData = useMemo(() => {
+    return [
+      { label: "Captured", value: calculatedStats.totalLeadsCount },
+      { label: "Qualified", value: calculatedStats.qualifiedLeadsCount },
+      { label: "Open", value: calculatedStats.openLeadsCount },
+      { label: "Negotiation", value: calculatedStats.negotiationCount },
+      { label: "Won", value: calculatedStats.wonLeadsCount },
+      { label: "Closed", value: calculatedStats.closedLeadsCount },
+    ]
+  }, [calculatedStats])
+
   const funnelSteps = useMemo(() => {
     const rawSteps = [
-      { key: 'total', label: 'Total Leads', count: filteredLeads.length, color: '#2563eb', icon: 'mdi:account-multiple-outline', filterType: 'all', filterValue: '' },
-      { key: 'qualified', label: 'Qualified', count: filteredLeads.filter(l => l.enquiryType === 'Qualified' || l.leadStatus === 'Qualified').length, color: '#059669', icon: 'mdi:account-check-outline', filterType: 'status', filterValue: 'Qualified' },
-      { key: 'open', label: 'Open', count: filteredLeads.filter(l => l.leadOutcomeStatus === 'Open').length, color: '#0891b2', icon: 'mdi:folder-open-outline', filterType: 'leadOutcomeStatus', filterValue: 'Open' },
-      { key: 'negotiation', label: 'Negotiation', count: filteredLeads.filter(l => l.leadOutcomeStatus === 'Negotiation').length, color: '#d97706', icon: 'mdi:sync', filterType: 'leadOutcomeStatus', filterValue: 'Negotiation' },
-      // { key: 'ongoing', label: 'Ongoing', count: filteredLeads.filter(l => l.leadStatus === 'Ongoing').length, color: '#d97706', icon: 'mdi:sync', filterType: 'status', filterValue: 'Ongoing' },
-      { key: 'won', label: 'Won', count: filteredLeads.filter(l => l.leadOutcomeStatus === 'Won').length, color: '#16a34a', icon: 'mdi:trophy-outline', filterType: 'leadOutcomeStatus', filterValue: 'Won' },
-      { key: 'closed', label: 'Closed', count: filteredLeads.filter(l => l.leadOutcomeStatus === 'Closed').length, color: '#6b7280', icon: 'mdi:close-circle-outline', filterType: 'leadOutcomeStatus', filterValue: 'Closed' },
+      { key: 'total', label: 'Total Leads', count: calculatedStats.totalLeadsCount, color: '#2563eb', icon: 'mdi:account-multiple-outline', filterType: 'all', filterValue: '' },
+      { key: 'qualified', label: 'Qualified', count: calculatedStats.qualifiedLeadsCount, color: '#059669', icon: 'mdi:account-check-outline', filterType: 'status', filterValue: 'Qualified' },
+      { key: 'open', label: 'Open', count: calculatedStats.openLeadsCount, color: '#0891b2', icon: 'mdi:folder-open-outline', filterType: 'leadOutcomeStatus', filterValue: 'Open' },
+      { key: 'negotiation', label: 'Negotiation', count: calculatedStats.negotiationCount, color: '#d97706', icon: 'mdi:sync', filterType: 'leadOutcomeStatus', filterValue: 'Negotiation' },
+      { key: 'won', label: 'Won', count: calculatedStats.wonLeadsCount, color: '#16a34a', icon: 'mdi:trophy-outline', filterType: 'leadOutcomeStatus', filterValue: 'Won' },
+      { key: 'closed', label: 'Closed', count: calculatedStats.closedLeadsCount, color: '#6b7280', icon: 'mdi:close-circle-outline', filterType: 'leadOutcomeStatus', filterValue: 'Closed' },
     ]
     const total = Math.max(Number(rawSteps[0].count) || 0, 1)
     const maxCount = Math.max(...rawSteps.map((step) => Number(step.count) || 0), 1)
@@ -1243,6 +1320,39 @@ export default function HomePage() {
                 </div>
               </div>
               )}
+
+              {/* Pipeline Stage Funnel Card (like in /analytics) */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm sm:text-base">Pipeline Stage Funnel</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Distribution of potential deals across CRM milestones</p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-100">
+                    Live Data
+                  </span>
+                </div>
+                <div className="w-full h-64 sm:h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={pipelineChartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
+                      <RechartsTooltip
+                        contentStyle={{ backgroundColor: "#1e293b", borderRadius: "16px", border: "none", color: "#fff" }}
+                        itemStyle={{ color: "#a5b4fc" }}
+                      />
+                      <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
 
               {/* Activity Timeline Card */}
               {dhConfig?.dashboard?.showActivityTimelineCard !== false && (

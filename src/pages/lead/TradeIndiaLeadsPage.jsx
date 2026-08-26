@@ -31,11 +31,12 @@ const STATUS_ACTIVE_STYLES = {
 };
 
 export default function TradeIndiaLeadsPage() {
-  const { getAll, updateLeadOutcomeStatus } = useLead();
+  const { getAll, update, updateLeadOutcomeStatus, updateSendToMainLeads } = useLead();
   const statusMaster = useLeadStatus();
   const outletContext = useOutletContext() || {};
 
   const [allLeads, setAllLeads] = useState([]);
+  const [leadStatuses, setLeadStatuses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatusPill, setActiveStatusPill] = useState("All");
@@ -52,7 +53,7 @@ export default function TradeIndiaLeadsPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [leadsRes] = await Promise.all([
+      const [leadsRes, statusesRes] = await Promise.all([
         getAll().catch(() => []),
         statusMaster.getAll().catch(() => []),
       ]);
@@ -65,6 +66,7 @@ export default function TradeIndiaLeadsPage() {
       });
 
       setAllLeads(tiLeads);
+      setLeadStatuses(Array.isArray(statusesRes) ? statusesRes : []);
     } finally {
       setLoading(false);
     }
@@ -161,7 +163,10 @@ export default function TradeIndiaLeadsPage() {
       });
     }
 
-    return list;
+    return [...list].sort((a, b) => {
+      const parseDateMs = (val) => (val ? (isNaN(new Date(val).getTime()) ? 0 : new Date(val).getTime()) : 0);
+      return parseDateMs(b.inquiryDate || b.leadCreatedDate) - parseDateMs(a.inquiryDate || a.leadCreatedDate);
+    });
   }, [allLeads, activeStatusPill, searchQuery, dateFrom, dateTo]);
 
   // Set Header Badge in layout
@@ -188,13 +193,28 @@ export default function TradeIndiaLeadsPage() {
 
   const handleToggleSendToMainLeads = async (lead, sendState) => {
     try {
-      await update(lead.leadId, {
-        ...lead,
-        sendToMainLeads: sendState
-      });
+      let patchSucceeded = false;
+      try {
+        if (typeof updateSendToMainLeads === "function") {
+          await updateSendToMainLeads(lead.leadId, sendState);
+          patchSucceeded = true;
+        }
+      } catch (patchErr) {
+        console.warn("PATCH send-to-main-leads endpoint failed, falling back to update:", patchErr);
+      }
+
+      if (!patchSucceeded) {
+        await update(lead.leadId, {
+          ...lead,
+          sendToMainLeads: sendState,
+          leadSource: "TradeIndia",
+          leadOutcomeStatus: lead.leadOutcomeStatus || "New Lead",
+        });
+      }
+
       setAllLeads((prev) =>
         prev.map((l) =>
-          l.leadId === lead.leadId ? { ...l, sendToMainLeads: sendState } : l
+          l.leadId === lead.leadId ? { ...l, sendToMainLeads: sendState, leadSource: "TradeIndia" } : l
         )
       );
       showToast("success", sendState ? "Lead sent to Main Leads pipeline" : "Lead removed from Main Leads");
@@ -464,19 +484,22 @@ export default function TradeIndiaLeadsPage() {
                           onChange={(e) => handleStatusChange(lead.leadId, e.target.value)}
                           className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
                         >
-                          <option value="New Lead">New Lead</option>
-                          <option value="Qualified">Qualified</option>
-                          <option value="Working">Working</option>
-                          <option value="Negotiation">Negotiation</option>
-                          <option value="Won">Won</option>
-                          <option value="Closed">Closed</option>
-                          <option value="Disqualified">Disqualified</option>
+                          <option value="">None</option>
+                          {leadStatuses.length > 0 ? (
+                            leadStatuses.map((st) => (
+                              <option key={st.id || st.statusName} value={st.statusName}>
+                                {st.statusName}
+                              </option>
+                            ))
+                          ) : (
+                            <option value="" disabled>Lead statuses could not be loaded</option>
+                          )}
                         </select>
                       </td>
 
                       {/* MAIN LEADS PIPELINE TOGGLE */}
                       <td className="py-3 px-3">
-                        {lead.sendToMainLeads ? (
+                        {(lead.sendToMainLeads === true || lead.sendToMainLeads === 1 || String(lead.sendToMainLeads).toLowerCase() === "true" || String(lead.sendToMainLeads) === "1") ? (
                           <button
                             type="button"
                             onClick={() => handleToggleSendToMainLeads(lead, false)}

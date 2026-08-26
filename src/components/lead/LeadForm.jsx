@@ -5,9 +5,11 @@ import { LEAD_SOURCES, INDUSTRIES, COUNTRIES, LEAD_GROUPS } from '../../utils/co
 import { useTeamMember } from '../../hooks/useTeamMember'
 import { useTeam } from '../../hooks/useTeam'
 import { useCreateTeam } from '../../hooks/useCreateTeam'
+import { useRole } from '../../hooks/useRole'
 import { useAuthStore } from '../../stores/auth'
-import { useLeadSource, useLeadGroup, useLeadStatus } from "/src/hooks/useMaster";
+import { useLeadSource, useLeadGroup, useLeadStatus, useQuotationStatus } from "/src/hooks/useMaster";
 import { getMemberId, getTeamId, getTeamLabel, groupMembersByTeam } from '../../utils/teamRelations'
+
 import { getCurrencyConfig, convertToBase, convertFromBase } from '../../utils/currency'
 import { Country, State, City } from "country-state-city";
 import { useLead } from '../../hooks/useLead'
@@ -35,6 +37,7 @@ const EMPTY = {
   leadType: '',
   leadReason: '',
   noOfEmployee: '',
+  leadAssignedTeam: '',
   leadAssignedMember: '',
   inquiryDate: '',
   enquiryDescription: '',
@@ -51,10 +54,15 @@ const EMPTY = {
   leadRefQuotation: '',
   enquiryStatus: 'Pending',
   quotationRevision: '',
+  assignedMemberIds: [],
 }
 
 function populate(data) {
   if (!data) return { ...EMPTY }
+  const initialMemberIds = Array.isArray(data.assignedMemberIds) && data.assignedMemberIds.length > 0
+    ? data.assignedMemberIds
+    : (data.leadAssignedMember ? [Number(data.leadAssignedMember)] : []);
+
   return {
     leadFirstName: data.leadFirstName ?? '',
     leadLastName: data.leadLastName ?? '',
@@ -75,15 +83,18 @@ function populate(data) {
     leadType: data.leadType ?? '',
     leadReason: data.leadReason ?? '',
     noOfEmployee: data.noOfEmployee ?? '',
+    leadAssignedTeam: data.leadAssignedTeam ?? '',
     leadAssignedMember: data.leadAssignedMember ?? '',
+    assignedMemberIds: initialMemberIds,
     inquiryDate: data.inquiryDate ?? '',
     enquiryDescription: data.enquiryDescription ?? '',
     enquiryType: data.enquiryType ?? 'Qualified',
     companyContactPersonName: data.companyContactPersonName ?? '',
     quotationNumber: data.quotationNumber ?? '',
-    quotationDate: data.quotationDate ?? data.quotationWorkingDate ?? '',
-    quotationWorkingDate: data.quotationWorkingDate ?? data.quotationDate ?? '',
-    quotationSentDate: data.quotationSentDate ?? '',
+    quotationDate: (data.quotationDate || data.quotationWorkingDate) ? String(data.quotationDate || data.quotationWorkingDate).split("T")[0] : '',
+    quotationWorkingDate: (data.quotationWorkingDate || data.quotationDate) ? String(data.quotationWorkingDate || data.quotationDate).split("T")[0] : '',
+    quotationSentDate: (data.quotationSentDate || data.sentQuotationDate || data.QuotationSentDate) ? String(data.quotationSentDate || data.sentQuotationDate || data.QuotationSentDate).split("T")[0] : '',
+    sentQuotationDate: (data.sentQuotationDate || data.quotationSentDate || data.QuotationSentDate) ? String(data.sentQuotationDate || data.quotationSentDate || data.QuotationSentDate).split("T")[0] : '',
     quotationAmount: data.quotationAmount != null && data.quotationAmount !== '' ? convertFromBase(data.quotationAmount, data.leadCountry) : '',
     followUpRemark: data.followUpRemark ?? '',
     ongoingPriority: data.ongoingPriority ?? '',
@@ -95,6 +106,7 @@ function populate(data) {
   }
 }
 
+
 function getFinancialYear(dateStr) {
   const date = dateStr ? new Date(dateStr) : new Date();
   if (isNaN(date.getTime())) return '26-27';
@@ -103,6 +115,22 @@ function getFinancialYear(dateStr) {
   const startYear = month >= 3 ? year : year - 1;
   const endYear = startYear + 1;
   return `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
+}
+
+// Generates Indian FY options: 3 years back → current → 2 years ahead
+function getFYYearOptions(anchorDateStr) {
+  const anchor = anchorDateStr ? new Date(anchorDateStr) : new Date();
+  const safeAnchor = isNaN(anchor.getTime()) ? new Date() : anchor;
+  const month = safeAnchor.getMonth();
+  const year = safeAnchor.getFullYear();
+  const currentFYStart = month >= 3 ? year : year - 1;
+  const options = [];
+  for (let offset = -3; offset <= 2; offset++) {
+    const start = currentFYStart + offset;
+    const end = start + 1;
+    options.push(`${String(start).slice(-2)}-${String(end).slice(-2)}`);
+  }
+  return options;
 }
 
 function parseQuotationParts(qNum, inquiryDateVal) {
@@ -157,9 +185,11 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const sourceHook = useLeadSource();
   const groupHook = useLeadGroup();
   const statusHook = useLeadStatus();
+  const quotationHook = useQuotationStatus();
   const { getAll } = useTeamMember();
   const teamHook = useTeam();
   const createTeamHook = useCreateTeam();
+  const roleHook = useRole();
   const isAdmin = useAuthStore(s => s.isAdmin());
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
@@ -167,6 +197,9 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const [leadSources, setLeadSources] = useState([]);
   const [leadGroups, setLeadGroups] = useState([]);
   const [leadStatuses, setLeadStatuses] = useState([]);
+  const [quotationStatuses, setQuotationStatuses] = useState([]);
+  const [roles, setRoles] = useState([]);
+
   const [form, setForm] = useState(() => populate(initial));
   const [qPrefix, setQPrefix] = useState('UWS');
   const [qSerial, setQSerial] = useState('');
@@ -291,15 +324,13 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
         (r.revisionNo || r.quotationRevision || "R0").toUpperCase() === revCode
       );
 
-      if (matchingRev) {
-        if (matchingRev.quotationNo) {
-          updated.quotationNumber = matchingRev.quotationNo;
-        } else if (revCode === "R0") {
-          updated.quotationNumber = baseQuotNo;
-        } else {
-          updated.quotationNumber = `${baseQuotNo}/${revCode}`;
-        }
+      if (revCode === "R0") {
+        updated.quotationNumber = baseQuotNo;
+      } else {
+        updated.quotationNumber = `${baseQuotNo}/${revCode}`;
+      }
 
+      if (matchingRev) {
         if (matchingRev.quotationAmount != null && Number(matchingRev.quotationAmount) > 0) {
           updated.quotationAmount = matchingRev.quotationAmount;
         }
@@ -309,14 +340,44 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
         if (matchingRev.enquiryDescription) {
           updated.enquiryDescription = matchingRev.enquiryDescription;
         }
-        if (matchingRev.quotationDate) {
-          updated.quotationDate = matchingRev.quotationDate;
+        if (matchingRev.quotationDate || matchingRev.quotationWorkingDate) {
+          const qd = matchingRev.quotationDate || matchingRev.quotationWorkingDate;
+          updated.quotationDate = String(qd).split("T")[0];
+          updated.quotationWorkingDate = String(qd).split("T")[0];
+        }
+        const revSentDate = matchingRev.quotationSentDate || matchingRev.sentQuotationDate;
+        if (revSentDate) {
+          const formattedSent = String(revSentDate).split("T")[0];
+          updated.quotationSentDate = formattedSent;
+          updated.sentQuotationDate = formattedSent;
+        } else if (revCode === "R0" && (initial?.quotationSentDate || initial?.sentQuotationDate)) {
+          const r0Sent = initial?.quotationSentDate || initial?.sentQuotationDate;
+          updated.quotationSentDate = String(r0Sent).split("T")[0];
+          updated.sentQuotationDate = String(r0Sent).split("T")[0];
+        } else {
+          updated.quotationSentDate = "";
+          updated.sentQuotationDate = "";
         }
       } else {
         if (revCode === "R0") {
           updated.quotationNumber = baseQuotNo;
+          const r0Sent = initial?.quotationSentDate || initial?.sentQuotationDate;
+          if (r0Sent) {
+            updated.quotationSentDate = String(r0Sent).split("T")[0];
+            updated.sentQuotationDate = String(r0Sent).split("T")[0];
+          } else {
+            updated.quotationSentDate = "";
+            updated.sentQuotationDate = "";
+          }
+          const r0Working = initial?.quotationDate || initial?.quotationWorkingDate;
+          if (r0Working) {
+            updated.quotationDate = String(r0Working).split("T")[0];
+            updated.quotationWorkingDate = String(r0Working).split("T")[0];
+          }
         } else {
           updated.quotationNumber = `${baseQuotNo}/${revCode}`;
+          updated.quotationSentDate = "";
+          updated.sentQuotationDate = "";
         }
       }
       return updated;
@@ -328,15 +389,24 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
     try {
       const docId = typeof docIdOrQuotNo === 'object' ? docIdOrQuotNo?.id : docIdOrQuotNo;
       if (docId && (typeof docId === 'number' || /^\d+$/.test(String(docId)))) {
-        await negotiationApi.deleteDocumentById(Number(docId));
+        try {
+          await negotiationApi.deleteDocumentById(Number(docId));
+        } catch (e) {
+          console.warn("deleteDocumentById warning:", e);
+        }
       }
 
-      const currentQuotNo = form.quotationNumber || (matchingRevision?.quotationNo);
-      if (currentQuotNo && currentQuotNo.includes('/')) {
-        await negotiationApi.deleteDocumentsByQuotationNo(currentQuotNo);
+      const baseQuot = (form.quotationNumber || initial?.quotationNumber || "").replace(/\/R\d+$/i, "");
+      const targetQuotNo = selectedRevCode === "R0" ? baseQuot : `${baseQuot}/${selectedRevCode}`;
+      if (targetQuotNo) {
+        try {
+          await negotiationApi.deleteDocumentsByQuotationNo(targetQuotNo, initial?.leadId);
+        } catch (e) {
+          console.warn("deleteDocumentsByQuotationNo warning:", e);
+        }
       }
 
-      if (initial?.leadId) {
+      if (selectedRevCode === "R0" && initial?.leadId) {
         try {
           await leadApi.update(initial.leadId, {
             ...initial,
@@ -351,6 +421,12 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
       }
 
       setReplaceMode(true);
+      setRevisions(prev => (prev || []).map(r => {
+        if ((r.revisionNo || r.quotationRevision || "R0").toUpperCase() === selectedRevCode) {
+          return { ...r, documents: [] };
+        }
+        return r;
+      }));
       await loadRevisions();
       window.dispatchEvent(new CustomEvent("crm-data-updated"));
     } catch (err) {
@@ -530,19 +606,22 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
     setShowCompanyDropdown(false);
   };
 
-  // Load masters (Lead Sources & Groups)
+  // Load masters (Lead Sources, Groups, Statuses, Quotation Statuses)
   const loadMasters = async () => {
     try {
       const sourceData = await sourceHook.getAll();
       const groupData = await groupHook.getAll();
       const statusData = await statusHook.getAll();
+      const quotationData = await quotationHook.getAll();
       setLeadSources(sourceData);
       setLeadGroups(groupData);
       setLeadStatuses(statusData);
+      setQuotationStatuses(quotationData);
     } catch (error) {
       console.error("Failed to load masters:", error);
     }
   };
+
 
   useEffect(() => {
     fetchLastSerialNumber();
@@ -612,21 +691,24 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
     }
   }, [form.inquiryDate, isManualQuotation]);
 
-  // Load team members, teams, and assignments for team-wise display
+  // Load team members, teams, assignments, and roles for team-wise display
   useEffect(() => {
     async function load() {
       try {
-        const [membersRes, teamsRes, assignRes] = await Promise.all([
+        const [membersRes, teamsRes, assignRes, rolesRes] = await Promise.all([
           getAll().catch(() => []),
           teamHook.getAll().catch(() => []),
           createTeamHook.getAll().catch(() => []),
+          roleHook.getAll().catch(() => []),
         ]);
         const membersList = Array.isArray(membersRes) ? membersRes : Array.isArray(membersRes?.data) ? membersRes.data : [];
         const teamsList = Array.isArray(teamsRes) ? teamsRes : Array.isArray(teamsRes?.data) ? teamsRes.data : [];
         const assignList = Array.isArray(assignRes) ? assignRes : Array.isArray(assignRes?.data) ? assignRes.data : [];
+        const rolesList = Array.isArray(rolesRes) ? rolesRes : Array.isArray(rolesRes?.data) ? rolesRes.data : [];
         setTeamMembers(membersList);
         setTeams(teamsList);
         setAssignments(assignList);
+        setRoles(rolesList);
       } catch (err) {
         console.error(err);
       }
@@ -635,6 +717,15 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
     load();
   }, []);
 
+  const rolesMap = useMemo(() => {
+    const map = {};
+    (roles || []).forEach((r) => {
+      const id = String(r.roleId || r.id);
+      map[id] = r.roleName || r.name;
+    });
+    return map;
+  }, [roles]);
+
   const groupedData = useMemo(() => {
     return groupMembersByTeam(teams, teamMembers, assignments);
   }, [teams, teamMembers, assignments]);
@@ -642,6 +733,9 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   // Sync form when initial changes
   useEffect(() => {
     setForm(populate(initial));
+    if (initial?.leadAssignedTeam) {
+      setSelectedTeamFilter(String(initial.leadAssignedTeam));
+    }
   }, [initial]);
 
   function set(field, value) {
@@ -757,13 +851,23 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
       ? convertToBase(form.quotationAmount, form.leadCountry)
       : undefined;
 
+    const finalAssignedMemberIds = Array.from(new Set([
+      ...(form.assignedMemberIds || []),
+      ...(form.leadAssignedMember ? [Number(form.leadAssignedMember)] : [])
+    ])).filter(Boolean);
+
     onSubmit?.({
       ...form,
+      assignedMemberIds: finalAssignedMemberIds,
       noOfEmployee: form.noOfEmployee ? Number(form.noOfEmployee) : undefined,
       quotationAmount: baseQuotationAmount,
       quotationWorkingDate: form.quotationDate || form.quotationWorkingDate || undefined,
+      quotationDate: form.quotationDate || form.quotationWorkingDate || undefined,
+      quotationSentDate: form.quotationSentDate || form.sentQuotationDate || undefined,
+      sentQuotationDate: form.quotationSentDate || form.sentQuotationDate || undefined,
     });
   }
+
 
   // Handle file upload (Single document per revision)
   async function uploadFiles(files) {
@@ -781,7 +885,8 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
     }];
     setPendingFiles(preview);
 
-    const targetQuotNo = form.quotationNumber || initial?.quotationNumber || (matchingRevision?.quotationNo);
+    const baseQuot = (form.quotationNumber || initial?.quotationNumber || "").replace(/\/R\d+$/i, "");
+    const targetQuotNo = selectedRevCode === "R0" ? baseQuot : `${baseQuot}/${selectedRevCode}`;
 
     try {
       setUploading(true);
@@ -792,7 +897,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
       }, 150);
 
       if (targetQuotNo) {
-        await negotiationApi.uploadQuotationDocuments(targetQuotNo, [file]);
+        await negotiationApi.uploadQuotationDocuments(targetQuotNo, [file], initial?.leadId);
       } else if (initial?.leadId) {
         await update(initial.leadId, { ...initial }, { uploadDocument: file });
       }
@@ -800,7 +905,9 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
       clearInterval(progressInterval);
       setUploadProgress(100);
       setReplaceMode(false);
+      setPendingFiles([]);
       await loadRevisions();
+      window.dispatchEvent(new CustomEvent('crm-data-updated'));
 
       setTimeout(() => {
         setUploading(false);
@@ -823,9 +930,23 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
   const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 placeholder-gray-300 transition-colors';
   const selectCls = 'w-full px-3 py-2 pr-8 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-gray-700 transition-colors appearance-none bg-no-repeat bg-[right_0.5rem_center] bg-[length:1.25rem_1.25rem] bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M7%209l3%203%203-3%27%20stroke%3D%27%239ca3af%27%20stroke-width%3D%271.5%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")]';
   const labelCls = 'block text-xs font-semibold text-gray-600 mb-1.5';
+  const formatRoleLabel = (role) => {
+    if (!role) return 'Member';
+    const rStr = String(role).trim();
+    if (rolesMap[rStr]) return rolesMap[rStr];
+    if (isNaN(Number(rStr))) return role;
+    return 'Member';
+  };
 
   return (
-    <form id="lead-form" onSubmit={handleSubmit} className="space-y-6">
+    <form
+      id="lead-form"
+      onSubmit={handleSubmit}
+      autoComplete="off"
+      data-lpignore="true"
+      data-form-type="other"
+      className="space-y-6"
+    >
       {/* SECTION 1: Basic Information */}
       <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
@@ -858,6 +979,8 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                 }}
                 placeholder="Enter or search Company Name..."
                 required
+                autoComplete="off"
+                data-lpignore="true"
                 className={`${inputCls} pl-9`}
               />
               {showCompanyDropdown && filteredCompanies.length > 0 && (
@@ -918,6 +1041,8 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                   set("leadMobileNo", e.target.value.replace(/\D/g, ""))
                 }
                 placeholder="Phone/Mobile Number"
+                autoComplete="off"
+                data-lpignore="true"
                 className={`${inputCls} pl-9`}
               />
             </div>
@@ -927,7 +1052,15 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
             <label className={labelCls}>Contact Email</label>
             <div className="relative">
               <Icon name="mdi:email-outline" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              <input type="email" value={form.leadEmail} onChange={(e) => set('leadEmail', e.target.value)} placeholder="email@example.com" className={`${inputCls} pl-9`} />
+              <input
+                type="email"
+                value={form.leadEmail}
+                onChange={(e) => set('leadEmail', e.target.value)}
+                placeholder="email@example.com"
+                autoComplete="off"
+                data-lpignore="true"
+                className={`${inputCls} pl-9`}
+              />
             </div>
           </div>
 
@@ -943,6 +1076,8 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                 )
               }
               placeholder="Contact Person Name"
+              autoComplete="off"
+              data-lpignore="true"
               className={inputCls}
             />
           </div>
@@ -955,12 +1090,40 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
           <div>
             <label className={labelCls}>Assigned Team</label>
             <select
-              value={selectedTeamFilter}
-              onChange={(e) => setSelectedTeamFilter(e.target.value)}
+              value={form.leadAssignedTeam || selectedTeamFilter || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                const teamId = val ? Number(val) : '';
+                setSelectedTeamFilter(val);
+
+                // Auto-revalidate assigned members when team changes
+                setForm(prev => {
+                  if (!teamId) {
+                    return { ...prev, leadAssignedTeam: '' };
+                  }
+                  const teamGroup = (groupedData?.groupedTeams || []).find(
+                    g => String(getTeamId(g.team)) === String(teamId)
+                  );
+                  const validTeamMemberIds = (teamGroup?.members || []).map(m => Number(getMemberId(m)));
+                  
+                  const filteredAssignedIds = (prev.assignedMemberIds || []).filter(id => validTeamMemberIds.includes(Number(id)));
+                  const isCurrentPrimaryValid = validTeamMemberIds.includes(Number(prev.leadAssignedMember));
+                  const newPrimaryId = isCurrentPrimaryValid ? prev.leadAssignedMember : (filteredAssignedIds[0] || '');
+                  const newPrimaryObj = (teamMembers || []).find(m => Number(getMemberId(m)) === Number(newPrimaryId));
+
+                  return {
+                    ...prev,
+                    leadAssignedTeam: teamId,
+                    leadAssignedMember: newPrimaryId,
+                    leadRef: newPrimaryObj?.teamMemberName || '',
+                    assignedMemberIds: filteredAssignedIds.length > 0 ? filteredAssignedIds : (newPrimaryId ? [newPrimaryId] : []),
+                  };
+                });
+              }}
               className={inputCls}
             >
-              <option value="">All Teams / Show All Members</option>
-              {teams.map((t) => (
+              <option value="">Select Team</option>
+              {(teams || []).map((t) => (
                 <option key={getTeamId(t)} value={getTeamId(t)}>
                   📁 {getTeamLabel(t)}
                 </option>
@@ -969,66 +1132,157 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
           </div>
 
           <div>
-            <label className={labelCls}>Team Members</label>
+            <label className={labelCls}>Primary Assigned Member</label>
             <select
-              value={form.leadRef}
-              onChange={(e) => set('leadRef', e.target.value)}
+              value={form.leadAssignedMember || ""}
+              onChange={(e) => {
+                const selectedMemberId = e.target.value;
+                if (!selectedMemberId) {
+                  setForm(prev => ({
+                    ...prev,
+                    leadRef: '',
+                    leadAssignedMember: '',
+                    assignedMemberIds: (prev.assignedMemberIds || []).filter(id => id !== prev.leadAssignedMember),
+                  }));
+                  return;
+                }
+                const matchedMember = (teamMembers || []).find(m => String(getMemberId(m)) === String(selectedMemberId));
+                const memberName = matchedMember?.teamMemberName || '';
+                const memberTeamId = matchedMember?.teamIdFk || selectedTeamFilter || form.leadAssignedTeam || '';
+                const numId = Number(selectedMemberId);
+
+                setForm(prev => {
+                  const currentIds = prev.assignedMemberIds || [];
+                  const newIds = currentIds.includes(numId) ? currentIds : [numId, ...currentIds.filter(id => id !== prev.leadAssignedMember)];
+                  return {
+                    ...prev,
+                    leadRef: memberName,
+                    leadAssignedMember: numId,
+                    leadAssignedTeam: memberTeamId ? Number(memberTeamId) : prev.leadAssignedTeam,
+                    assignedMemberIds: newIds,
+                  };
+                });
+                if (memberTeamId && !selectedTeamFilter) {
+                  setSelectedTeamFilter(String(memberTeamId));
+                }
+              }}
               className={inputCls}
             >
-              <option value="">Select Team Member</option>
+              <option value="">Select Primary Member</option>
               {selectedTeamFilter ? (
                 <>
-                  <optgroup label={`🎯 ${getTeamLabel(teams.find(t => String(getTeamId(t)) === String(selectedTeamFilter)))} Members`}>
-                    {(groupedData.groupedTeams.find(
+                  <optgroup label={`🎯 ${getTeamLabel((teams || []).find(t => String(getTeamId(t)) === String(selectedTeamFilter)))} Members`}>
+                    {((groupedData?.groupedTeams || []).find(
                       (g) => String(getTeamId(g.team)) === String(selectedTeamFilter)
-                    )?.members || []).map((m) => (
-                      <option key={getMemberId(m)} value={m.teamMemberName}>
-                        {m.teamMemberName} ({m.teamMemberRole || 'Member'})
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="👥 Other Teams & All Members">
-                    {teamMembers
-                      .filter((m) => {
-                        const teamGroup = groupedData.groupedTeams.find(
-                          (g) => String(getTeamId(g.team)) === String(selectedTeamFilter)
-                        );
-                        const memberIdsInSelectedTeam = (teamGroup?.members || []).map((tm) =>
-                          getMemberId(tm)
-                        );
-                        return !memberIdsInSelectedTeam.includes(getMemberId(m));
-                      })
+                    )?.members || [])
+                      .filter(m => !m.isDeleted && m.isDeleted !== 1)
                       .map((m) => (
-                        <option key={getMemberId(m)} value={m.teamMemberName}>
-                          {m.teamMemberName} ({m.teamMemberRole || 'Member'})
+                        <option key={getMemberId(m)} value={getMemberId(m)}>
+                          {m.teamMemberName} ({formatRoleLabel(m.teamMemberRole)})
                         </option>
                       ))}
                   </optgroup>
                 </>
               ) : (
                 <>
-                  {groupedData.groupedTeams.map(({ team, members }) => (
+                  {(groupedData?.groupedTeams || []).map(({ team, members }) => (
                     <optgroup key={getTeamId(team)} label={`📁 ${getTeamLabel(team)}`}>
-                      {members.map((member) => (
-                        <option key={getMemberId(member)} value={member.teamMemberName}>
-                          {member.teamMemberName} ({member.teamMemberRole || 'Member'})
-                        </option>
-                      ))}
+                      {(members || [])
+                        .filter(m => !m.isDeleted && m.isDeleted !== 1)
+                        .map((member) => (
+                          <option key={getMemberId(member)} value={getMemberId(member)}>
+                            {member.teamMemberName} ({formatRoleLabel(member.teamMemberRole)})
+                          </option>
+                        ))}
                     </optgroup>
                   ))}
-                  {groupedData.unassigned.length > 0 && (
-                    <optgroup label="👤 General / Unassigned Members">
-                      {groupedData.unassigned.map((member) => (
-                        <option key={getMemberId(member)} value={member.teamMemberName}>
-                          {member.teamMemberName} ({member.teamMemberRole || 'Member'})
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
                 </>
               )}
             </select>
+
+            {/* Joint / Secondary Assigned Members Multi-Select */}
+            <div className="mt-2.5">
+              <label className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
+                <Icon name="mdi:account-multiple-outline" className="w-3.5 h-3.5 text-blue-600" />
+                Joint / Secondary Members (Multi-Member Assignment)
+              </label>
+              
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {(form.assignedMemberIds || []).map(mid => {
+                  const tm = (teamMembers || []).find(m => Number(getMemberId(m)) === Number(mid));
+                  const isPrimary = Number(mid) === Number(form.leadAssignedMember);
+                  if (!tm && !mid) return null;
+                  const name = tm?.teamMemberName || `Member #${mid}`;
+                  return (
+                    <span 
+                      key={mid} 
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                        isPrimary 
+                          ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-300' 
+                          : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                      }`}
+                    >
+                      {isPrimary ? '⭐ ' : '🤝 '}
+                      {name}
+                      {isPrimary ? (
+                        <span className="text-[10px] uppercase font-bold text-blue-600 ml-0.5">(Primary)</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForm(prev => {
+                              const remaining = (prev.assignedMemberIds || []).filter(id => Number(id) !== Number(mid));
+                              const isPrimaryBeingRemoved = Number(mid) === Number(prev.leadAssignedMember);
+                              const newPrimary = isPrimaryBeingRemoved ? (remaining[0] || '') : prev.leadAssignedMember;
+                              const newPrimaryObj = (teamMembers || []).find(m => Number(getMemberId(m)) === Number(newPrimary));
+                              return {
+                                ...prev,
+                                assignedMemberIds: remaining,
+                                leadAssignedMember: newPrimary,
+                                leadRef: newPrimaryObj?.teamMemberName || prev.leadRef,
+                              };
+                            });
+                          }}
+                          className="hover:text-red-600 font-bold ml-1"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+
+              <select
+                value=""
+                onChange={(e) => {
+                  const addId = Number(e.target.value);
+                  if (addId && !(form.assignedMemberIds || []).includes(addId)) {
+                    setForm(prev => ({
+                      ...prev,
+                      assignedMemberIds: [...(prev.assignedMemberIds || []), addId],
+                    }));
+                  }
+                }}
+                className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 focus:bg-white focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="">+ Add Joint Team Member...</option>
+                {((selectedTeamFilter 
+                  ? ((groupedData?.groupedTeams || []).find(g => String(getTeamId(g.team)) === String(selectedTeamFilter))?.members || [])
+                  : (teamMembers || [])
+                ))
+                  .filter(m => !m.isDeleted && m.isDeleted !== 1)
+                  .filter(m => !(form.assignedMemberIds || []).includes(Number(getMemberId(m))))
+                  .map(m => (
+                    <option key={getMemberId(m)} value={getMemberId(m)}>
+                      + {m.teamMemberName} ({formatRoleLabel(m.teamMemberRole)})
+                    </option>
+                  ))}
+              </select>
+            </div>
           </div>
+
+
 
           {/* Lead Source - Updated with typing functionality */}
           <div className="relative">
@@ -1051,6 +1305,8 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                     setTimeout(() => setShowSourceDropdown(false), 200);
                   }}
                   placeholder="Search or type new source..."
+                  autoComplete="off"
+                  data-lpignore="true"
                   className={inputCls}
                 />
                 {showSourceDropdown && (
@@ -1147,6 +1403,8 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                     setTimeout(() => setShowGroupDropdown(false), 200);
                   }}
                   placeholder="Search or type new group..."
+                  autoComplete="off"
+                  data-lpignore="true"
                   className={inputCls}
                 />
                 {showGroupDropdown && (
@@ -1238,12 +1496,9 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                   </option>
                 ))
               ) : (
-                <>
-                  <option value="Open">Open</option>
-                  <option value="Negotiation">Negotiation</option>
-                  <option value="Won">Won</option>
-                  <option value="Closed">Closed</option>
-                </>
+                <option value="" disabled>
+                  Lead statuses could not be loaded
+                </option>
               )}
             </select>
           </div>
@@ -1254,6 +1509,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
             <div className="relative">
               <input
                 type="text"
+                name="crm_country_search_field"
                 value={countrySearchTerm}
                 onChange={(e) => {
                   setCountrySearchTerm(e.target.value);
@@ -1268,6 +1524,10 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                   setTimeout(() => setShowCountryDropdown(false), 200);
                 }}
                 placeholder="Search country..."
+                autoComplete="new-password"
+                data-lpignore="true"
+                data-form-type="other"
+                aria-autocomplete="none"
                 className={inputCls}
               />
               {showCountryDropdown && (
@@ -1303,6 +1563,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
             <div className="relative">
               <input
                 type="text"
+                name="crm_state_search_field"
                 value={stateSearchTerm}
                 onChange={(e) => {
                   setStateSearchTerm(e.target.value);
@@ -1319,6 +1580,10 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                   setTimeout(() => setShowStateDropdown(false), 200);
                 }}
                 placeholder={countryCode ? "Search state..." : "Select country first"}
+                autoComplete="new-password"
+                data-lpignore="true"
+                data-form-type="other"
+                aria-autocomplete="none"
                 className={inputCls}
                 disabled={!countryCode}
               />
@@ -1355,6 +1620,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
             <div className="relative">
               <input
                 type="text"
+                name="crm_city_search_field"
                 value={citySearchTerm}
                 onChange={(e) => {
                   setCitySearchTerm(e.target.value);
@@ -1370,6 +1636,10 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                   setTimeout(() => setShowCityDropdown(false), 200);
                 }}
                 placeholder={stateCode ? "Search city..." : "Select state first"}
+                autoComplete="new-password"
+                data-lpignore="true"
+                data-form-type="other"
+                aria-autocomplete="none"
                 className={inputCls}
                 disabled={!stateCode}
               />
@@ -1403,9 +1673,13 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
           <div className="sm:col-span-2">
             <label className={labelCls}>Address</label>
             <textarea
+              name="crm_full_address_field"
               value={form.leadAddress}
               onChange={(e) => set('leadAddress', e.target.value)}
               rows={3}
+              autoComplete="new-password"
+              data-lpignore="true"
+              data-form-type="other"
               className={inputCls}
             />
           </div>
@@ -1468,10 +1742,14 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                 onChange={(e) => set('enquiryStatus', e.target.value)}
                 className={selectCls}
               >
-                <option value="Pending">Pending</option>
-                <option value="Working">Working</option>
-                <option value="Sent">Sent</option>
+                <option value="">Select Quotation Status</option>
+                {(quotationStatuses || []).map((qs) => (
+                  <option key={qs.id || qs.statusName} value={qs.statusName}>
+                    {qs.statusName}
+                  </option>
+                ))}
               </select>
+
             </div>
 
 
@@ -1563,8 +1841,7 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
 
                 <div>
                   <label className="text-[10px] text-gray-500 font-medium">FY Year</label>
-                  <input
-                    type="text"
+                  <select
                     value={qYear || getFinancialYear(form.inquiryDate)}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -1574,9 +1851,14 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                       const finalQ = form.quotationRevision ? `${parts}/${form.quotationRevision}` : parts;
                       set('quotationNumber', finalQ);
                     }}
-                    placeholder="26-27"
-                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white font-medium text-slate-800"
-                  />
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white font-medium text-slate-800 cursor-pointer"
+                  >
+                    {getFYYearOptions(form.inquiryDate).map((fy) => (
+                      <option key={fy} value={fy}>
+                        {fy}{fy === getFinancialYear(form.inquiryDate) ? ' ✓' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -1597,29 +1879,41 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
                       className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white font-mono font-medium text-slate-800"
                     />
                   </div>
-                  {previousSerialNo && previousSerialNo !== '000' && (
-                    <div className="mt-1.5 pt-1 border-t border-gray-100">
-                      <div className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
-                        <span>📋</span>
-                        <span>Previous Serial: <strong className="font-mono">{previousSerialNo}</strong></span>
-                        {!initial?.quotationNumber && (
-                          <>
-                            <span className="text-gray-400">→</span>
-                            <span>Next: <strong className="font-mono">{String(Number(previousSerialNo) + 1).padStart(3, '0')}</strong></span>
-                          </>
-                        )}
+                  {/* ── Next Serial No. hint ── */}
+                  {previousSerialNo && previousSerialNo !== '000' ? (
+                    !initial?.quotationNumber ? (
+                      // NEW lead — show the auto-assigned next serial prominently
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                          <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>
+                          Next Serial No.: <strong className="font-mono tracking-wide">{String(Number(previousSerialNo) + 1).padStart(3, '0')}</strong>
+                        </span>
+                        <span className="text-[9px] text-gray-400">(last used: {previousSerialNo})</span>
                       </div>
-                      {initial?.quotationNumber && qSerial && qSerial !== previousSerialNo && (
-                        <div className="text-[10px] text-blue-600 font-medium mt-1">
-                          Current lead serial: <strong className="font-mono">{qSerial}</strong> (from existing lead)
+                    ) : (
+                      // EDIT lead — show the current lead's serial as context
+                      qSerial && qSerial !== previousSerialNo ? (
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                            <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/></svg>
+                            This lead: <strong className="font-mono tracking-wide">{qSerial}</strong>
+                          </span>
+                          <span className="text-[9px] text-gray-400">(last issued: {previousSerialNo})</span>
                         </div>
-                      )}
-                    </div>
-                  )}
-                  {(!previousSerialNo || previousSerialNo === '000') && !initial?.quotationNumber && (
-                    <div className="mt-1 text-[9px] text-gray-400">
-                      {firstQuotation?.quotationNumber}
-                    </div>
+                      ) : (
+                        <div className="mt-1.5">
+                          <span className="text-[9px] text-gray-400">Last issued serial: <strong className="font-mono">{previousSerialNo}</strong></span>
+                        </div>
+                      )
+                    )
+                  ) : (
+                    !initial?.quotationNumber && (
+                      <div className="mt-1 text-[9px] text-gray-400">
+                        {firstQuotation?.quotationNumber
+                          ? <span>Last: <strong className="font-mono">{firstQuotation.quotationNumber}</strong></span>
+                          : <span>Loading serial…</span>}
+                      </div>
+                    )
                   )}
                 </div>
               </div>
@@ -1667,8 +1961,13 @@ export default function LeadForm({ initial, loading, onSubmit, quotation, onUplo
               <label className={labelCls}>Final Quotation Sent Date</label>
               <input
                 type="date"
-                value={form.quotationSentDate}
-                onChange={(e) => set('quotationSentDate', e.target.value)}
+                name="quotationSentDate"
+                value={(form.quotationSentDate || form.sentQuotationDate) ? String(form.quotationSentDate || form.sentQuotationDate).split("T")[0] : ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  set('quotationSentDate', val);
+                  set('sentQuotationDate', val);
+                }}
                 className={inputCls}
               />
             </div>

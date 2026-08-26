@@ -495,7 +495,7 @@ export default function TeamPage() {
           </>
         }
       >
-        <form id="team-create-form" onSubmit={saveTeam} className="space-y-5">
+        <form id="team-create-form" onSubmit={saveTeam} autoComplete="off" data-lpignore="true" className="space-y-5">
           <div className="space-y-4">
             <label className="block">
               <span className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-slate-300">Team Name *</span>

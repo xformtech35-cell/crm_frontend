@@ -273,9 +273,9 @@ export default function NegotiationPage() {
   const filteredDeals = deals.filter((deal) => {
     const status = (deal.negotiationStatus || deal.leadOutcomeStatus || deal.leadStatus || "").toLowerCase();
     const isNeg = status === "negotiation" ||
-                  (deal.negotiationStatus || "").toLowerCase() === "negotiation" ||
-                  (deal.leadOutcomeStatus || "").toLowerCase() === "negotiation" ||
-                  (deal.leadStatus || "").toLowerCase() === "negotiation";
+      (deal.negotiationStatus || "").toLowerCase() === "negotiation" ||
+      (deal.leadOutcomeStatus || "").toLowerCase() === "negotiation" ||
+      (deal.leadStatus || "").toLowerCase() === "negotiation";
 
     if (!isNeg) {
       return false;
@@ -429,8 +429,8 @@ export default function NegotiationPage() {
         "Quotation No",
         "Revision",
         "Amount",
-        "Working Date",
-        "Sent Date",
+        "Quotation Working Date",
+        "Sent Quotation Date",
         "Status",
         "Remarks",
       ];
@@ -587,7 +587,7 @@ export default function NegotiationPage() {
       }
       setSelectedDeal(fullDeal);
       const data = await negotiationApi.getRevisions(deal.id);
-      
+
       setRevisions(data || []);
       setShowRevisionModal(true);
     } catch (error) {
@@ -794,11 +794,10 @@ export default function NegotiationPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("deals")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === "deals"
-                    ? "bg-white text-slate-800 shadow-sm border border-slate-200/60"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === "deals"
+                  ? "bg-white text-slate-800 shadow-sm border border-slate-200/60"
+                  : "text-slate-500 hover:text-slate-800"
+                  }`}
               >
                 <Icon name="mdi:handshake-outline" className="w-4 h-4 text-blue-600" />
                 <span>Current Deals</span>
@@ -813,11 +812,10 @@ export default function NegotiationPage() {
                   setActiveTab("revisions");
                   loadAllRevisions();
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === "revisions"
-                    ? "bg-white text-purple-700 shadow-sm border border-purple-200/60"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === "revisions"
+                  ? "bg-white text-purple-700 shadow-sm border border-purple-200/60"
+                  : "text-slate-500 hover:text-slate-800"
+                  }`}
               >
                 <Icon name="mdi:history" className="w-4 h-4 text-purple-600" />
                 <span>Revision History</span>
@@ -885,11 +883,11 @@ export default function NegotiationPage() {
                 <th className="w-[80px] sm:w-[120px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
                   <span>Amount</span>
                 </th>
-                <th className="w-[90px] sm:w-[120px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
-                  <span>Working Date</span>
+                <th className="w-[90px] sm:w-[130px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
+                  <span>Quotation Working Date</span>
                 </th>
-                <th className="w-[90px] sm:w-[120px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
-                  <span>Sent Date</span>
+                <th className="w-[90px] sm:w-[140px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
+                  <span>Sent Quotation Date</span>
                 </th>
                 <th className="w-[100px] sm:w-[130px] py-2 sm:py-2.5 px-2 sm:px-3 text-left">
                   <span>Status</span>
@@ -928,9 +926,8 @@ export default function NegotiationPage() {
                   filteredRevisions.map((rev, idx) => (
                     <tr
                       key={rev.id}
-                      className={`transition-colors duration-100 ${
-                        idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"
-                      } ${selectedIds.has(rev.id) ? "bg-purple-50/60" : "hover:bg-purple-50/40"}`}
+                      className={`transition-colors duration-100 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                        } ${selectedIds.has(rev.id) ? "bg-purple-50/60" : "hover:bg-purple-50/40"}`}
                     >
                       <td
                         className="pl-2 sm:pl-4 py-1.5 sm:py-2"
@@ -1013,9 +1010,8 @@ export default function NegotiationPage() {
                 filteredDeals.map((deal, idx) => (
                   <tr
                     key={deal.id}
-                    className={`transition-colors duration-100 ${
-                      idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"
-                    } ${selectedIds.has(deal.id) ? "bg-blue-50/60" : "hover:bg-blue-50/40"}`}
+                    className={`transition-colors duration-100 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                      } ${selectedIds.has(deal.id) ? "bg-blue-50/60" : "hover:bg-blue-50/40"}`}
                   >
                     <td
                       className="pl-2 sm:pl-4 py-1.5 sm:py-2"
@@ -1089,38 +1085,15 @@ export default function NegotiationPage() {
                         <option value="" className="bg-white text-gray-500">
                           — None —
                         </option>
-                        {Array.isArray(leadStatuses) && leadStatuses.length > 0 ? (
-                          leadStatuses.map((st) => (
-                            <option
-                              key={st.id || st.statusName}
-                              value={st.statusName}
-                              className="bg-white text-gray-700 font-normal"
-                            >
-                              {st.statusName}
-                            </option>
-                          ))
-                        ) : (
-                          <>
-                            <option
-                              value="Negotiation"
-                              className="bg-white text-gray-700"
-                            >
-                              Negotiation
-                            </option>
-                            <option value="Open" className="bg-white text-gray-700">
-                              Open
-                            </option>
-                            <option value="Won" className="bg-white text-gray-700">
-                              Won
-                            </option>
-                            <option
-                              value="Closed"
-                              className="bg-white text-gray-700"
-                            >
-                              Closed
-                            </option>
-                          </>
-                        )}
+                        {(leadStatuses || []).map((st) => (
+                          <option
+                            key={st.id || st.statusName}
+                            value={st.statusName}
+                            className="bg-white text-gray-700 font-normal"
+                          >
+                            {st.statusName}
+                          </option>
+                        ))}
                       </select>
                     </td>
                     {/* Document Column */}
@@ -1131,13 +1104,12 @@ export default function NegotiationPage() {
                       />
                     </td> */}
                     <td
-                      className={`sticky right-0 pl-2 sm:pl-3 pr-2 sm:pr-4 py-1.5 sm:py-2 shadow-[-8px_0_12px_rgba(15,23,42,0.04)] text-right ${
-                        selectedIds.has(deal.id)
-                          ? "bg-blue-50"
-                          : idx % 2 === 0
-                            ? "bg-white"
-                            : "bg-gray-50"
-                      }`}
+                      className={`sticky right-0 pl-2 sm:pl-3 pr-2 sm:pr-4 py-1.5 sm:py-2 shadow-[-8px_0_12px_rgba(15,23,42,0.04)] text-right ${selectedIds.has(deal.id)
+                        ? "bg-blue-50"
+                        : idx % 2 === 0
+                          ? "bg-white"
+                          : "bg-gray-50"
+                        }`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex items-center justify-end gap-0.5 sm:gap-1">
@@ -1290,9 +1262,9 @@ export default function NegotiationPage() {
                         <span className="font-bold text-slate-800 text-sm sm:text-base">
                           {selectedDeal
                             ? formatCurrency(
-                                selectedDeal.quotationAmount || 0,
-                                selectedDeal.leadCountry,
-                              )
+                              selectedDeal.quotationAmount || 0,
+                              selectedDeal.leadCountry,
+                            )
                             : `${revisions.length} Proposals`}
                         </span>
                       </div>
@@ -1307,7 +1279,7 @@ export default function NegotiationPage() {
                 revisions={revisions}
                 loading={false}
                 showRevisions={true}
-                setShowRevisions={() => {}}
+                setShowRevisions={() => { }}
                 lead={selectedDeal}
                 negotiationApi={negotiationApi}
               />

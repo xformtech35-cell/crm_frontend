@@ -32,7 +32,11 @@ export default function AppDrawer({
       />
 
       {/* Drawer */}
-      <div className={`relative h-full bg-white shadow-2xl border-l border-gray-200 flex flex-col z-10 animate-in slide-in-from-right duration-200 ${width}`}>
+      <div
+        role="dialog"
+        data-modal="true"
+        className={`relative h-full bg-white shadow-2xl border-l border-gray-200 flex flex-col z-10 animate-in slide-in-from-right duration-200 ${width}`}
+      >
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 shrink-0">
           <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center shrink-0 border border-blue-200">

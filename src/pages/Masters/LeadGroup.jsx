@@ -292,7 +292,7 @@ export default function LeadGroup() {
           </div>
         }
       >
-        <form id="lead-group-form" onSubmit={saveGroup} className="space-y-5">
+        <form id="lead-group-form" onSubmit={saveGroup} autoComplete="off" data-lpignore="true" className="space-y-5">
           <div>
             <label className="block mb-1.5">
               <span className="text-sm font-semibold text-gray-700">

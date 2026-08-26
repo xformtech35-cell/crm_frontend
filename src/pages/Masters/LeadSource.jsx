@@ -314,7 +314,7 @@ export default function LeadSource() {
           </div>
         }
       >
-        <form id="lead-source-form" onSubmit={saveSource} className="space-y-5">
+        <form id="lead-source-form" onSubmit={saveSource} autoComplete="off" data-lpignore="true" className="space-y-5">
           <div>
             <label className="block mb-1.5">
               <span className="text-sm font-semibold text-gray-700">

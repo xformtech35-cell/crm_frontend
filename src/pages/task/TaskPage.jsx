@@ -614,7 +614,7 @@ function TaskFormDrawer({ open, onClose, editingTask, teams, members, assignment
         ))}
       </div>
 
-      <form id="task-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="task-form" onSubmit={handleSubmit} autoComplete="off" data-lpignore="true" className="space-y-4">
         {activeTab === 'details' && (
           <div className="space-y-4">
             <div>

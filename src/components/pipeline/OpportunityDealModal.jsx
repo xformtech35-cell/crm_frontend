@@ -76,7 +76,7 @@ export default function OpportunityDealModal({
         </>
       }
     >
-      <form id="deal-form" onSubmit={submit} className="space-y-5">
+      <form id="deal-form" onSubmit={submit} autoComplete="off" data-lpignore="true" className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
           <label className="md:col-span-2">
             <span className="form-label">Deal name</span>

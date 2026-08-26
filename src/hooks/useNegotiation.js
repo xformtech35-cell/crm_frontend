@@ -137,24 +137,20 @@ const handleDownloadRevisionDocument = async (fileUrlOrName, fileName) => {
       throw error;
     }
   };
-const uploadQuotationDocuments = async (quotationNo, files) => {
+const uploadQuotationDocuments = async (quotationNo, files, leadId) => {
   const formData = new FormData();
 
-  files.forEach((file) => {
+  (files || []).forEach((file) => {
     formData.append("files", file);
   });
 
-  const response = await api.post(
-    `documents/upload?quotationNo=${quotationNo}`,
-    formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    }
-  );
+  let url = `/documents/upload?quotationNo=${encodeURIComponent(quotationNo || '')}`;
+  if (leadId) {
+    url += `&leadId=${encodeURIComponent(leadId)}`;
+  }
 
-  return response?.data;
+  const response = await api.postForm(url, formData);
+  return response;
 };
 
   /**
@@ -257,9 +253,13 @@ const uploadQuotationDocuments = async (quotationNo, files) => {
   /**
    * Delete all documents for a quotation number
    */
-  const deleteDocumentsByQuotationNo = async (quotationNo) => {
+  const deleteDocumentsByQuotationNo = async (quotationNo, leadId) => {
     try {
-      const response = await api.del(`/documents?quotationNo=${encodeURIComponent(quotationNo)}`);
+      let url = `/documents?quotationNo=${encodeURIComponent(quotationNo || '')}`;
+      if (leadId) {
+        url += `&leadId=${encodeURIComponent(leadId)}`;
+      }
+      const response = await api.del(url);
       return response;
     } catch (error) {
       console.error('Delete documents by quotationNo error:', error);

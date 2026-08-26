@@ -26,7 +26,11 @@ export default function AppModal({ open, onClose, title, size = 'md', children, 
         className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-200"
         onClick={onClose}
       />
-      <div className={`relative bg-white rounded-2xl shadow-2xl shadow-gray-300/50 w-full z-10 border border-gray-100 modal-box ${SIZE_CLASS[size] || SIZE_CLASS.md}`}>
+      <div
+        role="dialog"
+        data-modal="true"
+        className={`relative bg-white rounded-2xl shadow-2xl shadow-gray-300/50 w-full z-10 border border-gray-100 modal-box ${SIZE_CLASS[size] || SIZE_CLASS.md}`}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 modal-header">
           <div className="flex items-center gap-2.5">
             <div className="w-1 h-5 bg-gradient-to-b from-indigo-600 to-blue-500 rounded-full" />

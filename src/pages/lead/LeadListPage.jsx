@@ -15,7 +15,8 @@ import LeadForm from "../../components/lead/LeadForm";
 import Icon from "../../components/Icon";
 import StarRating from "../../components/common/StarRating";
 import * as XLSX from "xlsx-js-style";
-import { useLeadSource, useLeadGroup, useLeadStatus } from "../../hooks/useMaster";
+import { useLeadSource, useLeadGroup, useLeadStatus, useQuotationStatus } from "../../hooks/useMaster";
+import { useTeamMember } from "../../hooks/useTeamMember";
 import { useDroppable } from "@dnd-kit/core";
 import { Buffer } from "buffer";
 window.Buffer = Buffer;
@@ -91,6 +92,9 @@ const ENQUIRY_STATUS_BG = {
 const SOURCE_BG = {
   Website: "bg-sky-100 text-sky-700",
   Indiamart: "bg-orange-100 text-orange-700",
+  IndiaMART: "bg-orange-100 text-orange-700",
+  TradeIndia: "bg-emerald-100 text-emerald-700",
+  Tradeindia: "bg-emerald-100 text-emerald-700",
   Referral: "bg-violet-100 text-violet-700",
   "Cold Call": "bg-slate-100 text-slate-600",
   Email: "bg-blue-100 text-blue-700",
@@ -133,39 +137,64 @@ const STATUS_TABS = [
   "Closed",
 ];
 
+const COLUMN_CONFIGS = [
+  { id: "leadName", label: "Lead Name", width: 170, defaultVisible: true },
+  { id: "teamMember", label: "Team Member", width: 130, defaultVisible: true },
+  { id: "group", label: "Group", width: 130, defaultVisible: true },
+  { id: "leadStatus", label: "Lead Status", width: 115, defaultVisible: true },
+  { id: "quotationStatus", label: "Quotation Status", width: 115, defaultVisible: true },
+  { id: "enquiryDesc", label: "Enquiry Description", width: 180, defaultVisible: true },
+  { id: "quotationNo", label: "Quotation No.", width: 125, defaultVisible: true },
+  { id: "amount", label: "Amount", width: 105, defaultVisible: true },
+  { id: "enquiryDate", label: "Enquiry Date", width: 95, defaultVisible: true },
+  { id: "quotationDate", label: "Quot. Work Date", fullLabel: "Quotation Working Date", width: 125, defaultVisible: false },
+  { id: "sentQuotationDate", label: "Quot. Sent Date", fullLabel: "Sent Quotation Date", width: 125, defaultVisible: false },
+  { id: "grade", label: "Grade", width: 95, defaultVisible: false },
+  { id: "enquiryType", label: "Enquiry Type", width: 115, defaultVisible: false },
+  { id: "leadSource", label: "Lead Source", width: 115, defaultVisible: true },
+  { id: "remarks", label: "Remarks", width: 140, defaultVisible: false },
+  { id: "createdBy", label: "Created By", width: 180, defaultVisible: false },
+  { id: "updatedBy", label: "Updated By", width: 180, defaultVisible: false },
+];
+
+const DEFAULT_VISIBLE_COLUMNS = COLUMN_CONFIGS.reduce((acc, col) => {
+  acc[col.id] = col.defaultVisible;
+  return acc;
+}, {});
+
 const LEAD_EXPORT_FIELDS = [
   { header: "Lead ID", value: (lead) => lead.leadId || "" },
-  { header: "Company Name", value: (lead) => lead.leadOrganisationName || "" },
+  {
+    header: "Lead Name",
+    value: (lead) =>
+      lead.leadOrganisationName ||
+      `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() ||
+      "",
+  },
+  {
+    header: "Contact Person",
+    value: (lead) =>
+      lead.companyContactPersonName ||
+      `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() ||
+      "",
+  },
   { header: "Contact Phone", value: (lead) => lead.leadMobileNo || "" },
   { header: "Country", value: (lead) => lead.leadCountry || "" },
   {
-    header: "Company Contact Person Name",
-    value: (lead) =>
-      `${lead.companyContactPersonName || ""} ${lead.leadLastName || ""}`.trim(),
+    header: "Team Member",
+    value: (lead) => lead.leadRef || lead.teamMemberName || "",
   },
-  {
-    header: "Enquiry Date",
-    value: (lead) => formatDate(lead.inquiryDate) || "",
-  },
-  { header: "Lead Source", value: (lead) => lead.leadSource || "" },
-  { header: "Enquiry Details", value: (lead) => lead.enquiryDescription || "" },
-  { header: "Enquiry Type", value: (lead) => lead.enquiryType || "" },
+  { header: "Group", value: (lead) => lead.leadGroup || "" },
   {
     header: "Lead Status",
     value: (lead) => lead.leadOutcomeStatus || lead.leadStatus || "",
   },
-  { header: "Enquiry Status", value: (lead) => lead.enquiryStatus || "" },
+  { header: "Quotation Status", value: (lead) => lead.enquiryStatus || "" },
+  {
+    header: "Enquiry Description",
+    value: (lead) => cleanEnquiryDescription(lead.enquiryDescription),
+  },
   { header: "Quotation Number", value: (lead) => lead.quotationNumber || "" },
-  {
-    header: "Quotation Date",
-    value: (lead) => formatDate(lead.quotationDate) || "",
-  },
-  {
-    header: "Quotation Revision",
-    value: (lead) => {
-      return lead.quotationRevision || "";
-    },
-  },
   {
     header: "Quotation Amount",
     value: (lead) =>
@@ -174,19 +203,36 @@ const LEAD_EXPORT_FIELDS = [
         : "",
   },
   {
-    header: "Assigned To",
-    value: (lead) => {
-      console.log("Lead Object:", lead);
-      return lead.teamMemberName || "";
-    },
+    header: "Enquiry Date",
+    value: (lead) =>
+      formatDate(lead.inquiryDate || lead.leadCreatedDate) || "",
   },
   {
-    header: "Follow Up Remark",
+    header: "Quotation Working Date",
+    value: (lead) => formatDate(lead.quotationDate) || "",
+  },
+  {
+    header: "Sent Quotation Date",
+    value: (lead) => formatDate(lead.quotationSentDate) || "",
+  },
+  {
+    header: "Grade",
+    value: (lead) =>
+      lead.leadRating
+        ? `${lead.leadRating} Star${lead.leadRating > 1 ? "s" : ""}`
+        : "",
+  },
+  {
+    header: "Enquiry Type",
+    value: (lead) =>
+      lead.leadStatus === "Disqualified" || lead.enquiryType === "Disqualified"
+        ? "Disqualified"
+        : "Qualified",
+  },
+  { header: "Lead Source", value: (lead) => lead.leadSource || "" },
+  {
+    header: "Remarks",
     value: (lead) => lead.followUpRemark || lead.leadReason || "",
-  },
-  {
-    header: "Created Date",
-    value: (lead) => formatDate(lead.leadCreatedDate) || "",
   },
   {
     header: "Created By",
@@ -195,10 +241,6 @@ const LEAD_EXPORT_FIELDS = [
   {
     header: "Updated By",
     value: (lead) => lead.updatedBy || lead.createdBy || "",
-  },
-  {
-    header: "Lead Score",
-    value: (_lead, score) => (score ? `${score.score}/100` : ""),
   },
 ];
 
@@ -295,10 +337,9 @@ function KanbanColumn({ status, leads }) {
       ref={setNodeRef}
       className={`
         w-80 rounded-xl p-3 min-h-[500px] transition-all duration-200
-        ${
-          isOver
-            ? "bg-blue-50 border-2 border-blue-400"
-            : "bg-gray-50 border border-gray-200"
+        ${isOver
+          ? "bg-blue-50 border-2 border-blue-400"
+          : "bg-gray-50 border border-gray-200"
         }
       `}
     >
@@ -339,7 +380,7 @@ function NotesModal({ isOpen, onClose, lead, formatDate }) {
 
   // Get notes from the lead - adjust based on your data structure
   const notes = lead.notes || lead.leadNotes || lead.comments || [];
-  
+
 
   return (
     <div
@@ -404,8 +445,8 @@ function NotesModal({ isOpen, onClose, lead, formatDate }) {
                     <span className="text-xs text-slate-400">
                       {formatDate
                         ? formatDate(
-                            note.createdAt || note.date || note.noteDate,
-                          )
+                          note.createdAt || note.date || note.noteDate,
+                        )
                         : note.createdAt || "Unknown date"}
                     </span>
                   </div>
@@ -487,6 +528,8 @@ export default function LeadListPage() {
   const sourceMaster = useLeadSource();
   const groupMaster = useLeadGroup();
   const statusMaster = useLeadStatus();
+  const quotationMaster = useQuotationStatus();
+  const teamMemberApi = useTeamMember();
 
   const [selectedLead, setSelectedLead] = useState(null);
   const [showNotesModal, setShowNotesModal] = useState(false);
@@ -494,6 +537,56 @@ export default function LeadListPage() {
   const [leadSources, setLeadSources] = useState([]);
   const [leadGroups, setLeadGroups] = useState([]);
   const [leadStatuses, setLeadStatuses] = useState([]);
+  const [quotationStatuses, setQuotationStatuses] = useState([]);
+  const [teamMembersList, setTeamMembersList] = useState([]);
+
+
+  useEffect(() => {
+    teamMemberApi
+      .getAll()
+      .then((res) => {
+        const list = Array.isArray(res) ? res : (res?.data || []);
+        setTeamMembersList(list);
+      })
+      .catch((err) => console.error("Failed to load team members:", err));
+  }, []);
+
+  const teamMemberMap = useMemo(() => {
+    const map = {};
+    (teamMembersList || []).forEach((m) => {
+      const id = m.teamMemberId || m.id;
+      const name = m.teamMemberName || m.name || m.teamMemberEmail || m.email;
+      if (id && name) {
+        map[id] = name;
+      }
+    });
+    return map;
+  }, [teamMembersList]);
+
+  const getTeamMemberDisplay = useCallback((lead) => {
+    if (!lead) return "";
+    if (lead.assignedMemberNames && Array.isArray(lead.assignedMemberNames) && lead.assignedMemberNames.length > 0) {
+      return lead.assignedMemberNames.join(", ");
+    }
+    if (lead.assignedMemberIds && Array.isArray(lead.assignedMemberIds) && lead.assignedMemberIds.length > 0) {
+      const names = lead.assignedMemberIds.map(id => teamMemberMap[id] || id).filter(Boolean);
+      if (names.length > 0) return names.join(", ");
+    }
+    if (lead.leadAssignedMember && teamMemberMap[lead.leadAssignedMember]) {
+      return teamMemberMap[lead.leadAssignedMember];
+    }
+    if (lead.leadRef && String(lead.leadRef).trim()) {
+      return String(lead.leadRef).trim();
+    }
+    if (lead.teamMemberName && String(lead.teamMemberName).trim()) {
+      return String(lead.teamMemberName).trim();
+    }
+    if (lead.leadAssignedMemberName && String(lead.leadAssignedMemberName).trim()) {
+      return String(lead.leadAssignedMemberName).trim();
+    }
+    return "";
+  }, [teamMemberMap]);
+
 
   const [activeDragLead, setActiveDragLead] = useState(null);
   const [expandedDesc, setExpandedDesc] = useState({});
@@ -605,11 +698,11 @@ export default function LeadListPage() {
   const uniqueLeadRefs = useMemo(() => {
     const set = new Set();
     (allLeads || []).forEach(l => {
-      const ref = (l.leadRef || "").trim();
+      const ref = getTeamMemberDisplay(l).trim();
       if (ref) set.add(ref);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [allLeads]);
+  }, [allLeads, getTeamMemberDisplay]);
 
   const uniqueCreatedBys = useMemo(() => {
     const set = new Set();
@@ -647,11 +740,12 @@ export default function LeadListPage() {
       if (s?.statusName) set.add(s.statusName.trim());
     });
     (allLeads || []).forEach(l => {
-      const s = (l.leadOutcomeStatus || l.leadStatus || "").trim();
-      if (s) set.add(s);
-      else set.add("None");
+      const s = (l.leadOutcomeStatus || l.rawLeadStatus || "").trim();
+      if (s && s !== "Qualified" && s !== "Disqualified") set.add(s);
+      else if (!l.leadOutcomeStatus && !l.rawLeadStatus) set.add("None");
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    ["Open", "Negotiation", "Won", "Closed"].forEach(st => set.add(st));
+    return Array.from(set).filter(Boolean).sort((a, b) => a.localeCompare(b));
   }, [leadStatuses, allLeads]);
 
   const uniqueQuotationStatuses = useMemo(() => {
@@ -664,15 +758,74 @@ export default function LeadListPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [allLeads]);
 
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    try {
+      const saved = localStorage.getItem("lead_table_columns_visibility");
+      if (saved) {
+        return { ...DEFAULT_VISIBLE_COLUMNS, ...JSON.parse(saved) };
+      }
+    } catch (e) {
+      // ignore error
+    }
+    return DEFAULT_VISIBLE_COLUMNS;
+  });
+
+  const [showColumnManager, setShowColumnManager] = useState(false);
+
+  const toggleColumnVisibility = (colId) => {
+    setVisibleColumns((prev) => {
+      const next = { ...prev, [colId]: !prev[colId] };
+      try {
+        localStorage.setItem("lead_table_columns_visibility", JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const resetColumnVisibility = () => {
+    setVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
+    try {
+      localStorage.setItem("lead_table_columns_visibility", JSON.stringify(DEFAULT_VISIBLE_COLUMNS));
+    } catch (e) {}
+  };
+
+  const setAllColumnsVisibility = (visible) => {
+    const next = {};
+    Object.keys(DEFAULT_VISIBLE_COLUMNS).forEach((k) => {
+      next[k] = visible;
+    });
+    next.leadName = true; // Always keep leadName enabled
+    setVisibleColumns(next);
+    try {
+      localStorage.setItem("lead_table_columns_visibility", JSON.stringify(next));
+    } catch (e) {}
+  };
+
+  const totalTableWidth = useMemo(() => {
+    let width = 36 + 48 + 110; // Checkbox, Sr No, Actions
+    COLUMN_CONFIGS.forEach((col) => {
+      if (visibleColumns[col.id]) {
+        width += col.width;
+      }
+    });
+    return width;
+  }, [visibleColumns]);
+
   useEffect(() => {
     function handleClickOutside(e) {
       if (
-        !e.target.closest('.header-filter-popover') && 
+        !e.target.closest('.header-filter-popover') &&
         !e.target.closest('.header-filter-btn') &&
-        !e.target.closest('.source-filter-popover') && 
+        !e.target.closest('.source-filter-popover') &&
         !e.target.closest('.source-filter-btn')
       ) {
         setActiveHeaderDropdown(null);
+      }
+      if (
+        !e.target.closest('.column-manager-popover') &&
+        !e.target.closest('.column-manager-btn')
+      ) {
+        setShowColumnManager(false);
       }
     }
     document.addEventListener('click', handleClickOutside);
@@ -724,10 +877,32 @@ export default function LeadListPage() {
     try {
       const leads = await getAll();
       const normalizedLeads = (leads ?? []).map((l) => {
-        const isDisqualified = l.leadStatus === "Disqualified" || l.enquiryType === "Disqualified" || l.leadOutcomeStatus === "Disqualified";
+        const isDisqualified =
+          l.leadStatus === "Disqualified" ||
+          l.enquiryType === "Disqualified" ||
+          l.leadOutcomeStatus === "Disqualified";
         const status = isDisqualified ? "Disqualified" : "Qualified";
+        const originalStatus = l.leadStatus;
+        let outcomeStatus =
+          l.leadOutcomeStatus ||
+          (originalStatus &&
+            originalStatus !== "Qualified" &&
+            originalStatus !== "Disqualified"
+            ? originalStatus
+            : null);
+        if (outcomeStatus) {
+          const lower = String(outcomeStatus).trim().toLowerCase();
+          if (lower === "converted" || lower === "won") outcomeStatus = "Won";
+          else if (lower === "hold") outcomeStatus = "Hold";
+          else if (lower === "budgetory" || lower === "budgetary") outcomeStatus = "Budgetory";
+          else if (lower === "closed" || lower === "lost") outcomeStatus = "Closed";
+          else if (lower === "open" || lower === "new" || lower === "new lead") outcomeStatus = "Open";
+          else if (lower === "negotiation") outcomeStatus = "Negotiation";
+        }
         return {
           ...l,
+          rawLeadStatus: originalStatus,
+          leadOutcomeStatus: outcomeStatus,
           leadStatus: status,
           enquiryType: status,
         };
@@ -735,7 +910,7 @@ export default function LeadListPage() {
       setAllLeads(normalizedLeads);
       getAllScores()
         .then((s) => setScores(s ?? []))
-        .catch(() => {});
+        .catch(() => { });
       getAllNotes()
         .then((notes) => {
           const hasNotesSet = new Set(
@@ -762,9 +937,15 @@ export default function LeadListPage() {
       loadAll(false);
     };
     window.addEventListener("app-currency-changed", handleCurrencyChange);
-    return () =>
+    const handleDataUpdated = () => {
+      loadAll(false);
+    };
+    window.addEventListener("crm-data-updated", handleDataUpdated);
+    return () => {
       window.removeEventListener("app-currency-changed", handleCurrencyChange);
-  }, []);
+      window.removeEventListener("crm-data-updated", handleDataUpdated);
+    };
+  }, [loadAll]);
 
   // Add this useEffect to handle URL parameters
   useEffect(() => {
@@ -784,10 +965,32 @@ export default function LeadListPage() {
     }
   }, [searchParams]);
 
-  // Add this useEffect for keyboard shortcuts
+  // Keyboard shortcuts for table navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+      // 1. Never hijack keys if a modal, drawer, sidepopup, dialog, popover, or form exists on page
+      const isAnyModalOpen = Boolean(
+        document.querySelector(
+          "[role='dialog'], .modal, .drawer, [data-modal='true'], [data-sidepopup='true'], .header-filter-popover, .pac-container"
+        )
+      );
+      if (isAnyModalOpen) return;
+
+      // 2. Ignore if user is focused on ANY input, select, textarea, button, form, editable element, etc.
+      const isInteractive =
+        e.target.tagName === "INPUT" ||
+        e.target.tagName === "SELECT" ||
+        e.target.tagName === "TEXTAREA" ||
+        e.target.tagName === "BUTTON" ||
+        e.target.isContentEditable ||
+        Boolean(
+          e.target.closest(
+            "input, select, textarea, button, [contenteditable='true'], form, [role='dialog'], [role='combobox'], [role='listbox'], .modal, .drawer, .header-filter-popover, .pac-container"
+          )
+        );
+
+      if (isInteractive) return;
+
       const container = tableContainerRef.current;
       if (!container) return;
 
@@ -827,14 +1030,17 @@ export default function LeadListPage() {
       const sources = await sourceMaster.getAll();
       const groups = await groupMaster.getAll();
       const statuses = await statusMaster.getAll();
+      const quotations = await quotationMaster.getAll();
 
       setLeadSources(Array.isArray(sources) ? sources : (Array.isArray(sources?.data) ? sources.data : []));
       setLeadGroups(Array.isArray(groups) ? groups : (Array.isArray(groups?.data) ? groups.data : []));
       setLeadStatuses(Array.isArray(statuses) ? statuses : (Array.isArray(statuses?.data) ? statuses.data : []));
+      setQuotationStatuses(Array.isArray(quotations) ? quotations : (Array.isArray(quotations?.data) ? quotations.data : []));
     } catch (err) {
       console.error(err);
     }
   };
+
 
   const scoresMap = useMemo(() => {
     const m = {};
@@ -858,7 +1064,7 @@ export default function LeadListPage() {
   }, [allLeads]);
 
   const availableSourcesOptions = useMemo(() => {
-    const rawSet = new Set();
+    const rawSet = new Set(["IndiaMART", "TradeIndia"]);
     (leadSources || []).forEach((s) => {
       if (s?.sourceName && s.sourceName.trim()) rawSet.add(s.sourceName.trim());
     });
@@ -871,15 +1077,14 @@ export default function LeadListPage() {
     Array.from(rawSet).forEach((src) => {
       let normKey = src.toLowerCase().replace(/\s+integration$/i, "").trim();
 
-      if (normKey.includes("indiamart")) normKey = "indiamart";
-      if (normKey.includes("tradeindia")) normKey = "tradeindia";
+      if (normKey.includes("indiamart") || normKey.includes("india mart")) normKey = "indiamart";
+      if (normKey.includes("tradeindia") || normKey.includes("trade india")) normKey = "tradeindia";
 
       if (!normalizedMap.has(normKey)) {
         let displayName = src;
         if (normKey === "indiamart") displayName = "IndiaMART";
         else if (normKey === "tradeindia") displayName = "TradeIndia";
         else {
-          // Capitalize first letter neatly if lowercase
           displayName = src.charAt(0).toUpperCase() + src.slice(1);
         }
         normalizedMap.set(normKey, displayName);
@@ -993,9 +1198,18 @@ export default function LeadListPage() {
     // Exclude IndiaMART and TradeIndia leads UNLESS sendToMainLeads is true
     let list = (allLeads || []).filter((l) => {
       const src = (l?.leadSource || "").trim().toLowerCase();
-      const isMarketplace = src.includes("indiamart") || src.includes("tradeindia") || src.includes("india mart") || src.includes("trade india");
+      const isMarketplace =
+        src.includes("indiamart") ||
+        src.includes("tradeindia") ||
+        src.includes("india mart") ||
+        src.includes("trade india");
       if (isMarketplace) {
-        return Boolean(l?.sendToMainLeads);
+        return (
+          l?.sendToMainLeads === true ||
+          l?.sendToMainLeads === 1 ||
+          String(l?.sendToMainLeads).toLowerCase() === "true" ||
+          String(l?.sendToMainLeads) === "1"
+        );
       }
       return true;
     });
@@ -1013,6 +1227,36 @@ export default function LeadListPage() {
         }
         if (activeStatus === "Disqualified") {
           return isDisqualified;
+        }
+        if (activeStatus === "Open") {
+          const o = String(l.leadOutcomeStatus || "").toLowerCase();
+          const s = String(l.leadStatus || "").toLowerCase();
+          return o === "open" || o === "hold" || o === "budgetory" || o === "budgetary" || (!o && (s === "open" || s === "hold" || s === "budgetory" || s === "budgetary" || s === "new lead" || s === "new"));
+        }
+        if (activeStatus === "Negotiation") {
+          const o = String(l.leadOutcomeStatus || "").toLowerCase();
+          const s = String(l.leadStatus || "").toLowerCase();
+          const n = String(l.negotiationStatus || "").toLowerCase();
+          return o === "negotiation" || s === "negotiation" || n === "negotiation";
+        }
+        if (activeStatus === "Won") {
+          const o = String(l.leadOutcomeStatus || l.rawLeadStatus || "").toLowerCase();
+          const s = String(l.leadStatus || "").toLowerCase();
+          const n = String(l.negotiationStatus || "").toLowerCase();
+          const q = String(l.quotationStatus || "").toLowerCase();
+          return (
+            o === "won" ||
+            o === "converted" ||
+            o.includes("won") ||
+            s === "won" ||
+            n.includes("won") ||
+            q.includes("won")
+          );
+        }
+        if (activeStatus === "Closed") {
+          const o = String(l.leadOutcomeStatus || "").toLowerCase();
+          const s = String(l.leadStatus || "").toLowerCase();
+          return o === "closed" || o === "lost" || s === "closed" || s === "lost";
         }
         return (
           l.leadStatus === activeStatus ||
@@ -1047,18 +1291,18 @@ export default function LeadListPage() {
       });
     }
 
-    // 3. Source Filter (Fuzzy & Case-Insensitive)
+    // 3. Source Filter
     if (sourceFilter) {
       const sf = sourceFilter.trim().toLowerCase().replace(/\s+integration$/i, "");
       list = list.filter((l) => {
         if (!l.leadSource) return false;
-        const ls = l.leadSource.trim().toLowerCase();
+        const s = l.leadSource.trim().toLowerCase();
         return (
-          ls === sf ||
-          ls.includes(sf) ||
-          sf.includes(ls) ||
-          (sf.includes("indiamart") && ls.includes("indiamart")) ||
-          (sf.includes("tradeindia") && ls.includes("tradeindia"))
+          s === sf ||
+          s.includes(sf) ||
+          sf.includes(s) ||
+          ((sf.includes("indiamart") || sf.includes("india mart")) && (s.includes("indiamart") || s.includes("india mart"))) ||
+          ((sf.includes("tradeindia") || sf.includes("trade india")) && (s.includes("tradeindia") || s.includes("trade india")))
         );
       });
     }
@@ -1084,9 +1328,50 @@ export default function LeadListPage() {
     if (leadStatusFilter) {
       const lsf = leadStatusFilter.trim().toLowerCase();
       list = list.filter((l) => {
+        if (lsf === "none") {
+          return (
+            !l.leadOutcomeStatus &&
+            (!l.rawLeadStatus ||
+              l.rawLeadStatus === "Qualified" ||
+              l.rawLeadStatus === "Disqualified")
+          );
+        }
         const s1 = (l.leadStatus || "").trim().toLowerCase();
         const s2 = (l.leadOutcomeStatus || "").trim().toLowerCase();
-        return s1 === lsf || s2 === lsf || s1.includes(lsf) || s2.includes(lsf);
+        const s3 = (l.rawLeadStatus || "").trim().toLowerCase();
+        const s4 = (l.negotiationStatus || "").trim().toLowerCase();
+        const s5 = (l.quotationStatus || "").trim().toLowerCase();
+        return (
+          s1 === lsf ||
+          s2 === lsf ||
+          s3 === lsf ||
+          s4 === lsf ||
+          s5 === lsf ||
+          s2.includes(lsf) ||
+          (lsf === "won" &&
+            (s2 === "won" ||
+              s2 === "converted" ||
+              s2.includes("won") ||
+              s3 === "won" ||
+              s4.includes("won") ||
+              s5.includes("won"))) ||
+          (lsf === "closed" &&
+            (s2 === "closed" ||
+              s2 === "lost" ||
+              s2.includes("closed") ||
+              s3 === "closed" ||
+              s3 === "lost")) ||
+          (lsf === "open" &&
+            (s2 === "open" ||
+              s2 === "hold" ||
+              s2 === "budgetary" ||
+              s2 === "budgetory" ||
+              s3 === "open")) ||
+          (lsf === "negotiation" &&
+            (s2 === "negotiation" ||
+              s3 === "negotiation" ||
+              s4 === "negotiation"))
+        );
       });
     }
 
@@ -1136,7 +1421,7 @@ export default function LeadListPage() {
     if (leadRefFilter) {
       const lrf = leadRefFilter.trim().toLowerCase();
       list = list.filter((l) => {
-        const ref = (l.leadRef || "").trim().toLowerCase();
+        const ref = getTeamMemberDisplay(l).trim().toLowerCase();
         return ref === lrf || ref.includes(lrf) || lrf.includes(ref);
       });
     }
@@ -1159,10 +1444,10 @@ export default function LeadListPage() {
       });
     }
 
-    // 13. Date Range Filter (Checks Enquiry Date / Lead Date / Created Date)
+    // 13. Date Range Filter (Checks Enquiry Date / Lead Date / Quotation Date / Sent Date / Created Date)
     if (dateFrom) {
       list = list.filter((l) => {
-        const rawDate = l.inquiryDate || l.leadCreatedDate || l.quotationDate;
+        const rawDate = l.inquiryDate || l.leadCreatedDate || l.quotationDate || l.quotationSentDate;
         if (!rawDate) return false;
         const d = String(rawDate).split("T")[0];
         return d >= dateFrom;
@@ -1171,7 +1456,7 @@ export default function LeadListPage() {
 
     if (dateTo) {
       list = list.filter((l) => {
-        const rawDate = l.inquiryDate || l.leadCreatedDate || l.quotationDate;
+        const rawDate = l.inquiryDate || l.leadCreatedDate || l.quotationDate || l.quotationSentDate;
         if (!rawDate) return false;
         const d = String(rawDate).split("T")[0];
         return d <= dateTo;
@@ -1185,8 +1470,8 @@ export default function LeadListPage() {
         const vb = (b.leadOrganisationName || `${b.leadFirstName || ""} ${b.leadLastName || ""}`).toLowerCase();
         res = va.localeCompare(vb);
       } else if (sortKey === "leadRef") {
-        const va = (a.leadRef || "").toLowerCase();
-        const vb = (b.leadRef || "").toLowerCase();
+        const va = getTeamMemberDisplay(a).toLowerCase();
+        const vb = getTeamMemberDisplay(b).toLowerCase();
         res = va.localeCompare(vb);
       } else if (sortKey === "leadGroup") {
         const va = (a.leadGroup || "").toLowerCase();
@@ -1231,6 +1516,10 @@ export default function LeadListPage() {
         const va = (a.enquiryType || a.leadStatus || "").toLowerCase();
         const vb = (b.enquiryType || b.leadStatus || "").toLowerCase();
         res = va.localeCompare(vb);
+      } else if (sortKey === "leadSource") {
+        const va = (a.leadSource || "").toLowerCase();
+        const vb = (b.leadSource || "").toLowerCase();
+        res = va.localeCompare(vb);
       } else if (sortKey === "followUpRemark") {
         const va = (a.followUpRemark || "").toLowerCase();
         const vb = (b.followUpRemark || "").toLowerCase();
@@ -1272,7 +1561,7 @@ export default function LeadListPage() {
   ]);
 
   const summaryStats = useMemo(() => {
-    const targetList = selectedIds.size > 0 
+    const targetList = selectedIds.size > 0
       ? filteredLeads.filter(l => selectedIds.has(l.leadId))
       : filteredLeads;
 
@@ -1343,45 +1632,7 @@ export default function LeadListPage() {
     }
   }, [pagedLeads]); // Now pagedLeads is defined!
 
-  // ============================================
-  // KEYBOARD SHORTCUTS - Keep this here or move it too
-  // ============================================
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
-      const container = tableContainerRef.current;
-      if (!container) return;
 
-      switch (e.key) {
-        case "ArrowLeft":
-          e.preventDefault();
-          container.scrollBy({ left: -100, behavior: "smooth" });
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          container.scrollBy({ left: 100, behavior: "smooth" });
-          break;
-        case "Home":
-          if (e.ctrlKey) {
-            e.preventDefault();
-            container.scrollTo({ left: 0, behavior: "smooth" });
-          }
-          break;
-        case "End":
-          if (e.ctrlKey) {
-            e.preventDefault();
-            container.scrollTo({
-              left: container.scrollWidth,
-              behavior: "smooth",
-            });
-          }
-          break;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -1397,8 +1648,8 @@ export default function LeadListPage() {
     sortDir,
     pageSize,
     groupFilter,        // ← ADD THIS
-  leadStatusFilter,   // ← ADD THIS
-  quotationStatusFilter, // ← ADD THIS
+    leadStatusFilter,   // ← ADD THIS
+    quotationStatusFilter, // ← ADD THIS
   ]);
   const kanbanColumns = useMemo(
     () =>
@@ -2005,6 +2256,7 @@ export default function LeadListPage() {
   //     showToast("error", "Export failed");
   //   }
   // };
+
   const exportToExcel = async (leadsToExport, fileName = "Leads") => {
     try {
       const totalQuotationAmount = leadsToExport.reduce(
@@ -2012,52 +2264,99 @@ export default function LeadListPage() {
         0,
       );
 
-      // Prepare data rows (identical to original)
+      // Define headers exactly as per the UI Table
+      const headers = [
+        "Sr. No.",
+        "Lead ID",
+        "Lead Name",
+        "Contact Person",
+        "Contact Phone",
+        "Country",
+        "Team Member",
+        "Group",
+        "Lead Status",
+        "Quotation Status",
+        "Enquiry Description",
+        "Quotation Number",
+        "Quotation Amount",
+        "Enquiry Date",
+        "Quotation Working Date",
+        "Sent Quotation Date",
+        "Grade",
+        "Enquiry Type",
+        "Lead Source",
+        "Remarks",
+        "Created By",
+        "Updated By",
+      ];
+
+      // Prepare data rows matching table columns
       const data = leadsToExport.map((lead, index) => ({
         "Sr. No.": index + 1,
         "Lead ID": lead.leadId || "",
-        "Team Member": lead.leadRef || "",
-        "Company Name": lead.leadOrganisationName || "",
+        "Lead Name":
+          lead.leadOrganisationName ||
+          `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() ||
+          "",
+        "Contact Person":
+          lead.companyContactPersonName ||
+          `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() ||
+          "",
         "Contact Phone": lead.leadMobileNo || "",
         Country: lead.leadCountry || "",
-        "Contact Person": lead.companyContactPersonName || "",
-        "Enquiry Date": formatDate(lead.inquiryDate) || "",
-        "Lead Source": lead.leadSource || "",
-        "Lead Group": lead.leadGroup || "",
-        "Lead Status": lead.leadOutcomeStatus || "",
-        "Enquiry Status": lead.enquiryStatus || "",
-        "Enquiry Type": lead.enquiryType || "",
-        "Enquiry Description": lead.enquiryDescription || "",
+        "Team Member": getTeamMemberDisplay(lead),
+        Group: lead.leadGroup || "",
+        "Lead Status": lead.leadOutcomeStatus || lead.leadStatus || "",
+        "Quotation Status": lead.enquiryStatus || "",
+        "Enquiry Description": cleanEnquiryDescription(
+          lead.enquiryDescription,
+        ),
         "Quotation Number": lead.quotationNumber || "",
         "Quotation Amount": lead.quotationAmount
           ? formatCurrency(lead.quotationAmount, lead.leadCountry)
           : "",
-        "Lead Rating":
-          lead.quotationStatus === "Sent" || lead.leadOutcomeStatus === "Won"
-            ? ""
-            : lead.leadRating
-              ? "*".repeat(lead.leadRating)
-              : "",
+        "Enquiry Date":
+          formatDate(lead.inquiryDate || lead.leadCreatedDate) || "",
+        "Quotation Working Date": formatDate(lead.quotationDate) || "",
+        "Sent Quotation Date": formatDate(lead.quotationSentDate) || "",
+        Grade: lead.leadRating
+          ? `${lead.leadRating} Star${lead.leadRating > 1 ? "s" : ""}`
+          : "",
+        "Enquiry Type":
+          lead.leadStatus === "Disqualified" ||
+            lead.enquiryType === "Disqualified"
+            ? "Disqualified"
+            : "Qualified",
+        "Lead Source": lead.leadSource || "",
+        Remarks: lead.followUpRemark || lead.leadReason || "",
+        "Created By": lead.createdBy || "",
+        "Updated By": lead.updatedBy || lead.createdBy || "",
       }));
 
       // Add total row
       data.push({
+        "Sr. No.": "",
         "Lead ID": "",
-        Ref: "",
-        "Company Name": "TOTAL",
+        "Lead Name": "TOTAL",
+        "Contact Person": "",
         "Contact Phone": "",
         Country: "",
-        "Contact Person": "",
-        "Enquiry Date": "",
-        "Lead Source": "",
-        "Lead Group": "",
+        "Team Member": "",
+        Group: "",
         "Lead Status": "",
-        "Enquiry Status": "",
-        "Enquiry Type": "",
+        "Quotation Status": "",
         "Enquiry Description": "",
         "Quotation Number": "",
         "Quotation Amount": formatCurrency(totalQuotationAmount),
-        "Lead Rating": "",
+        "Enquiry Date": "",
+        "Quotation Working Date": "",
+        "Sent Quotation Date": "",
+        Grade: "",
+        "Enquiry Type": "",
+        "Lead Source": "",
+        Remarks: "",
+        "Created By": "",
+        "Updated By": "",
       });
 
       // Generate doughnut chart and polar chart as images
@@ -2187,7 +2486,7 @@ export default function LeadListPage() {
         polarCtx.fillText(
           `${label}: ${count} (${percentage}%)`,
           polarLegendX + 20,
-          polarLegendY + 12,
+          legendY + 12,
         );
         polarLegendY += 22;
 
@@ -2235,7 +2534,7 @@ export default function LeadListPage() {
       const chartWidth = barCanvas.width - margin.left - margin.right;
       const chartHeight = barCanvas.height - margin.top - margin.bottom;
       const barWidth = chartWidth / barCategories.length - 10;
-      const maxBarValue = Math.max(...barValues);
+      const maxBarValue = Math.max(...barValues, 1);
 
       // Draw title
       barCtx.fillStyle = "#000000";
@@ -2377,34 +2676,24 @@ export default function LeadListPage() {
         });
       });
 
+      // Helper function for Excel column letters
+      const getExcelColName = (n) => {
+        let s = "";
+        while (n > 0) {
+          const m = (n - 1) % 26;
+          s = String.fromCharCode(65 + m) + s;
+          n = Math.floor((n - m) / 26);
+        }
+        return s;
+      };
+
       // Create workbook with ExcelJS
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Leads");
 
-      // Define headers (exactly as original)
-      const headers = [
-        "Lead ID",
-        "Ref",
-        "Company Name",
-        "Contact Phone",
-        "Country",
-        "Contact Person",
-        "Enquiry Date",
-        "Lead Source",
-        "Lead Group",
-        "Lead Status",
-        "Enquiry Status",
-        "Enquiry Type",
-        "Enquiry Description",
-        "Quotation Number",
-        "Quotation Amount",
-        "Lead Rating",
-      ];
-
       // ============================================
       // ADD TITLE ROW (ROW 1)
       // ============================================
-      // Merge cells for title across all columns
       worksheet.mergeCells(1, 1, 1, headers.length);
       const titleCell = worksheet.getCell("A1");
       titleCell.value = "Enquiry Sheet 2026-27";
@@ -2526,7 +2815,7 @@ export default function LeadListPage() {
       // ============================================
       worksheet.autoFilter = {
         from: "A2",
-        to: `${String.fromCharCode(64 + headers.length)}${rowsData.length + 2}`,
+        to: `${getExcelColName(headers.length)}${rowsData.length + 2}`,
       };
 
       // ============================================
@@ -2906,13 +3195,13 @@ export default function LeadListPage() {
         prev.map((lead) =>
           lead.leadId === leadId
             ? {
-                ...lead,
-                leadStatus: newStatus,
+              ...lead,
+              leadStatus: newStatus,
 
-                leadOutcomeStatus: newStatus === "Qualified" ? "Open" : null,
+              leadOutcomeStatus: newStatus === "Qualified" ? "Open" : null,
 
-                enquiryStatus: newStatus === "Qualified" ? "Pending" : null,
-              }
+              enquiryStatus: newStatus === "Qualified" ? "Pending" : null,
+            }
             : lead,
         ),
       );
@@ -3110,11 +3399,10 @@ export default function LeadListPage() {
                   e.preventDefault();
                   setActiveStatus(s);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border shrink-0 ${
-                  activeStatus === s
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border shrink-0 ${activeStatus === s
                     ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-100"
                     : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                }`}
+                  }`}
               >
                 {s}
               </button>
@@ -3172,11 +3460,10 @@ export default function LeadListPage() {
 
         {/* Row 2: Secondary Filters (Search, Date, Source, Grade) */}
         <div
-          className={`flex flex-wrap items-center gap-3 border-t border-gray-100 transition-all duration-300 ease-in-out origin-top ${
-            filtersCollapsed
+          className={`flex flex-wrap items-center gap-3 border-t border-gray-100 transition-all duration-300 ease-in-out origin-top ${filtersCollapsed
               ? "max-h-0 pt-0 border-t-0 opacity-0 pointer-events-none mt-0 overflow-hidden"
               : "max-h-none pt-3 opacity-100 mt-3 overflow-visible z-30 relative"
-          }`}
+            }`}
         >
           {/* Search Input */}
           <div className="relative w-full sm:w-64">
@@ -3193,16 +3480,60 @@ export default function LeadListPage() {
             />
           </div>
 
+          {/* Date Range Picker */}
+          <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors shadow-2xs">
+            <Icon
+              name="mdi:calendar-range"
+              className="w-4 h-4 text-gray-400 flex-shrink-0"
+            />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="text-xs border-0 bg-transparent text-gray-700 focus:outline-none focus:ring-0 w-[110px] py-0 font-medium cursor-pointer"
+              placeholder="From Date"
+              title="From Date"
+            />
+            <span className="text-gray-300 text-xs font-medium">—</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="text-xs border-0 bg-transparent text-gray-700 focus:outline-none focus:ring-0 w-[110px] py-0 font-medium cursor-pointer"
+              placeholder="To Date"
+              title="To Date"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                  setCurrentPage(1);
+                }}
+                className="ml-0.5 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+                title="Clear date filter"
+              >
+                <Icon name="mdi:close-circle" className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
           {/* Searchable Source dropdown */}
           <div className="relative z-40">
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                className={`source-filter-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
-                  sourceFilter
+                className={`source-filter-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${sourceFilter
                     ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm font-bold'
                     : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
-                }`}
+                  }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setActiveHeaderDropdown(activeHeaderDropdown === 'source' ? null : 'source');
@@ -3248,9 +3579,8 @@ export default function LeadListPage() {
                 <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
                   <button
                     type="button"
-                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                      !sourceFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
-                    }`}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${!sourceFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
+                      }`}
                     onClick={() => {
                       setSourceFilter("");
                       setCurrentPage(1);
@@ -3268,9 +3598,8 @@ export default function LeadListPage() {
                       <button
                         key={srcName}
                         type="button"
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                          sourceFilter === srcName ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
-                        }`}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${sourceFilter === srcName ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'
+                          }`}
                         onClick={() => {
                           setSourceFilter(srcName);
                           setCurrentPage(1);
@@ -3292,11 +3621,10 @@ export default function LeadListPage() {
           <div className="flex items-center gap-0.5 bg-white border border-gray-200 rounded-md p-0.5 flex-wrap">
             <button
               onClick={() => setGradeFilter([])}
-              className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                gradeFilter.length === 0
+              className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${gradeFilter.length === 0
                   ? "bg-gray-800 text-white font-bold"
                   : "text-gray-500 hover:bg-gray-100"
-              }`}
+                }`}
             >
               All
             </button>
@@ -3305,11 +3633,10 @@ export default function LeadListPage() {
               <button
                 key={g}
                 onClick={() => toggleGradeFilter(g)}
-                className={`h-6 px-1.5 rounded text-[9px] font-medium flex items-center gap-1 transition-all ${
-                  gradeFilter.includes(g)
+                className={`h-6 px-1.5 rounded text-[9px] font-medium flex items-center gap-1 transition-all ${gradeFilter.includes(g)
                     ? "bg-amber-500 text-white font-bold shadow-2xs"
                     : "border border-gray-200 text-gray-600 hover:bg-amber-50"
-                }`}
+                  }`}
               >
                 ⭐{g}
                 <span className="text-[8px] font-semibold">{gradeCounts[g] || 0}</span>
@@ -3357,14 +3684,14 @@ export default function LeadListPage() {
               <p className="text-base font-semibold text-gray-700 mb-1">
                 No leads found
               </p>
-          <div>    <button
-    onClick={clearFilters}
-    className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
-  >
-    <Icon name="mdi:close-circle-outline" className="w-3.5 h-3.5" />
-    Clear filters
-  </button>
-</div>
+              <div>    <button
+                onClick={clearFilters}
+                className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
+              >
+                <Icon name="mdi:close-circle-outline" className="w-3.5 h-3.5" />
+                Clear filters
+              </button>
+              </div>
               <p className="text-sm text-gray-400 mb-5">
                 Try adjusting your filters or add a new lead.
               </p>
@@ -3388,26 +3715,97 @@ export default function LeadListPage() {
           ) : (
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
               {/* Scroll & Data Summary Header Bar */}
-              <div className="flex items-center justify-between px-4 py-2 bg-slate-50/90 border-b border-slate-200/80 gap-3 flex-wrap text-xs">
-                {/* Left: Scroll Navigation */}
+              <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50/90 border-b border-slate-200/80 gap-2 text-xs">
+                {/* Left: Columns Customizer + Scroll Controls */}
                 <div className="flex items-center gap-2">
+                  {/* Column Customizer Dropdown */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowColumnManager((prev) => !prev)}
+                      className={`column-manager-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${
+                        showColumnManager
+                          ? "bg-blue-50 border-blue-300 text-blue-700 shadow-2xs"
+                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                      }`}
+                      title="Customize Visible Columns"
+                    >
+                      <Icon name="mdi:view-column-outline" className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Columns</span>
+                      <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">
+                        {Object.values(visibleColumns).filter(Boolean).length}/{COLUMN_CONFIGS.length}
+                      </span>
+                      <Icon name="mdi:chevron-down" className="w-3 h-3 text-slate-400" />
+                    </button>
+
+                    {showColumnManager && (
+                      <div
+                        className="column-manager-popover absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] w-64 p-3 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                          <span className="text-xs font-bold text-slate-800">Customize Columns</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setAllColumnsVisibility(true)}
+                              className="text-[11px] text-blue-600 hover:underline font-semibold"
+                            >
+                              All
+                            </button>
+                            <span className="text-slate-300">|</span>
+                            <button
+                              type="button"
+                              onClick={resetColumnVisibility}
+                              className="text-[11px] text-slate-500 hover:underline font-medium"
+                            >
+                              Reset
+                            </button>
+                          </div>
+                        </div>
+                        <div className="max-h-64 overflow-y-auto space-y-1 custom-scrollbar pr-1 text-xs">
+                          {COLUMN_CONFIGS.map((col) => (
+                            <label
+                              key={col.id}
+                              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer select-none transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={!!visibleColumns[col.id]}
+                                disabled={col.id === "leadName"}
+                                onChange={() => toggleColumnVisibility(col.id)}
+                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                              />
+                              <span className={`flex-1 text-xs ${visibleColumns[col.id] ? "text-slate-800 font-medium" : "text-slate-400"}`}>
+                                {col.fullLabel || col.label}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="h-4 w-px bg-slate-200" />
+
+                  {/* Horizontal & Vertical Scroll Controls */}
                   {showScrollControls && (
-                    <>
+                    <div className="flex items-center gap-1">
                       <button
                         onClick={scrollToStart}
-                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                        className="p-1 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
                         title="Scroll to Start (Ctrl+Home)"
                       >
-                        <Icon name="mdi:chevron-double-left" className="w-4 h-4" />
+                        <Icon name="mdi:chevron-double-left" className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={scrollLeft}
-                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                        className="p-1 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
                         title="Scroll Left (←)"
                       >
-                        <Icon name="mdi:chevron-left" className="w-4 h-4" />
+                        <Icon name="mdi:chevron-left" className="w-3.5 h-3.5" />
                       </button>
-                      <div className="w-28 h-1.5 bg-gray-200 rounded-full overflow-hidden hidden sm:block">
+                      <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden hidden md:block mx-0.5">
                         <div
                           className="h-full bg-blue-500 transition-all duration-150"
                           style={{ width: `${scrollProgress}%` }}
@@ -3415,40 +3813,67 @@ export default function LeadListPage() {
                       </div>
                       <button
                         onClick={scrollRight}
-                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                        className="p-1 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
                         title="Scroll Right (→)"
                       >
-                        <Icon name="mdi:chevron-right" className="w-4 h-4" />
+                        <Icon name="mdi:chevron-right" className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={scrollToEnd}
-                        className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                        className="p-1 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
                         title="Scroll to End (Ctrl+End)"
                       >
-                        <Icon name="mdi:chevron-double-right" className="w-4 h-4" />
+                        <Icon name="mdi:chevron-double-right" className="w-3.5 h-3.5" />
                       </button>
-                    </>
+                    </div>
                   )}
-                  <span className="text-xs text-gray-400 font-medium hidden md:inline">
-                    ← → keys to scroll
-                  </span>
+
+                  <div className="h-4 w-px bg-slate-200" />
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        if (tableContainerRef.current) {
+                          tableContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+                        }
+                      }}
+                      className="p-1 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                      title="Scroll to Top"
+                    >
+                      <Icon name="mdi:arrow-up" className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (tableContainerRef.current) {
+                          tableContainerRef.current.scrollTo({
+                            top: tableContainerRef.current.scrollHeight,
+                            behavior: "smooth",
+                          });
+                        }
+                      }}
+                      className="p-1 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                      title="Scroll to Bottom"
+                    >
+                      <Icon name="mdi:arrow-down" className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Center / Summary Section: Live Data Summarisation */}
-                <div className="flex items-center gap-3 bg-white border border-slate-200/90 rounded-xl px-3 py-1.5 shadow-2xs">
-                  <div className="flex items-center gap-1.5">
+                {/* Right: Live Data Summarisation */}
+                <div className="flex items-center gap-2.5 bg-white border border-slate-200/90 rounded-lg px-2.5 py-1 shadow-2xs">
+                  <div className="flex items-center gap-1">
                     <span className="text-[11px] font-semibold text-slate-500">
                       {summaryStats.isSelectionActive ? "Selected:" : "Filtered:"}
                     </span>
-                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="inline-flex items-center justify-center px-1.5 py-0.2 rounded-full text-[11px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
                       {summaryStats.totalLeads} {summaryStats.totalLeads === 1 ? "Lead" : "Leads"}
                     </span>
                   </div>
 
                   <div className="h-3.5 w-px bg-slate-200" />
 
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-semibold text-slate-500">Total Value:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] font-semibold text-slate-500">Total:</span>
                     <span className="text-xs font-black text-emerald-600">
                       {formatCurrency(summaryStats.totalAmount)}
                     </span>
@@ -3456,41 +3881,12 @@ export default function LeadListPage() {
 
                   <div className="h-3.5 w-px bg-slate-200" />
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1">
                     <span className="text-[11px] font-semibold text-slate-500">Qualified:</span>
                     <span className="text-xs font-extrabold text-purple-700">
                       {summaryStats.qualifiedCount}
                     </span>
                   </div>
-                </div>
-
-                {/* Right: Vertical Scroll Controls */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      if (tableContainerRef.current) {
-                        tableContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
-                      }
-                    }}
-                    className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
-                    title="Scroll to Top"
-                  >
-                    <Icon name="mdi:arrow-up" className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (tableContainerRef.current) {
-                        tableContainerRef.current.scrollTo({
-                          top: tableContainerRef.current.scrollHeight,
-                          behavior: "smooth",
-                        });
-                      }
-                    }}
-                    className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
-                    title="Scroll to Bottom"
-                  >
-                    <Icon name="mdi:arrow-down" className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
               <div
@@ -3506,14 +3902,14 @@ export default function LeadListPage() {
                 <table
                   className="table-fixed text-sm"
                   style={{
-                    minWidth: "2200px",
+                    minWidth: `${totalTableWidth}px`,
                     width: "max-content",
                   }}
                 >
                   <thead className="sticky top-0 z-30 bg-slate-50 border-b border-slate-200/80 shadow-xs">
-                    <tr className="bg-slate-50/90 backdrop-blur-sm text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                    <tr className="bg-slate-50/90 backdrop-blur-sm text-[10.5px] font-bold text-slate-600 uppercase tracking-wider">
                       {/* SELECT ALL CHECKBOX */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-10 pl-4 py-3 text-left">
+                      <th className="sticky top-0 bg-slate-50 z-30 w-9 pl-3 pr-1 py-2 text-left">
                         <input
                           type="checkbox"
                           checked={allPageSelected}
@@ -3523,877 +3919,980 @@ export default function LeadListPage() {
                       </th>
 
                       {/* SR. NO. */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-14 py-3 px-2 text-center text-slate-500 font-bold">
+                      <th className="sticky top-0 bg-slate-50 z-30 w-11 py-2 px-1 text-center text-slate-500 font-bold">
                         SR. NO.
                       </th>
 
                       {/* 1. LEAD NAME (Filter + Sort) */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[200px] whitespace-nowrap py-3 px-3 text-left relative">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "leadFirstName" ? "text-blue-600 font-extrabold" : ""}`}
-                            onClick={() => toggleSort("leadFirstName")}
-                          >
-                            <span>LEAD NAME</span>
-                            <Icon
-                              name={sortIcon("leadFirstName")}
-                              className={`w-3.5 h-3.5 ${sortKey === "leadFirstName" ? "text-blue-600" : "text-slate-400"}`}
-                            />
-                          </button>
-
-                          <button
-                            type="button"
-                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
-                              leadNameFilter 
-                                ? 'bg-blue-100 text-blue-700 font-bold' 
-                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
-                            }`}
-                            onClick={(e) => handleToggleHeaderDropdown(e, 'leadName')}
-                            title="Filter Lead Name"
-                          >
-                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
-                          </button>
-
-                          {leadNameFilter && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setLeadNameFilter(""); setCurrentPage(1); }}
-                                className="hover:text-blue-900"
-                              >
-                                <Icon name="mdi:close" className="w-3 h-3" />
-                              </button>
-                            </span>
-                          )}
-                        </div>
-
-                        {activeHeaderDropdown === 'leadName' && createPortal(
-                          <div 
-                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-64 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
-                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="relative mb-2">
-                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                              <input
-                                type="text"
-                                placeholder="Search Lead Name..."
-                                value={leadNameSearch}
-                                onChange={(e) => setLeadNameSearch(e.target.value)}
-                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
-                                autoFocus
+                      {visibleColumns.leadName && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[170px] whitespace-nowrap py-2 px-2 text-left relative">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "leadFirstName" ? "text-blue-600 font-extrabold" : ""}`}
+                              onClick={() => toggleSort("leadFirstName")}
+                            >
+                              <span>LEAD NAME</span>
+                              <Icon
+                                name={sortIcon("leadFirstName")}
+                                className={`w-3.5 h-3.5 ${sortKey === "leadFirstName" ? "text-blue-600" : "text-slate-400"}`}
                               />
-                            </div>
+                            </button>
 
-                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
-                              <button
-                                type="button"
-                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                  !leadNameFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            <button
+                              type="button"
+                              className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${leadNameFilter
+                                  ? 'bg-blue-100 text-blue-700 font-bold'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                                 }`}
-                                onClick={() => { setLeadNameFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadNameSearch(""); }}
-                              >
-                                <span>All Lead Names</span>
-                                {!leadNameFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
-                              </button>
+                              onClick={(e) => handleToggleHeaderDropdown(e, 'leadName')}
+                              title="Filter Lead Name"
+                            >
+                              <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                            </button>
 
-                              {uniqueLeadNames
-                                .filter(name => name.toLowerCase().includes(leadNameSearch.toLowerCase()))
-                                .map((name) => (
-                                  <button
-                                    key={name}
-                                    type="button"
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                      leadNameFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            {leadNameFilter && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setLeadNameFilter(""); setCurrentPage(1); }}
+                                  className="hover:text-blue-900"
+                                >
+                                  <Icon name="mdi:close" className="w-3 h-3" />
+                                </button>
+                              </span>
+                            )}
+                          </div>
+
+                          {activeHeaderDropdown === 'leadName' && createPortal(
+                            <div
+                              className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-64 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                              style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="relative mb-2">
+                                <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search Lead Name..."
+                                  value={leadNameSearch}
+                                  onChange={(e) => setLeadNameSearch(e.target.value)}
+                                  className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                  autoFocus
+                                />
+                              </div>
+
+                              <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                                <button
+                                  type="button"
+                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${!leadNameFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
                                     }`}
-                                    onClick={() => {
-                                      setLeadNameFilter(name);
-                                      setCurrentPage(1);
-                                      setActiveHeaderDropdown(null);
-                                      setLeadNameSearch("");
-                                    }}
-                                  >
-                                    <span className="truncate">{name}</span>
-                                    {leadNameFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
-                                  </button>
-                                ))}
-                            </div>
-                          </div>,
-                          document.body
-                        )}
-                      </th>
+                                  onClick={() => { setLeadNameFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadNameSearch(""); }}
+                                >
+                                  <span>All Lead Names</span>
+                                  {!leadNameFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                                </button>
+
+                                {uniqueLeadNames
+                                  .filter(name => name.toLowerCase().includes(leadNameSearch.toLowerCase()))
+                                  .map((name) => (
+                                    <button
+                                      key={name}
+                                      type="button"
+                                      className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${leadNameFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                      onClick={() => {
+                                        setLeadNameFilter(name);
+                                        setCurrentPage(1);
+                                        setActiveHeaderDropdown(null);
+                                        setLeadNameSearch("");
+                                      }}
+                                    >
+                                      <span className="truncate">{name}</span>
+                                      {leadNameFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </th>
+                      )}
 
                       {/* 2. TEAM MEMBER (Filter + Sort) */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[150px] whitespace-nowrap py-3 px-3 text-left relative">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "leadRef" ? "text-blue-600 font-extrabold" : ""}`}
-                            onClick={() => toggleSort("leadRef")}
-                          >
-                            <span>TEAM MEMBER</span>
-                            <Icon
-                              name={sortIcon("leadRef")}
-                              className={`w-3.5 h-3.5 ${sortKey === "leadRef" ? "text-blue-600" : "text-slate-400"}`}
-                            />
-                          </button>
-
-                          <button
-                            type="button"
-                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
-                              leadRefFilter 
-                                ? 'bg-blue-100 text-blue-700 font-bold' 
-                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
-                            }`}
-                            onClick={(e) => handleToggleHeaderDropdown(e, 'leadRef')}
-                            title="Filter Team Member"
-                          >
-                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
-                          </button>
-
-                          {leadRefFilter && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setLeadRefFilter(""); setCurrentPage(1); }}
-                                className="hover:text-blue-900"
-                              >
-                                <Icon name="mdi:close" className="w-3 h-3" />
-                              </button>
-                            </span>
-                          )}
-                        </div>
-
-                        {activeHeaderDropdown === 'leadRef' && createPortal(
-                          <div 
-                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
-                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="relative mb-2">
-                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                              <input
-                                type="text"
-                                placeholder="Search Team Member..."
-                                value={leadRefSearch}
-                                onChange={(e) => setLeadRefSearch(e.target.value)}
-                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
-                                autoFocus
+                      {visibleColumns.teamMember && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[130px] whitespace-nowrap py-2 px-2 text-left relative">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "leadRef" ? "text-blue-600 font-extrabold" : ""}`}
+                              onClick={() => toggleSort("leadRef")}
+                            >
+                              <span>TEAM MEMBER</span>
+                              <Icon
+                                name={sortIcon("leadRef")}
+                                className={`w-3.5 h-3.5 ${sortKey === "leadRef" ? "text-blue-600" : "text-slate-400"}`}
                               />
-                            </div>
+                            </button>
 
-                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
-                              <button
-                                type="button"
-                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                  !leadRefFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            <button
+                              type="button"
+                              className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${leadRefFilter
+                                  ? 'bg-blue-100 text-blue-700 font-bold'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                                 }`}
-                                onClick={() => { setLeadRefFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadRefSearch(""); }}
-                              >
-                                <span>All Team Members</span>
-                                {!leadRefFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
-                              </button>
+                              onClick={(e) => handleToggleHeaderDropdown(e, 'leadRef')}
+                              title="Filter Team Member"
+                            >
+                              <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                            </button>
 
-                              {uniqueLeadRefs
-                                .filter(ref => ref.toLowerCase().includes(leadRefSearch.toLowerCase()))
-                                .map((ref) => (
-                                  <button
-                                    key={ref}
-                                    type="button"
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                      leadRefFilter === ref ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            {leadRefFilter && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setLeadRefFilter(""); setCurrentPage(1); }}
+                                  className="hover:text-blue-900"
+                                >
+                                  <Icon name="mdi:close" className="w-3 h-3" />
+                                </button>
+                              </span>
+                            )}
+                          </div>
+
+                          {activeHeaderDropdown === 'leadRef' && createPortal(
+                            <div
+                              className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                              style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="relative mb-2">
+                                <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search Team Member..."
+                                  value={leadRefSearch}
+                                  onChange={(e) => setLeadRefSearch(e.target.value)}
+                                  className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                  autoFocus
+                                />
+                              </div>
+
+                              <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                                <button
+                                  type="button"
+                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${!leadRefFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
                                     }`}
-                                    onClick={() => {
-                                      setLeadRefFilter(ref);
-                                      setCurrentPage(1);
-                                      setActiveHeaderDropdown(null);
-                                      setLeadRefSearch("");
-                                    }}
-                                  >
-                                    <span className="truncate">{ref}</span>
-                                    {leadRefFilter === ref && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
-                                  </button>
-                                ))}
-                            </div>
-                          </div>,
-                          document.body
-                        )}
-                      </th>
+                                  onClick={() => { setLeadRefFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadRefSearch(""); }}
+                                >
+                                  <span>All Team Members</span>
+                                  {!leadRefFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                                </button>
+
+                                {uniqueLeadRefs
+                                  .filter(ref => ref.toLowerCase().includes(leadRefSearch.toLowerCase()))
+                                  .map((ref) => (
+                                    <button
+                                      key={ref}
+                                      type="button"
+                                      className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${leadRefFilter === ref ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                      onClick={() => {
+                                        setLeadRefFilter(ref);
+                                        setCurrentPage(1);
+                                        setActiveHeaderDropdown(null);
+                                        setLeadRefSearch("");
+                                      }}
+                                    >
+                                      <span className="truncate">{ref}</span>
+                                      {leadRefFilter === ref && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </th>
+                      )}
 
                       {/* 3. GROUP (Filter + Sort) */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[190px] whitespace-nowrap py-3 px-3 text-left relative">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "leadGroup" ? "text-blue-600 font-extrabold" : ""}`}
-                            onClick={() => toggleSort("leadGroup")}
-                          >
-                            <span>GROUP</span>
-                            <Icon
-                              name={sortIcon("leadGroup")}
-                              className={`w-3.5 h-3.5 ${sortKey === "leadGroup" ? "text-blue-600" : "text-slate-400"}`}
-                            />
-                          </button>
-
-                          <button
-                            type="button"
-                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
-                              groupFilter 
-                                ? 'bg-blue-100 text-blue-700 font-bold' 
-                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
-                            }`}
-                            onClick={(e) => handleToggleHeaderDropdown(e, 'group')}
-                            title="Filter Group"
-                          >
-                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
-                          </button>
-
-                          {groupFilter && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setGroupFilter(""); setCurrentPage(1); }}
-                                className="hover:text-blue-900"
-                              >
-                                <Icon name="mdi:close" className="w-3 h-3" />
-                              </button>
-                            </span>
-                          )}
-                        </div>
-
-                        {activeHeaderDropdown === 'group' && createPortal(
-                          <div 
-                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
-                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="relative mb-2">
-                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                              <input
-                                type="text"
-                                placeholder="Search groups..."
-                                value={groupSearch}
-                                onChange={(e) => setGroupSearch(e.target.value)}
-                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
-                                autoFocus
+                      {visibleColumns.group && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[130px] whitespace-nowrap py-2 px-2 text-left relative">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "leadGroup" ? "text-blue-600 font-extrabold" : ""}`}
+                              onClick={() => toggleSort("leadGroup")}
+                            >
+                              <span>GROUP</span>
+                              <Icon
+                                name={sortIcon("leadGroup")}
+                                className={`w-3.5 h-3.5 ${sortKey === "leadGroup" ? "text-blue-600" : "text-slate-400"}`}
                               />
-                            </div>
+                            </button>
 
-                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
-                              <button
-                                type="button"
-                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                  !groupFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            <button
+                              type="button"
+                              className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${groupFilter
+                                  ? 'bg-blue-100 text-blue-700 font-bold'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                                 }`}
-                                onClick={() => { setGroupFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setGroupSearch(""); }}
-                              >
-                                <span>All Groups</span>
-                                {!groupFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
-                              </button>
+                              onClick={(e) => handleToggleHeaderDropdown(e, 'group')}
+                              title="Filter Group"
+                            >
+                              <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                            </button>
 
-                              {uniqueGroupNames
-                                .filter(g => String(g).toLowerCase().includes(groupSearch.toLowerCase()))
-                                .map((group) => (
-                                  <button
-                                    key={group}
-                                    type="button"
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                      groupFilter === group ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            {groupFilter && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setGroupFilter(""); setCurrentPage(1); }}
+                                  className="hover:text-blue-900"
+                                >
+                                  <Icon name="mdi:close" className="w-3 h-3" />
+                                </button>
+                              </span>
+                            )}
+                          </div>
+
+                          {activeHeaderDropdown === 'group' && createPortal(
+                            <div
+                              className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                              style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="relative mb-2">
+                                <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search groups..."
+                                  value={groupSearch}
+                                  onChange={(e) => setGroupSearch(e.target.value)}
+                                  className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                  autoFocus
+                                />
+                              </div>
+
+                              <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                                <button
+                                  type="button"
+                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${!groupFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
                                     }`}
-                                    onClick={() => {
-                                      setGroupFilter(group);
-                                      setCurrentPage(1);
-                                      setActiveHeaderDropdown(null);
-                                      setGroupSearch("");
-                                    }}
-                                  >
-                                    <span className="truncate">{group}</span>
-                                    {groupFilter === group && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
-                                  </button>
-                                ))}
-                            </div>
-                          </div>,
-                          document.body
-                        )}
-                      </th>
+                                  onClick={() => { setGroupFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setGroupSearch(""); }}
+                                >
+                                  <span>All Groups</span>
+                                  {!groupFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                                </button>
+
+                                {uniqueGroupNames
+                                  .filter(g => String(g).toLowerCase().includes(groupSearch.toLowerCase()))
+                                  .map((group) => (
+                                    <button
+                                      key={group}
+                                      type="button"
+                                      className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${groupFilter === group ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                      onClick={() => {
+                                        setGroupFilter(group);
+                                        setCurrentPage(1);
+                                        setActiveHeaderDropdown(null);
+                                        setGroupSearch("");
+                                      }}
+                                    >
+                                      <span className="truncate">{group}</span>
+                                      {groupFilter === group && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </th>
+                      )}
 
                       {/* 4. LEAD STATUS (Filter + Sort) */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[190px] whitespace-nowrap py-3 px-3 text-left relative">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "leadOutcomeStatus" ? "text-blue-600 font-extrabold" : ""}`}
-                            onClick={() => toggleSort("leadOutcomeStatus")}
-                          >
-                            <span>LEAD STATUS</span>
-                            <Icon
-                              name={sortIcon("leadOutcomeStatus")}
-                              className={`w-3.5 h-3.5 ${sortKey === "leadOutcomeStatus" ? "text-blue-600" : "text-slate-400"}`}
-                            />
-                          </button>
-
-                          <button
-                            type="button"
-                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
-                              leadStatusFilter 
-                                ? 'bg-blue-100 text-blue-700 font-bold' 
-                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
-                            }`}
-                            onClick={(e) => handleToggleHeaderDropdown(e, 'leadStatus')}
-                            title="Filter Status"
-                          >
-                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
-                          </button>
-
-                          {leadStatusFilter && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setLeadStatusFilter(""); setCurrentPage(1); }}
-                                className="hover:text-blue-900"
-                              >
-                                <Icon name="mdi:close" className="w-3 h-3" />
-                              </button>
-                            </span>
-                          )}
-                        </div>
-
-                        {activeHeaderDropdown === 'leadStatus' && createPortal(
-                          <div 
-                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
-                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="relative mb-2">
-                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                              <input
-                                type="text"
-                                placeholder="Search lead status..."
-                                value={leadStatusSearch}
-                                onChange={(e) => setLeadStatusSearch(e.target.value)}
-                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
-                                autoFocus
+                      {visibleColumns.leadStatus && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[115px] whitespace-nowrap py-2 px-2 text-left relative">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "leadOutcomeStatus" ? "text-blue-600 font-extrabold" : ""}`}
+                              onClick={() => toggleSort("leadOutcomeStatus")}
+                            >
+                              <span>LEAD STATUS</span>
+                              <Icon
+                                name={sortIcon("leadOutcomeStatus")}
+                                className={`w-3.5 h-3.5 ${sortKey === "leadOutcomeStatus" ? "text-blue-600" : "text-slate-400"}`}
                               />
-                            </div>
+                            </button>
 
-                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
-                              <button
-                                type="button"
-                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                  !leadStatusFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            <button
+                              type="button"
+                              className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${leadStatusFilter
+                                  ? 'bg-blue-100 text-blue-700 font-bold'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                                 }`}
-                                onClick={() => { setLeadStatusFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadStatusSearch(""); }}
-                              >
-                                <span>All Statuses</span>
-                                {!leadStatusFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
-                              </button>
+                              onClick={(e) => handleToggleHeaderDropdown(e, 'leadStatus')}
+                              title="Filter Status"
+                            >
+                              <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                            </button>
 
-                              {uniqueLeadStatuses
-                                .filter(name => String(name).toLowerCase().includes(leadStatusSearch.toLowerCase()))
-                                .map((name) => (
-                                  <button
-                                    key={name}
-                                    type="button"
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                      leadStatusFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            {leadStatusFilter && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setLeadStatusFilter(""); setCurrentPage(1); }}
+                                  className="hover:text-blue-900"
+                                >
+                                  <Icon name="mdi:close" className="w-3 h-3" />
+                                </button>
+                              </span>
+                            )}
+                          </div>
+
+                          {activeHeaderDropdown === 'leadStatus' && createPortal(
+                            <div
+                              className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                              style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="relative mb-2">
+                                <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search lead status..."
+                                  value={leadStatusSearch}
+                                  onChange={(e) => setLeadStatusSearch(e.target.value)}
+                                  className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                  autoFocus
+                                />
+                              </div>
+
+                              <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                                <button
+                                  type="button"
+                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${!leadStatusFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
                                     }`}
-                                    onClick={() => {
-                                      setLeadStatusFilter(name);
-                                      setCurrentPage(1);
-                                      setActiveHeaderDropdown(null);
-                                      setLeadStatusSearch("");
-                                    }}
-                                  >
-                                    <span className="truncate">{name}</span>
-                                    {leadStatusFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
-                                  </button>
-                                ))}
-                            </div>
-                          </div>,
-                          document.body
-                        )}
-                      </th>
+                                  onClick={() => { setLeadStatusFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setLeadStatusSearch(""); }}
+                                >
+                                  <span>All Statuses</span>
+                                  {!leadStatusFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                                </button>
+
+                                {uniqueLeadStatuses
+                                  .filter(name => String(name).toLowerCase().includes(leadStatusSearch.toLowerCase()))
+                                  .map((name) => (
+                                    <button
+                                      key={name}
+                                      type="button"
+                                      className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${leadStatusFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                      onClick={() => {
+                                        setLeadStatusFilter(name);
+                                        setCurrentPage(1);
+                                        setActiveHeaderDropdown(null);
+                                        setLeadStatusSearch("");
+                                      }}
+                                    >
+                                      <span className="truncate">{name}</span>
+                                      {leadStatusFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </th>
+                      )}
 
                       {/* 5. QUOTATION STATUS (Filter + Sort) */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[190px] whitespace-nowrap py-3 px-3 text-left relative">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "enquiryStatus" ? "text-blue-600 font-extrabold" : ""}`}
-                            onClick={() => toggleSort("enquiryStatus")}
-                          >
-                            <span>QUOTATION STATUS</span>
-                            <Icon
-                              name={sortIcon("enquiryStatus")}
-                              className={`w-3.5 h-3.5 ${sortKey === "enquiryStatus" ? "text-blue-600" : "text-slate-400"}`}
-                            />
-                          </button>
-
-                          <button
-                            type="button"
-                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
-                              quotationStatusFilter 
-                                ? 'bg-blue-100 text-blue-700 font-bold' 
-                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
-                            }`}
-                            onClick={(e) => handleToggleHeaderDropdown(e, 'quotation')}
-                            title="Filter Quotation Status"
-                          >
-                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
-                          </button>
-
-                          {quotationStatusFilter && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setQuotationStatusFilter(""); setCurrentPage(1); }}
-                                className="hover:text-blue-900"
-                              >
-                                <Icon name="mdi:close" className="w-3 h-3" />
-                              </button>
-                            </span>
-                          )}
-                        </div>
-
-                        {activeHeaderDropdown === 'quotation' && createPortal(
-                          <div 
-                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
-                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="relative mb-2">
-                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                              <input
-                                type="text"
-                                placeholder="Search quotation status..."
-                                value={quotationSearch}
-                                onChange={(e) => setQuotationSearch(e.target.value)}
-                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
-                                autoFocus
+                      {visibleColumns.quotationStatus && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[115px] whitespace-nowrap py-2 px-2 text-left relative">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "enquiryStatus" ? "text-blue-600 font-extrabold" : ""}`}
+                              onClick={() => toggleSort("enquiryStatus")}
+                            >
+                              <span>QUOTATION STATUS</span>
+                              <Icon
+                                name={sortIcon("enquiryStatus")}
+                                className={`w-3.5 h-3.5 ${sortKey === "enquiryStatus" ? "text-blue-600" : "text-slate-400"}`}
                               />
-                            </div>
+                            </button>
 
-                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
-                              <button
-                                type="button"
-                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                  !quotationStatusFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            <button
+                              type="button"
+                              className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${quotationStatusFilter
+                                  ? 'bg-blue-100 text-blue-700 font-bold'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                                 }`}
-                                onClick={() => { setQuotationStatusFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setQuotationSearch(""); }}
-                              >
-                                <span>All Quotation Statuses</span>
-                                {!quotationStatusFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
-                              </button>
+                              onClick={(e) => handleToggleHeaderDropdown(e, 'quotation')}
+                              title="Filter Quotation Status"
+                            >
+                              <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                            </button>
 
-                              {uniqueQuotationStatuses
-                                .filter(name => String(name).toLowerCase().includes(quotationSearch.toLowerCase()))
-                                .map((name) => (
-                                  <button
-                                    key={name}
-                                    type="button"
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                      quotationStatusFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            {quotationStatusFilter && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setQuotationStatusFilter(""); setCurrentPage(1); }}
+                                  className="hover:text-blue-900"
+                                >
+                                  <Icon name="mdi:close" className="w-3 h-3" />
+                                </button>
+                              </span>
+                            )}
+                          </div>
+
+                          {activeHeaderDropdown === 'quotation' && createPortal(
+                            <div
+                              className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-60 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                              style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="relative mb-2">
+                                <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search quotation status..."
+                                  value={quotationSearch}
+                                  onChange={(e) => setQuotationSearch(e.target.value)}
+                                  className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                  autoFocus
+                                />
+                              </div>
+
+                              <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                                <button
+                                  type="button"
+                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${!quotationStatusFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
                                     }`}
-                                    onClick={() => {
-                                      setQuotationStatusFilter(name);
-                                      setCurrentPage(1);
-                                      setActiveHeaderDropdown(null);
-                                      setQuotationSearch("");
-                                    }}
-                                  >
-                                    <span className="truncate">{name}</span>
-                                    {quotationStatusFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
-                                  </button>
-                                ))}
-                            </div>
-                          </div>,
-                          document.body
-                        )}
-                      </th>
+                                  onClick={() => { setQuotationStatusFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setQuotationSearch(""); }}
+                                >
+                                  <span>All Quotation Statuses</span>
+                                  {!quotationStatusFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                                </button>
+
+                                {uniqueQuotationStatuses
+                                  .filter(name => String(name).toLowerCase().includes(quotationSearch.toLowerCase()))
+                                  .map((name) => (
+                                    <button
+                                      key={name}
+                                      type="button"
+                                      className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${quotationStatusFilter === name ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                      onClick={() => {
+                                        setQuotationStatusFilter(name);
+                                        setCurrentPage(1);
+                                        setActiveHeaderDropdown(null);
+                                        setQuotationSearch("");
+                                      }}
+                                    >
+                                      <span className="truncate">{name}</span>
+                                      {quotationStatusFilter === name && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </th>
+                      )}
 
                       {/* 6. ENQUIRY DESCRIPTION */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[240px] whitespace-nowrap py-3 px-3 text-left">
-                        <span>ENQUIRY DESCRIPTION</span>
-                      </th>
+                      {visibleColumns.enquiryDesc && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[180px] whitespace-nowrap py-2 px-2 text-left">
+                          <span>ENQUIRY DESCRIPTION</span>
+                        </th>
+                      )}
 
                       {/* 7. QUOTATION NO. */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[180px] whitespace-nowrap py-3 px-3 text-left">
-                        <button
-                          type="button"
-                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "quotationNumber" ? "text-blue-600 font-extrabold" : ""}`}
-                          onClick={() => toggleSort("quotationNumber")}
-                        >
-                          <span>QUOTATION NO.</span>
-                          <Icon
-                            name={sortIcon("quotationNumber")}
-                            className={`w-3.5 h-3.5 ${sortKey === "quotationNumber" ? "text-blue-600" : "text-slate-400"}`}
-                          />
-                        </button>
-                      </th>
+                      {visibleColumns.quotationNo && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[125px] whitespace-nowrap py-2 px-2 text-left">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "quotationNumber" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("quotationNumber")}
+                          >
+                            <span>QUOTATION NO.</span>
+                            <Icon
+                              name={sortIcon("quotationNumber")}
+                              className={`w-3.5 h-3.5 ${sortKey === "quotationNumber" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+                        </th>
+                      )}
 
-                      {/* 11. AMOUNT */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[120px] whitespace-nowrap py-3 px-3 text-right">
-                        <button
-                          type="button"
-                          className={`inline-flex items-center justify-end gap-1.5 hover:text-blue-600 transition-colors ml-auto ${sortKey === "quotationAmount" ? "text-blue-600 font-extrabold" : ""}`}
-                          onClick={() => toggleSort("quotationAmount")}
-                        >
-                          <span>AMOUNT</span>
-                          <Icon
-                            name={sortIcon("quotationAmount")}
-                            className={`w-3.5 h-3.5 ${sortKey === "quotationAmount" ? "text-blue-600" : "text-slate-400"}`}
-                          />
-                        </button>
-                      </th>
+                      {/* 8. AMOUNT */}
+                      {visibleColumns.amount && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[105px] whitespace-nowrap py-2 px-2 text-right">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center justify-end gap-1 hover:text-blue-600 transition-colors ml-auto ${sortKey === "quotationAmount" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("quotationAmount")}
+                          >
+                            <span>AMOUNT</span>
+                            <Icon
+                              name={sortIcon("quotationAmount")}
+                              className={`w-3.5 h-3.5 ${sortKey === "quotationAmount" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+                        </th>
+                      )}
 
+                      {/* 9. ENQUIRY DATE */}
+                      {visibleColumns.enquiryDate && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[95px] whitespace-nowrap py-2 px-2 text-left">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "inquiryDate" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("inquiryDate")}
+                          >
+                            <span>ENQUIRY DATE</span>
+                            <Icon
+                              name={sortIcon("inquiryDate")}
+                              className={`w-3.5 h-3.5 ${sortKey === "inquiryDate" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+                        </th>
+                      )}
 
-                      {/* 8. ENQUIRY DATE */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[140px] whitespace-nowrap py-3 px-3 text-left">
-                        <button
-                          type="button"
-                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "inquiryDate" ? "text-blue-600 font-extrabold" : ""}`}
-                          onClick={() => toggleSort("inquiryDate")}
-                        >
-                          <span>ENQUIRY DATE</span>
-                          <Icon
-                            name={sortIcon("inquiryDate")}
-                            className={`w-3.5 h-3.5 ${sortKey === "inquiryDate" ? "text-blue-600" : "text-slate-400"}`}
-                          />
-                        </button>
-                      </th>
+                      {/* 10. QUOTATION WORKING DATE */}
+                      {visibleColumns.quotationDate && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[125px] whitespace-nowrap py-2 px-2 text-left">
+                          <button
+                            type="button"
+                            title="Quotation Working Date"
+                            className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "quotationDate" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("quotationDate")}
+                          >
+                            <span>QUOT. WORK DATE</span>
+                            <Icon
+                              name={sortIcon("quotationDate")}
+                              className={`w-3.5 h-3.5 ${sortKey === "quotationDate" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+                        </th>
+                      )}
 
-                      {/* 9. QUOTATION WORKING DATE */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[170px] whitespace-nowrap py-3 px-3 text-left">
-                        <button
-                          type="button"
-                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "quotationDate" ? "text-blue-600 font-extrabold" : ""}`}
-                          onClick={() => toggleSort("quotationDate")}
-                        >
-                          <span>QUOTATION WORKING DATE</span>
-                          <Icon
-                            name={sortIcon("quotationDate")}
-                            className={`w-3.5 h-3.5 ${sortKey === "quotationDate" ? "text-blue-600" : "text-slate-400"}`}
-                          />
-                        </button>
-                      </th>
+                      {/* 11. SENT QUOTATION DATE */}
+                      {visibleColumns.sentQuotationDate && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[125px] whitespace-nowrap py-2 px-2 text-left">
+                          <button
+                            type="button"
+                            title="Sent Quotation Date"
+                            className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "quotationSentDate" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("quotationSentDate")}
+                          >
+                            <span>QUOT. SENT DATE</span>
+                            <Icon
+                              name={sortIcon("quotationSentDate")}
+                              className={`w-3.5 h-3.5 ${sortKey === "quotationSentDate" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+                        </th>
+                      )}
 
-                      {/* 10. SENT QUOTATION DATE */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[170px] whitespace-nowrap py-3 px-3 text-left">
-                        <button
-                          type="button"
-                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "quotationSentDate" ? "text-blue-600 font-extrabold" : ""}`}
-                          onClick={() => toggleSort("quotationSentDate")}
-                        >
-                          <span>SENT QUOTATION DATE</span>
-                          <Icon
-                            name={sortIcon("quotationSentDate")}
-                            className={`w-3.5 h-3.5 ${sortKey === "quotationSentDate" ? "text-blue-600" : "text-slate-400"}`}
-                          />
-                        </button>
-                      </th>
-
-                      
                       {/* 12. GRADE */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[120px] whitespace-nowrap py-3 px-3 text-left">
-                        <button
-                          type="button"
-                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "leadRating" ? "text-blue-600 font-extrabold" : ""}`}
-                          onClick={() => toggleSort("leadRating")}
-                        >
-                          <span>GRADE</span>
-                          <Icon
-                            name={sortIcon("leadRating")}
-                            className={`w-3.5 h-3.5 ${sortKey === "leadRating" ? "text-blue-600" : "text-slate-400"}`}
-                          />
-                        </button>
-                      </th>
+                      {visibleColumns.grade && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[95px] whitespace-nowrap py-2 px-2 text-left">
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "leadRating" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("leadRating")}
+                          >
+                            <span>GRADE</span>
+                            <Icon
+                              name={sortIcon("leadRating")}
+                              className={`w-3.5 h-3.5 ${sortKey === "leadRating" ? "text-blue-600" : "text-slate-400"}`}
+                            />
+                          </button>
+                        </th>
+                      )}
 
                       {/* 13. ENQUIRY TYPE (Filter + Sort) */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[170px] whitespace-nowrap py-3 px-3 text-left relative">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "enquiryType" ? "text-blue-600 font-extrabold" : ""}`}
-                            onClick={() => toggleSort("enquiryType")}
-                          >
-                            <span>ENQUIRY TYPE</span>
-                            <Icon
-                              name={sortIcon("enquiryType")}
-                              className={`w-3.5 h-3.5 ${sortKey === "enquiryType" ? "text-blue-600" : "text-slate-400"}`}
-                            />
-                          </button>
+                      {visibleColumns.enquiryType && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[115px] whitespace-nowrap py-2 px-2 text-left relative">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "enquiryType" ? "text-blue-600 font-extrabold" : ""}`}
+                              onClick={() => toggleSort("enquiryType")}
+                            >
+                              <span>ENQUIRY TYPE</span>
+                              <Icon
+                                name={sortIcon("enquiryType")}
+                                className={`w-3.5 h-3.5 ${sortKey === "enquiryType" ? "text-blue-600" : "text-slate-400"}`}
+                              />
+                            </button>
 
-                          <button
-                            type="button"
-                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
-                              enquiryTypeFilter 
-                                ? 'bg-blue-100 text-blue-700 font-bold' 
-                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
-                            }`}
-                            onClick={(e) => handleToggleHeaderDropdown(e, 'enquiryType')}
-                            title="Filter Enquiry Type"
-                          >
-                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
-                          </button>
-
-                          {enquiryTypeFilter && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setEnquiryTypeFilter(""); setCurrentPage(1); }}
-                                className="hover:text-blue-900"
-                              >
-                                <Icon name="mdi:close" className="w-3 h-3" />
-                              </button>
-                            </span>
-                          )}
-                        </div>
-
-                        {activeHeaderDropdown === 'enquiryType' && createPortal(
-                          <div 
-                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-52 p-2 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
-                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="space-y-0.5 text-xs">
-                              <button
-                                type="button"
-                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                  !enquiryTypeFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            <button
+                              type="button"
+                              className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${enquiryTypeFilter
+                                  ? 'bg-blue-100 text-blue-700 font-bold'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                                 }`}
-                                onClick={() => { setEnquiryTypeFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); }}
-                              >
-                                <span>All Types</span>
-                                {!enquiryTypeFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
-                              </button>
+                              onClick={(e) => handleToggleHeaderDropdown(e, 'enquiryType')}
+                              title="Filter Enquiry Type"
+                            >
+                              <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                            </button>
 
-                              {["Qualified", "Disqualified"].map((type) => (
+                            {enquiryTypeFilter && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
                                 <button
-                                  key={type}
-                                  type="button"
-                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                    enquiryTypeFilter === type ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                                  }`}
-                                  onClick={() => {
-                                    setEnquiryTypeFilter(type);
-                                    setCurrentPage(1);
-                                    setActiveHeaderDropdown(null);
-                                  }}
+                                  onClick={(e) => { e.stopPropagation(); setEnquiryTypeFilter(""); setCurrentPage(1); }}
+                                  className="hover:text-blue-900"
                                 >
-                                  <span className="truncate">{type}</span>
-                                  {enquiryTypeFilter === type && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                  <Icon name="mdi:close" className="w-3 h-3" />
                                 </button>
-                              ))}
-                            </div>
-                          </div>,
-                          document.body
-                        )}
-                      </th>
+                              </span>
+                            )}
+                          </div>
 
-                      {/* 14. REMARKS */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[200px] whitespace-nowrap py-3 px-3 text-left">
-                        <button
-                          type="button"
-                          className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "followUpRemark" ? "text-blue-600 font-extrabold" : ""}`}
-                          onClick={() => toggleSort("followUpRemark")}
-                        >
-                          <span>REMARKS</span>
-                          <Icon
-                            name={sortIcon("followUpRemark")}
-                            className={`w-3.5 h-3.5 ${sortKey === "followUpRemark" ? "text-blue-600" : "text-slate-400"}`}
-                          />
-                        </button>
-                      </th>
-
-                      {/* 15. CREATED BY (Filter + Sort) */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[170px] whitespace-nowrap py-3 px-3 text-left relative">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "createdBy" ? "text-blue-600 font-extrabold" : ""}`}
-                            onClick={() => toggleSort("createdBy")}
-                          >
-                            <span>CREATED BY</span>
-                            <Icon
-                              name={sortIcon("createdBy")}
-                              className={`w-3.5 h-3.5 ${sortKey === "createdBy" ? "text-blue-600" : "text-slate-400"}`}
-                            />
-                          </button>
-
-                          <button
-                            type="button"
-                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
-                              createdByFilter 
-                                ? 'bg-blue-100 text-blue-700 font-bold' 
-                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
-                            }`}
-                            onClick={(e) => handleToggleHeaderDropdown(e, 'createdBy')}
-                            title="Filter Created By"
-                          >
-                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
-                          </button>
-
-                          {createdByFilter && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setCreatedByFilter(""); setCurrentPage(1); }}
-                                className="hover:text-blue-900"
-                              >
-                                <Icon name="mdi:close" className="w-3 h-3" />
-                              </button>
-                            </span>
-                          )}
-                        </div>
-
-                        {activeHeaderDropdown === 'createdBy' && createPortal(
-                          <div 
-                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
-                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="relative mb-2">
-                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                              <input
-                                type="text"
-                                placeholder="Search Created By..."
-                                value={createdBySearch}
-                                onChange={(e) => setCreatedBySearch(e.target.value)}
-                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
-                                autoFocus
-                              />
-                            </div>
-
-                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
-                              <button
-                                type="button"
-                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                  !createdByFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                                }`}
-                                onClick={() => { setCreatedByFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setCreatedBySearch(""); }}
-                              >
-                                <span>All Users</span>
-                                {!createdByFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
-                              </button>
-
-                              {uniqueCreatedBys
-                                .filter(cb => cb.toLowerCase().includes(createdBySearch.toLowerCase()))
-                                .map((cb) => (
-                                  <button
-                                    key={cb}
-                                    type="button"
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                      createdByFilter === cb ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                          {activeHeaderDropdown === 'enquiryType' && createPortal(
+                            <div
+                              className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-52 p-2 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                              style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="space-y-0.5 text-xs">
+                                <button
+                                  type="button"
+                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${!enquiryTypeFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
                                     }`}
+                                  onClick={() => { setEnquiryTypeFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); }}
+                                >
+                                  <span>All Types</span>
+                                  {!enquiryTypeFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                                </button>
+
+                                {["Qualified", "Disqualified"].map((type) => (
+                                  <button
+                                    key={type}
+                                    type="button"
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${enquiryTypeFilter === type ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                      }`}
                                     onClick={() => {
-                                      setCreatedByFilter(cb);
+                                      setEnquiryTypeFilter(type);
                                       setCurrentPage(1);
                                       setActiveHeaderDropdown(null);
-                                      setCreatedBySearch("");
                                     }}
                                   >
-                                    <span className="truncate">{cb}</span>
-                                    {createdByFilter === cb && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                    <span className="truncate">{type}</span>
+                                    {enquiryTypeFilter === type && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
                                   </button>
                                 ))}
-                            </div>
-                          </div>,
-                          document.body
-                        )}
-                      </th>
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </th>
+                      )}
 
-                      {/* 16. UPDATED BY (Filter + Sort) */}
-                      <th className="sticky top-0 bg-slate-50 z-30 w-[170px] whitespace-nowrap py-3 px-3 text-left relative">
-                        <div className="flex items-center gap-1.5">
+                      {/* 14. LEAD SOURCE (Filter + Sort) */}
+                      {visibleColumns.leadSource && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[115px] whitespace-nowrap py-2 px-2 text-left relative">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "leadSource" ? "text-blue-600 font-extrabold" : ""}`}
+                              onClick={() => toggleSort("leadSource")}
+                            >
+                              <span>LEAD SOURCE</span>
+                              <Icon
+                                name={sortIcon("leadSource")}
+                                className={`w-3.5 h-3.5 ${sortKey === "leadSource" ? "text-blue-600" : "text-slate-400"}`}
+                              />
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${sourceFilter
+                                  ? 'bg-blue-100 text-blue-700 font-bold'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                                }`}
+                              onClick={(e) => handleToggleHeaderDropdown(e, 'leadSource')}
+                              title="Filter Lead Source"
+                            >
+                              <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                            </button>
+
+                            {sourceFilter && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setSourceFilter(""); setCurrentPage(1); }}
+                                  className="hover:text-blue-900"
+                                >
+                                  <Icon name="mdi:close" className="w-3 h-3" />
+                                </button>
+                              </span>
+                            )}
+                          </div>
+
+                          {activeHeaderDropdown === 'leadSource' && createPortal(
+                            <div
+                              className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                              style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="relative mb-2">
+                                <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search Lead Source..."
+                                  value={sourceSearch}
+                                  onChange={(e) => setSourceSearch(e.target.value)}
+                                  className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                  autoFocus
+                                />
+                              </div>
+
+                              <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                                <button
+                                  type="button"
+                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${!sourceFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                  onClick={() => { setSourceFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setSourceSearch(""); }}
+                                >
+                                  <span>All Sources</span>
+                                  {!sourceFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                                </button>
+
+                                {availableSourcesOptions
+                                  .filter(s => s.toLowerCase().includes(sourceSearch.toLowerCase()))
+                                  .map((src) => (
+                                    <button
+                                      key={src}
+                                      type="button"
+                                      className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${sourceFilter === src ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                      onClick={() => {
+                                        setSourceFilter(src);
+                                        setCurrentPage(1);
+                                        setActiveHeaderDropdown(null);
+                                        setSourceSearch("");
+                                      }}
+                                    >
+                                      <span className="truncate">{src}</span>
+                                      {sourceFilter === src && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </th>
+                      )}
+
+                      {/* 15. REMARKS */}
+                      {visibleColumns.remarks && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[140px] whitespace-nowrap py-2 px-2 text-left">
                           <button
                             type="button"
-                            className={`inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors ${sortKey === "updatedBy" ? "text-blue-600 font-extrabold" : ""}`}
-                            onClick={() => toggleSort("updatedBy")}
+                            className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "followUpRemark" ? "text-blue-600 font-extrabold" : ""}`}
+                            onClick={() => toggleSort("followUpRemark")}
                           >
-                            <span>UPDATED BY</span>
+                            <span>REMARKS</span>
                             <Icon
-                              name={sortIcon("updatedBy")}
-                              className={`w-3.5 h-3.5 ${sortKey === "updatedBy" ? "text-blue-600" : "text-slate-400"}`}
+                              name={sortIcon("followUpRemark")}
+                              className={`w-3.5 h-3.5 ${sortKey === "followUpRemark" ? "text-blue-600" : "text-slate-400"}`}
                             />
                           </button>
+                        </th>
+                      )}
 
-                          <button
-                            type="button"
-                            className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${
-                              updatedByFilter 
-                                ? 'bg-blue-100 text-blue-700 font-bold' 
-                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
-                            }`}
-                            onClick={(e) => handleToggleHeaderDropdown(e, 'updatedBy')}
-                            title="Filter Updated By"
-                          >
-                            <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
-                          </button>
-
-                          {updatedByFilter && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setUpdatedByFilter(""); setCurrentPage(1); }}
-                                className="hover:text-blue-900"
-                              >
-                                <Icon name="mdi:close" className="w-3 h-3" />
-                              </button>
-                            </span>
-                          )}
-                        </div>
-
-                        {activeHeaderDropdown === 'updatedBy' && createPortal(
-                          <div 
-                            className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
-                            style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="relative mb-2">
-                              <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                              <input
-                                type="text"
-                                placeholder="Search Updated By..."
-                                value={updatedBySearch}
-                                onChange={(e) => setUpdatedBySearch(e.target.value)}
-                                className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
-                                autoFocus
+                      {/* 16. CREATED BY (Filter + Sort) */}
+                      {visibleColumns.createdBy && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[180px] whitespace-nowrap py-2 px-2 text-left relative">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "createdBy" ? "text-blue-600 font-extrabold" : ""}`}
+                              onClick={() => toggleSort("createdBy")}
+                            >
+                              <span>CREATED BY</span>
+                              <Icon
+                                name={sortIcon("createdBy")}
+                                className={`w-3.5 h-3.5 ${sortKey === "createdBy" ? "text-blue-600" : "text-slate-400"}`}
                               />
-                            </div>
+                            </button>
 
-                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
-                              <button
-                                type="button"
-                                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                  !updatedByFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            <button
+                              type="button"
+                              className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${createdByFilter
+                                  ? 'bg-blue-100 text-blue-700 font-bold'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
                                 }`}
-                                onClick={() => { setUpdatedByFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setUpdatedBySearch(""); }}
-                              >
-                                <span>All Users</span>
-                                {!updatedByFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
-                              </button>
+                              onClick={(e) => handleToggleHeaderDropdown(e, 'createdBy')}
+                              title="Filter Created By"
+                            >
+                              <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                            </button>
 
-                              {uniqueUpdatedBys
-                                .filter(ub => ub.toLowerCase().includes(updatedBySearch.toLowerCase()))
-                                .map((ub) => (
-                                  <button
-                                    key={ub}
-                                    type="button"
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${
-                                      updatedByFilter === ub ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            {createdByFilter && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setCreatedByFilter(""); setCurrentPage(1); }}
+                                  className="hover:text-blue-900"
+                                >
+                                  <Icon name="mdi:close" className="w-3 h-3" />
+                                </button>
+                              </span>
+                            )}
+                          </div>
+
+                          {activeHeaderDropdown === 'createdBy' && createPortal(
+                            <div
+                              className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                              style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="relative mb-2">
+                                <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search Created By..."
+                                  value={createdBySearch}
+                                  onChange={(e) => setCreatedBySearch(e.target.value)}
+                                  className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                  autoFocus
+                                />
+                              </div>
+
+                              <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                                <button
+                                  type="button"
+                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${!createdByFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
                                     }`}
-                                    onClick={() => {
-                                      setUpdatedByFilter(ub);
-                                      setCurrentPage(1);
-                                      setActiveHeaderDropdown(null);
-                                      setUpdatedBySearch("");
-                                    }}
-                                  >
-                                    <span className="truncate">{ub}</span>
-                                    {updatedByFilter === ub && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
-                                  </button>
-                                ))}
-                            </div>
-                          </div>,
-                          document.body
-                        )}
-                      </th>
+                                  onClick={() => { setCreatedByFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setCreatedBySearch(""); }}
+                                >
+                                  <span>All Users</span>
+                                  {!createdByFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                                </button>
+
+                                {uniqueCreatedBys
+                                  .filter(cb => cb.toLowerCase().includes(createdBySearch.toLowerCase()))
+                                  .map((cb) => (
+                                    <button
+                                      key={cb}
+                                      type="button"
+                                      className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${createdByFilter === cb ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                      onClick={() => {
+                                        setCreatedByFilter(cb);
+                                        setCurrentPage(1);
+                                        setActiveHeaderDropdown(null);
+                                        setCreatedBySearch("");
+                                      }}
+                                    >
+                                      <span className="truncate">{cb}</span>
+                                      {createdByFilter === cb && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </th>
+                      )}
+
+                      {/* 17. UPDATED BY (Filter + Sort) */}
+                      {visibleColumns.updatedBy && (
+                        <th className="sticky top-0 bg-slate-50 z-30 w-[180px] whitespace-nowrap py-2 px-2 text-left relative">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${sortKey === "updatedBy" ? "text-blue-600 font-extrabold" : ""}`}
+                              onClick={() => toggleSort("updatedBy")}
+                            >
+                              <span>UPDATED BY</span>
+                              <Icon
+                                name={sortIcon("updatedBy")}
+                                className={`w-3.5 h-3.5 ${sortKey === "updatedBy" ? "text-blue-600" : "text-slate-400"}`}
+                              />
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`header-filter-btn inline-flex items-center p-1 rounded-md transition-all ${updatedByFilter
+                                  ? 'bg-blue-100 text-blue-700 font-bold'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                                }`}
+                              onClick={(e) => handleToggleHeaderDropdown(e, 'updatedBy')}
+                              title="Filter Updated By"
+                            >
+                              <Icon name="mdi:filter-variant" className="w-3.5 h-3.5" />
+                            </button>
+
+                            {updatedByFilter && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setUpdatedByFilter(""); setCurrentPage(1); }}
+                                  className="hover:text-blue-900"
+                                >
+                                  <Icon name="mdi:close" className="w-3 h-3" />
+                                </button>
+                              </span>
+                            )}
+                          </div>
+
+                          {activeHeaderDropdown === 'updatedBy' && createPortal(
+                            <div
+                              className="header-filter-popover fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] w-56 p-2.5 text-slate-700 animate-in fade-in zoom-in-95 duration-100 normal-case"
+                              style={{ top: `${headerDropdownPos.top}px`, left: `${headerDropdownPos.left}px` }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="relative mb-2">
+                                <Icon name="mdi:magnify" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search Updated By..."
+                                  value={updatedBySearch}
+                                  onChange={(e) => setUpdatedBySearch(e.target.value)}
+                                  className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-colors"
+                                  autoFocus
+                                />
+                              </div>
+
+                              <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar text-xs">
+                                <button
+                                  type="button"
+                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${!updatedByFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                  onClick={() => { setUpdatedByFilter(""); setCurrentPage(1); setActiveHeaderDropdown(null); setUpdatedBySearch(""); }}
+                                >
+                                  <span>All Users</span>
+                                  {!updatedByFilter && <Icon name="mdi:check" className="w-4 h-4 text-blue-600" />}
+                                </button>
+
+                                {uniqueUpdatedBys
+                                  .filter(ub => ub.toLowerCase().includes(updatedBySearch.toLowerCase()))
+                                  .map((ub) => (
+                                    <button
+                                      key={ub}
+                                      type="button"
+                                      className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between font-medium ${updatedByFilter === ub ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                      onClick={() => {
+                                        setUpdatedByFilter(ub);
+                                        setCurrentPage(1);
+                                        setActiveHeaderDropdown(null);
+                                        setUpdatedBySearch("");
+                                      }}
+                                    >
+                                      <span className="truncate">{ub}</span>
+                                      {updatedByFilter === ub && <Icon name="mdi:check" className="w-4 h-4 text-blue-600 shrink-0" />}
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </th>
+                      )}
 
                       {/* ACTIONS */}
-                      <th className="sticky top-0 right-0 z-40 w-[110px] bg-slate-50 py-3 pl-3 pr-4 text-right shadow-[-8px_0_12px_rgba(15,23,42,0.04)]">
+                      <th className="sticky top-0 right-0 z-40 w-[110px] bg-slate-50 py-2 pl-2 pr-4 text-right shadow-[-8px_0_12px_rgba(15,23,42,0.04)]">
                         <span>ACTIONS</span>
                       </th>
                     </tr>
@@ -4408,440 +4907,180 @@ export default function LeadListPage() {
                           className={`cursor-pointer transition-colors duration-100 ${
                             idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"
                           } ${selectedIds.has(lead.leadId) ? "bg-blue-50/60" : "hover:bg-blue-50/40"}`}
-                          // onClick={() => openPanel(lead)}
                         >
                           <td
-                            className="pl-4 py-2"
+                            className="pl-3 pr-1 py-1.5"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <input
                               type="checkbox"
                               checked={selectedIds.has(lead.leadId)}
                               onChange={() => toggleSelect(lead.leadId)}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                             />
                           </td>
-                          <td className="px-2 py-2 text-xs font-bold text-gray-500 text-center whitespace-nowrap">
+                          <td className="px-1 py-1.5 text-xs font-bold text-gray-500 text-center whitespace-nowrap">
                             {(currentPage - 1) * pageSize + idx + 1}
                           </td>
-                          <td className="px-3 py-2 max-w-[200px]">
-                            <div className="flex items-center gap-2.5">
-                              <div className="min-w-0 flex-1">
-                                <p
-                                  className="font-medium text-gray-900 truncate leading-snug"
-                                  title={lead.leadOrganisationName || `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() || "Lead"}
-                                >
-                                  {lead.leadOrganisationName || `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() || "Lead"}
-                                </p>
-                                <p
-                                  className="text-xs text-gray-500 truncate leading-snug"
-                                  title={
-                                    lead.companyContactPersonName && lead.companyContactPersonName !== lead.leadOrganisationName
+
+                          {/* 1. LEAD NAME */}
+                          {visibleColumns.leadName && (
+                            <td className="px-2 py-1.5 max-w-[170px]">
+                              <div className="flex items-center gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className="font-medium text-gray-900 truncate leading-snug"
+                                    title={lead.leadOrganisationName || `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() || "Lead"}
+                                  >
+                                    {lead.leadOrganisationName || `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() || "Lead"}
+                                  </p>
+                                  <p
+                                    className="text-[11px] text-gray-500 truncate leading-snug"
+                                    title={
+                                      lead.companyContactPersonName && lead.companyContactPersonName !== lead.leadOrganisationName
+                                        ? lead.companyContactPersonName
+                                        : `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() && `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() !== lead.leadOrganisationName
+                                        ? `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim()
+                                        : "—"
+                                    }
+                                  >
+                                    {lead.companyContactPersonName && lead.companyContactPersonName !== lead.leadOrganisationName
                                       ? lead.companyContactPersonName
                                       : `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() && `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() !== lead.leadOrganisationName
                                       ? `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim()
-                                      : "—"
-                                  }
-                                >
-                                  {lead.companyContactPersonName && lead.companyContactPersonName !== lead.leadOrganisationName
-                                    ? lead.companyContactPersonName
-                                    : `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() && `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim() !== lead.leadOrganisationName
-                                    ? `${lead.leadFirstName || ""} ${lead.leadLastName || ""}`.trim()
-                                    : "—"}
-                                </p>
+                                      : "—"}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-xs font-semibold text-gray-600">
-                            {lead.leadRef || (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          <td
-                            className="px-3 py-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <select
-                              value={lead.leadGroup || ""}
-                              disabled={loading}
-                              onClick={(e) => e.stopPropagation()}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onChange={(e) => {
-                                e.preventDefault();
-                                handleGroupChange(lead.leadId, e.target.value);
-                              }}
-                              className={`
-                                  group-select-badge
-                                  appearance-none
-                                  bg-no-repeat
-                                  bg-[right_0.55rem_center]
-                                  bg-[length:0.85rem_0.85rem]
-                                  pr-7
-                                  pl-3
-                                  py-1
-                                  rounded-lg
-                                  text-xs
-                                  font-semibold
-                                  cursor-pointer
-                                  border
-                                  border-transparent
-                                  focus:outline-none
-                                  focus:ring-2
-                                  focus:ring-blue-500/20
-                                  focus:border-blue-300
-                                  transition-all
-                                  duration-150
-                                  hover:shadow-sm
-                                  bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M6%208l4%204%204-4%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")]
-                                  w-full
-                                  max-w-[160px]
-                                 ${getGroupColor(lead.leadGroup)}
-                                  ${loading ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"}
-                                `}
-                            >
-                              <option
-                                value=""
-                                className="bg-white text-gray-600"
-                              >
-                                Unassigned
-                              </option>
-                              {leadGroups.map((group) => (
-                                <option
-                                  key={group.id}
-                                  value={group.groupName}
-                                  className="bg-white text-gray-700 font-normal"
-                                >
-                                  {group.groupName}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
+                            </td>
+                          )}
 
-                          {/* <td className="px-3 py-2 text-xs text-gray-600">
-                              {lead.inquiryDate ? (
-                                formatDate(lead.inquiryDate)
-                              ) : (
+                          {/* 2. TEAM MEMBER */}
+                          {visibleColumns.teamMember && (
+                            <td
+                              className="px-2 py-1.5 text-xs font-medium text-gray-600 truncate max-w-[130px]"
+                              title={getTeamMemberDisplay(lead) || "—"}
+                            >
+                              {getTeamMemberDisplay(lead) || (
                                 <span className="text-gray-300">—</span>
                               )}
-                            </td> */}
+                            </td>
+                          )}
 
-                          {/* LEAD STATUS COLUMN - Uses updateLeadOutcomeStatus */}
-                          <td
-                            className="px-3 py-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <select
-                              value={lead.leadOutcomeStatus || ""}
-                              disabled={loading}
-                              onChange={async (e) => {
-                                const newValue = e.target.value;
-
-                                try {
-                                  await updateLeadOutcomeStatus(
-                                    lead.leadId,
-                                    newValue || null,
-                                  );
-
-                                  setAllLeads((prevLeads) =>
-                                    prevLeads.map((l) =>
-                                      l.leadId === lead.leadId
-                                        ? {
-                                            ...l,
-                                            leadOutcomeStatus: newValue || null,
-                                          }
-                                        : l,
-                                    ),
-                                  );
-
-                                  showToast(
-                                    "success",
-                                    `Lead status updated to ${
-                                      newValue || "None"
-                                    }`,
-                                  );
-                                } catch (err) {
-                                  console.error(err);
-                                  showToast(
-                                    "error",
-                                    "Failed to update lead status",
-                                  );
-                                }
-                              }}
-                              className={`
-                              status-select-badge
-                              appearance-none
-                              bg-no-repeat
-                              bg-[right_0.55rem_center]
-                              bg-[length:0.85rem_0.85rem]
-                              pr-7
-                              pl-3
-                              py-1
-                              rounded-lg
-                              text-xs
-                              font-semibold
-                              cursor-pointer
-                              border
-                              border-transparent
-                              focus:outline-none
-                              focus:ring-2
-                              focus:ring-blue-500/20
-                              focus:border-blue-300
-                              transition-all
-                              duration-150
-                              hover:shadow-sm
-                              w-full
-                              max-w-[110px]
-                              bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M6%208l4%204%204-4%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")]
-                              
-                             ${
-                               lead.leadOutcomeStatus === "Negotiation"
-                                 ? "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200"
-                                 : lead.leadOutcomeStatus === "Open"
-                                   ? "bg-purple-50 text-purple-700 ring-1 ring-purple-200"
-                                   : lead.leadOutcomeStatus === "Won"
-                                     ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                     : lead.leadOutcomeStatus === "Closed"
-                                       ? "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
-                                       : "bg-gray-100 text-gray-500 ring-1 ring-gray-200"
-                             }
-
-                              ${
-                                loading
-                                  ? "opacity-60 cursor-not-allowed"
-                                  : "hover:opacity-90"
-                              }
-                            `}
+                          {/* 3. GROUP */}
+                          {visibleColumns.group && (
+                            <td
+                              className="px-2 py-1.5"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <option value="">None</option>
-                              {leadStatuses.length > 0 ? (
-                                leadStatuses.map((st) => (
+                              <select
+                                value={lead.leadGroup || ""}
+                                disabled={loading}
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onChange={(e) => {
+                                  e.preventDefault();
+                                  handleGroupChange(lead.leadId, e.target.value);
+                                }}
+                                className={`
+                                    group-select-badge
+                                    appearance-none
+                                    bg-no-repeat
+                                    bg-[right_0.45rem_center]
+                                    bg-[length:0.75rem_0.75rem]
+                                    pr-6
+                                    pl-2.5
+                                    py-1
+                                    rounded-lg
+                                    text-xs
+                                    font-semibold
+                                    cursor-pointer
+                                    border
+                                    border-transparent
+                                    focus:outline-none
+                                    focus:ring-2
+                                    focus:ring-blue-500/20
+                                    focus:border-blue-300
+                                    transition-all
+                                    duration-150
+                                    hover:shadow-sm
+                                    bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M6%208l4%204%204-4%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")]
+                                    w-full
+                                    max-w-[125px]
+                                   ${getGroupColor(lead.leadGroup)}
+                                    ${loading ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"}
+                                  `}
+                              >
+                                <option
+                                  value=""
+                                  className="bg-white text-gray-600"
+                                >
+                                  Unassigned
+                                </option>
+                                {leadGroups.map((group) => (
                                   <option
-                                    key={st.id || st.statusName}
-                                    value={st.statusName}
+                                    key={group.id}
+                                    value={group.groupName}
                                     className="bg-white text-gray-700 font-normal"
                                   >
-                                    {st.statusName}
+                                    {group.groupName}
                                   </option>
-                                ))
-                              ) : (
-                                <>
-                                  <option value="Negotiation">Negotiation</option>
-                                  <option value="Open">Open</option>
-                                  <option value="Won">Won</option>
-                                  <option value="Closed">Closed</option>
-                                </>
-                              )}
-                            </select>
-                          </td>
-                          <td
-                            className="px-3 py-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <select
-                              value={lead.enquiryStatus || ""}
-                              onChange={(e) =>
-                                handleEnquiryStatusChange(
-                                  lead.leadId,
-                                  e.target.value,
-                                )
-                              }
-                              className={`
-                              status-select-badge
-                              appearance-none
-                              bg-no-repeat
-                              bg-[right_0.55rem_center]
-                              bg-[length:0.85rem_0.85rem]
-                              pr-7
-                              pl-3
-                              py-1
-                              rounded-lg
-                              text-xs
-                              font-semibold
-                              cursor-pointer
-                              border
-                              border-transparent
-                              focus:outline-none
-                              focus:ring-2
-                              focus:ring-blue-500/20
-                              focus:border-blue-300
-                              transition-all
-                              duration-150
-                              hover:shadow-sm
-                              w-full
-                              max-w-[110px]
-                              bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M6%208l4%204%204-4%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")]
-                              ${ENQUIRY_STATUS_BG[lead.enquiryStatus || ""]}
-                              ${loading ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"}
-                            `}
+                                ))}
+                              </select>
+                            </td>
+                          )}
+
+                          {/* 4. LEAD STATUS */}
+                          {visibleColumns.leadStatus && (
+                            <td
+                              className="px-2 py-1.5"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <option value="">None</option>
-                              <option value="Pending">Pending</option>
-                              <option value="Sent">Sent</option>
-                              <option value="Working">Working</option>
-                            </select>
-                          </td>
-                          <td
-                            className="py-2 px-3 text-sm text-gray-700 max-w-[280px]"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {(() => {
-                              const desc = cleanEnquiryDescription(lead.enquiryDescription);
-                              if (!desc || desc === "-" || desc.length <= 30) {
-                                return <span className="text-gray-700">{desc}</span>;
-                              }
-                              const isExpanded = !!expandedDesc[lead.leadId];
-                              return (
-                                <div className="flex flex-col gap-1 items-start">
-                                  <span className={isExpanded ? "whitespace-pre-wrap break-words text-gray-900 font-normal bg-gray-50 p-2 rounded-lg border border-gray-200 text-xs shadow-sm max-w-[320px]" : "truncate max-w-[210px] block"}>
-                                    {isExpanded ? desc : `${desc.substring(0, 30)}...`}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setExpandedDesc((prev) => ({
-                                        ...prev,
-                                        [lead.leadId]: !prev[lead.leadId],
-                                      }));
-                                    }}
-                                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5 cursor-pointer mt-0.5"
-                                  >
-                                    {isExpanded ? (
-                                      <>
-                                        <Icon name="mdi:chevron-up" className="w-3.5 h-3.5" /> Show Less
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Icon name="mdi:eye-outline" className="w-3.5 h-3.5" /> View
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              );
-                            })()}
-                          </td>
+                              <select
+                                value={lead.leadOutcomeStatus || ""}
+                                disabled={loading}
+                                onChange={async (e) => {
+                                  const newValue = e.target.value;
 
-                          <td
-                            className="px-3 py-2 text-xs font-medium text-gray-700 truncate"
-                            title={
-                              lead.quotationNumber || ""
-                            }
-                          >
-                            {lead.quotationNumber &&
-                            lead.quotationNumber !== "000" &&
-                            lead.quotationNumber !== "0" &&
-                            lead.quotationNumber !== "—" &&
-                            lead.quotationNumber !== "-" ? (
-                              <span className="font-mono text-xs">
-                                {lead.quotationNumber}
-                              </span>
-                            ) : (
-                              ""
-                            )}
-                          </td>
+                                  try {
+                                    await updateLeadOutcomeStatus(
+                                      lead.leadId,
+                                      newValue || null,
+                                    );
 
-                          <td className="px-3 py-2 text-xs font-bold text-gray-900 text-right">
-                            {lead.quotationAmount != null ? (
-                              formatCurrency(
-                                lead.quotationAmount,
-                                lead.leadCountry,
-                              )
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          
-                          <td className="px-3 py-2 text-xs text-gray-600">
-                            {lead.inquiryDate ? (
-                              formatDate(lead.inquiryDate)
-                            ) : lead.leadCreatedDate ? (
-                              formatDate(lead.leadCreatedDate)
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600">
-                            {lead.quotationDate ? (
-                              formatDate(lead.quotationDate)
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600">
-                            {lead.quotationSentDate ? (
-                              formatDate(lead.quotationSentDate)
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          
+                                    setAllLeads((prevLeads) =>
+                                      prevLeads.map((l) =>
+                                        l.leadId === lead.leadId
+                                          ? {
+                                              ...l,
+                                              leadOutcomeStatus: newValue || null,
+                                            }
+                                          : l,
+                                      ),
+                                    );
 
-                          {/* <td className="px-3 py-2">
-                              {score ? (
-                                <div className="flex items-center gap-1.5">
-                                  <span
-                                    className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold border ${GRADE_BG[score.grade] ?? "bg-gray-100 text-gray-600"}`}
-                                  >
-                                    {score.grade}
-                                  </span>
-                                  <span className="text-xs text-gray-400 hidden xl:inline">
-                                    {score.score}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-gray-300 text-xs">—</span>
-                              )}
-                            </td> */}
-
-                          <td className="px-3 py-2">
-                            <div className="flex items-center gap-2">
-                              <StarRating
-                                grade={lead?.leadRating || 0}
-                                score={score?.score}
-                                size="text-xs"
-                                onChange={(stars) => {
-                                  updateLeadRating(lead, stars).then(() => {
-                                    loadAll();
-                                  });
+                                    showToast(
+                                      "success",
+                                      `Lead status updated to ${
+                                        newValue || "None"
+                                      }`,
+                                    );
+                                  } catch (err) {
+                                    console.error(err);
+                                    showToast(
+                                      "error",
+                                      "Failed to update lead status",
+                                    );
+                                  }
                                 }}
-                              />
-
-                              {lead?.leadRating > 0 && (
-                                <button
-                                  title="Clear Rating"
-                                  className="text-red-500 hover:text-red-700 text-sm font-bold"
-                                  onClick={() => {
-                                    updateLeadRating(lead, 0).then(() => {
-                                      loadAll();
-                                    });
-                                  }}
-                                >
-                                  <Icon
-                                    name="mdi:close-circle-outline"
-                                    className="w-4 h-4"
-                                  />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                          <td
-                            className="px-3 py-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <select
-                              value={lead.leadStatus === "Disqualified" || lead.enquiryType === "Disqualified" ? "Disqualified" : "Qualified"}
-                              disabled={loading}
-                              onChange={(e) =>
-                                handleStatusChange(lead.leadId, e.target.value)
-                              }
-                              className={`
+                                className={`
                                 status-select-badge
                                 appearance-none
                                 bg-no-repeat
-                                bg-[right_0.55rem_center]
-                                bg-[length:0.85rem_0.85rem]
-                                pr-7
-                                pl-3
+                                bg-[right_0.45rem_center]
+                                bg-[length:0.75rem_0.75rem]
+                                pr-6
+                                pl-2.5
                                 py-1
                                 rounded-lg
                                 text-xs
@@ -4857,45 +5096,357 @@ export default function LeadListPage() {
                                 duration-150
                                 hover:shadow-sm
                                 w-full
-                                max-w-[135px]
+                                max-w-[105px]
                                 bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M6%208l4%204%204-4%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")]
-                                ${lead.leadStatus === "Disqualified" || lead.enquiryType === "Disqualified" ? "bg-red-50 text-red-700 ring-1 ring-red-200" : "bg-purple-50 text-purple-700 ring-1 ring-purple-200"}
+                                
+                                 ${
+                                   lead.leadOutcomeStatus === "Negotiation"
+                                     ? "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200"
+                                     : lead.leadOutcomeStatus === "Open" || lead.leadOutcomeStatus === "Hold" || lead.leadOutcomeStatus === "Budgetory"
+                                       ? "bg-purple-50 text-purple-700 ring-1 ring-purple-200"
+                                       : lead.leadOutcomeStatus === "Won" || lead.leadOutcomeStatus === "Converted"
+                                         ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                         : lead.leadOutcomeStatus === "Closed"
+                                           ? "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
+                                           : "bg-gray-100 text-gray-500 ring-1 ring-gray-200"
+                                 }
+
+                                ${
+                                  loading
+                                    ? "opacity-60 cursor-not-allowed"
+                                    : "hover:opacity-90"
+                                }
+                              `}
+                              >
+                                <option value="">None</option>
+                                {(leadStatuses || []).map((st) => (
+                                  <option
+                                    key={st.id || st.statusName}
+                                    value={st.statusName}
+                                    className="bg-white text-gray-700 font-normal"
+                                  >
+                                    {st.statusName}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                          )}
+
+                          {/* 5. QUOTATION STATUS */}
+                          {visibleColumns.quotationStatus && (
+                            <td
+                              className="px-2 py-1.5"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <select
+                                value={lead.enquiryStatus || ""}
+                                onChange={(e) =>
+                                  handleEnquiryStatusChange(
+                                    lead.leadId,
+                                    e.target.value,
+                                  )
+                                }
+                                className={`
+                                status-select-badge
+                                appearance-none
+                                bg-no-repeat
+                                bg-[right_0.45rem_center]
+                                bg-[length:0.75rem_0.75rem]
+                                pr-6
+                                pl-2.5
+                                py-1
+                                rounded-lg
+                                text-xs
+                                font-semibold
+                                cursor-pointer
+                                border
+                                border-transparent
+                                focus:outline-none
+                                focus:ring-2
+                                focus:ring-blue-500/20
+                                focus:border-blue-300
+                                transition-all
+                                duration-150
+                                hover:shadow-sm
+                                w-full
+                                max-w-[105px]
+                                bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M6%208l4%204%204-4%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")]
+                                ${ENQUIRY_STATUS_BG[lead.enquiryStatus || ""]}
                                 ${loading ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"}
                               `}
-                            >
-                              <option value="Qualified" className="bg-white text-purple-700 font-semibold">Qualified</option>
-                              <option value="Disqualified" className="bg-white text-red-700 font-semibold">Disqualified</option>
-                            </select>
-                          </td>
-                          <td
-                            className="py-2 px-3 text-sm text-gray-700 max-w-[200px]"
-                            title={lead.followUpRemark}
-                          >
-                            {lead.followUpRemark
-                              ? lead.followUpRemark.length > 50
-                                ? `${lead.followUpRemark.substring(0, 50)}...`
-                                : lead.followUpRemark
-                              : "-"}
-                          </td>
-                          <td className="px-3 py-2 text-xs font-medium whitespace-nowrap">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                              {lead.createdBy || "-"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-xs font-medium whitespace-nowrap">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
-                              {lead.updatedBy || lead.createdBy || "-"}
-                            </span>
-                          </td>
-                          <td
-                            className={`sticky right-0 pl-3 pr-4 py-2 shadow-[-8px_0_12px_rgba(15,23,42,0.04)] ${selectedIds.has(lead.leadId) ? "bg-blue-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
+                              >
+                                <option value="">None</option>
+                                {(quotationStatuses || []).map((qs) => (
+                                  <option
+                                    key={qs.id || qs.statusName}
+                                    value={qs.statusName}
+                                    className="bg-white text-gray-700 font-normal"
+                                  >
+                                    {qs.statusName}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                          )}
 
+                          {/* 6. ENQUIRY DESCRIPTION */}
+                          {visibleColumns.enquiryDesc && (
+                            <td
+                              className="py-1.5 px-2 text-xs text-gray-700 max-w-[180px]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {(() => {
+                                const desc = cleanEnquiryDescription(lead.enquiryDescription);
+                                if (!desc || desc === "-" || desc.length <= 25) {
+                                  return <span className="text-gray-700">{desc}</span>;
+                                }
+                                const isExpanded = !!expandedDesc[lead.leadId];
+                                return (
+                                  <div className="flex flex-col gap-0.5 items-start">
+                                    <span className={isExpanded ? "whitespace-pre-wrap break-words text-gray-900 font-normal bg-gray-50 p-2 rounded-lg border border-gray-200 text-xs shadow-sm max-w-[260px]" : "truncate max-w-[170px] block"}>
+                                      {isExpanded ? desc : `${desc.substring(0, 25)}...`}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedDesc((prev) => ({
+                                          ...prev,
+                                          [lead.leadId]: !prev[lead.leadId],
+                                        }));
+                                      }}
+                                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                                    >
+                                      {isExpanded ? (
+                                        <>
+                                          <Icon name="mdi:chevron-up" className="w-3.5 h-3.5" /> Less
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Icon name="mdi:eye-outline" className="w-3.5 h-3.5" /> View
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                          )}
+
+                          {/* 7. QUOTATION NO. */}
+                          {visibleColumns.quotationNo && (
+                            <td
+                              className="px-2 py-1.5 text-xs font-medium text-gray-700 truncate max-w-[125px]"
+                              title={lead.quotationNumber || ""}
+                            >
+                              {lead.quotationNumber &&
+                              lead.quotationNumber !== "000" &&
+                              lead.quotationNumber !== "0" &&
+                              lead.quotationNumber !== "—" &&
+                              lead.quotationNumber !== "-" ? (
+                                <span className="font-mono text-xs">
+                                  {lead.quotationNumber}
+                                </span>
+                              ) : (
+                                ""
+                              )}
+                            </td>
+                          )}
+
+                          {/* 8. AMOUNT */}
+                          {visibleColumns.amount && (
+                            <td className="px-2 py-1.5 text-xs font-bold text-gray-900 text-right whitespace-nowrap">
+                              {lead.quotationAmount != null ? (
+                                formatCurrency(
+                                  lead.quotationAmount,
+                                  lead.leadCountry,
+                                )
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                          )}
+
+                          {/* 9. ENQUIRY DATE */}
+                          {visibleColumns.enquiryDate && (
+                            <td className="px-2 py-1.5 text-xs text-gray-600 whitespace-nowrap">
+                              {lead.inquiryDate ? (
+                                formatDate(lead.inquiryDate)
+                              ) : lead.leadCreatedDate ? (
+                                formatDate(lead.leadCreatedDate)
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                          )}
+
+                          {/* 10. QUOTATION WORKING DATE */}
+                          {visibleColumns.quotationDate && (
+                            <td className="px-2 py-1.5 text-xs text-gray-600 whitespace-nowrap">
+                              {lead.quotationDate ? (
+                                formatDate(lead.quotationDate)
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                          )}
+
+                          {/* 11. SENT QUOTATION DATE */}
+                          {visibleColumns.sentQuotationDate && (
+                            <td className="px-2 py-1.5 text-xs text-gray-600 whitespace-nowrap">
+                              {lead.quotationSentDate ? (
+                                formatDate(lead.quotationSentDate)
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                          )}
+
+                          {/* 12. GRADE */}
+                          {visibleColumns.grade && (
+                            <td className="px-2 py-1.5 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <StarRating
+                                  grade={lead?.leadRating || 0}
+                                  score={score?.score}
+                                  size="text-xs"
+                                  onChange={(stars) => {
+                                    updateLeadRating(lead, stars).then(() => {
+                                      loadAll();
+                                    });
+                                  }}
+                                />
+
+                                {lead?.leadRating > 0 && (
+                                  <button
+                                    title="Clear Rating"
+                                    className="text-red-500 hover:text-red-700 text-sm font-bold"
+                                    onClick={() => {
+                                      updateLeadRating(lead, 0).then(() => {
+                                        loadAll();
+                                      });
+                                    }}
+                                  >
+                                    <Icon
+                                      name="mdi:close-circle-outline"
+                                      className="w-3.5 h-3.5"
+                                    />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          )}
+
+                          {/* 13. ENQUIRY TYPE */}
+                          {visibleColumns.enquiryType && (
+                            <td
+                              className="px-2 py-1.5"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <select
+                                value={lead.leadStatus === "Disqualified" || lead.enquiryType === "Disqualified" ? "Disqualified" : "Qualified"}
+                                disabled={loading}
+                                onChange={(e) =>
+                                  handleStatusChange(lead.leadId, e.target.value)
+                                }
+                                className={`
+                                  status-select-badge
+                                  appearance-none
+                                  bg-no-repeat
+                                  bg-[right_0.45rem_center]
+                                  bg-[length:0.75rem_0.75rem]
+                                  pr-6
+                                  pl-2.5
+                                  py-1
+                                  rounded-lg
+                                  text-xs
+                                  font-semibold
+                                  cursor-pointer
+                                  border
+                                  border-transparent
+                                  focus:outline-none
+                                  focus:ring-2
+                                  focus:ring-blue-500/20
+                                  focus:border-blue-300
+                                  transition-all
+                                  duration-150
+                                  hover:shadow-sm
+                                  w-full
+                                  max-w-[105px]
+                                  bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M6%208l4%204%204-4%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")]
+                                  ${lead.leadStatus === "Disqualified" || lead.enquiryType === "Disqualified" ? "bg-red-50 text-red-700 ring-1 ring-red-200" : "bg-purple-50 text-purple-700 ring-1 ring-purple-200"}
+                                  ${loading ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"}
+                                `}
+                              >
+                                <option value="Qualified" className="bg-white text-purple-700 font-semibold">Qualified</option>
+                                <option value="Disqualified" className="bg-white text-red-700 font-semibold">Disqualified</option>
+                              </select>
+                            </td>
+                          )}
+
+                          {/* 14. LEAD SOURCE */}
+                          {visibleColumns.leadSource && (
+                            <td className="px-2 py-1.5 text-xs font-medium whitespace-nowrap">
+                              {lead.leadSource ? (
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium ${SOURCE_BG[lead.leadSource] ?? "bg-slate-100 text-slate-700 border border-slate-200"
+                                    }`}
+                                >
+                                  {lead.leadSource}
+                                </span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                          )}
+
+                          {/* 15. REMARKS */}
+                          {visibleColumns.remarks && (
+                            <td
+                              className="py-1.5 px-2 text-xs text-gray-700 max-w-[140px] truncate"
+                              title={lead.followUpRemark || ""}
+                            >
+                              {lead.followUpRemark
+                                ? lead.followUpRemark.length > 40
+                                  ? `${lead.followUpRemark.substring(0, 40)}...`
+                                  : lead.followUpRemark
+                                : "-"}
+                            </td>
+                          )}
+
+                          {/* 16. CREATED BY */}
+                          {visibleColumns.createdBy && (
+                            <td
+                              className="px-2 py-1.5 text-xs font-medium whitespace-nowrap max-w-[180px] truncate"
+                              title={lead.createdBy || ""}
+                            >
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-100 truncate max-w-full">
+                                {lead.createdBy || "-"}
+                              </span>
+                            </td>
+                          )}
+
+                          {/* 17. UPDATED BY */}
+                          {visibleColumns.updatedBy && (
+                            <td
+                              className="px-2 py-1.5 text-xs font-medium whitespace-nowrap max-w-[180px] truncate"
+                              title={lead.updatedBy || lead.createdBy || ""}
+                            >
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700 border border-gray-200 truncate max-w-full">
+                                {lead.updatedBy || lead.createdBy || "-"}
+                              </span>
+                            </td>
+                          )}
+
+                          {/* ACTIONS */}
+                          <td
+                            className={`sticky right-0 pl-2 pr-4 py-1.5 shadow-[-8px_0_12px_rgba(15,23,42,0.04)] ${selectedIds.has(lead.leadId) ? "bg-blue-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="flex items-center justify-end gap-1">
                               <Link
                                 to={`/lead/${lead.leadId}`}
-                                className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors shrink-0"
+                                className="p-1 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors shrink-0"
                                 title="View detail"
                               >
                                 <Icon
@@ -4903,20 +5454,9 @@ export default function LeadListPage() {
                                   className="w-4 h-4"
                                 />
                               </Link>
-                              {/* <div className="w-0 flex items-center justify-center shrink-0">
-                                  {leadsWithNotes.has(Number(lead.leadId)) ? (
-                                 <Link
-                                  to={`/lead/${lead.leadId}?tab=notes`}
-                                  className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50"
-                                  title="View Notes"
-                                >
-                                  <Icon name="mdi:notebook-outline" className="w-4 h-4" />
-                                </Link>
-                                  ) : null}
-                                </div> */}
                               <button
                                 onClick={(e) => openEdit(lead, e)}
-                                className="p-1.5 rounded-lg text-gray-400 hover:bg-amber-50 hover:text-amber-600 transition-colors shrink-0"
+                                className="p-1 rounded-lg text-gray-400 hover:bg-amber-50 hover:text-amber-600 transition-colors shrink-0"
                                 title="Edit"
                               >
                                 <Icon
@@ -4929,7 +5469,7 @@ export default function LeadListPage() {
                                   e.stopPropagation();
                                   setDeleteId(lead.leadId);
                                 }}
-                                className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
+                                className="p-1 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
                                 title="Delete"
                               >
                                 <Icon
@@ -4985,11 +5525,10 @@ export default function LeadListPage() {
                         <button
                           key={p}
                           onClick={() => setCurrentPage(p)}
-                          className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
-                            p === currentPage
+                          className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${p === currentPage
                               ? "bg-blue-600 text-white"
                               : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                          }`}
+                            }`}
                         >
                           {p}
                         </button>
@@ -5289,10 +5828,9 @@ export default function LeadListPage() {
                           Score: {scoresMap[panelLead.leadId].score}/100
                         </span>
                         <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                            GRADE_BG[scoresMap[panelLead.leadId].grade] ??
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${GRADE_BG[scoresMap[panelLead.leadId].grade] ??
                             "bg-gray-100 text-gray-600"
-                          }`}
+                            }`}
                         >
                           Grade {scoresMap[panelLead.leadId].grade}
                         </span>
@@ -5352,66 +5890,66 @@ export default function LeadListPage() {
                   {(panelLead.leadCity ||
                     panelLead.leadState ||
                     panelLead.leadCountry) && (
-                    <div className="flex items-center gap-2.5">
-                      <Icon
-                        name="mdi:map-marker-outline"
-                        className="w-4 h-4 text-gray-400 shrink-0"
-                      />
-                      <span className="text-sm text-gray-700">
-                        {[
-                          panelLead.leadCity,
-                          panelLead.leadState,
-                          panelLead.leadCountry,
-                        ]
-                          .filter(Boolean)
-                          .join(", ")}
-                      </span>
-                    </div>
-                  )}
+                      <div className="flex items-center gap-2.5">
+                        <Icon
+                          name="mdi:map-marker-outline"
+                          className="w-4 h-4 text-gray-400 shrink-0"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {[
+                            panelLead.leadCity,
+                            panelLead.leadState,
+                            panelLead.leadCountry,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </span>
+                      </div>
+                    )}
                 </div>
 
                 {(panelLead.leadOrganisationName ||
                   panelLead.leadIndustry ||
                   panelLead.noOfEmployee) && (
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                      Company
-                    </p>
-                    {panelLead.leadOrganisationName && (
-                      <div className="flex items-center gap-2.5">
-                        <Icon
-                          name="mdi:office-building-outline"
-                          className="w-4 h-4 text-gray-400 shrink-0"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {panelLead.leadOrganisationName}
-                        </span>
-                      </div>
-                    )}
-                    {panelLead.leadIndustry && (
-                      <div className="flex items-center gap-2.5">
-                        <Icon
-                          name="mdi:domain"
-                          className="w-4 h-4 text-gray-400 shrink-0"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {panelLead.leadIndustry}
-                        </span>
-                      </div>
-                    )}
-                    {panelLead.noOfEmployee && (
-                      <div className="flex items-center gap-2.5">
-                        <Icon
-                          name="mdi:account-group-outline"
-                          className="w-4 h-4 text-gray-400 shrink-0"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {panelLead.noOfEmployee} employees
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                        Company
+                      </p>
+                      {panelLead.leadOrganisationName && (
+                        <div className="flex items-center gap-2.5">
+                          <Icon
+                            name="mdi:office-building-outline"
+                            className="w-4 h-4 text-gray-400 shrink-0"
+                          />
+                          <span className="text-sm text-gray-700">
+                            {panelLead.leadOrganisationName}
+                          </span>
+                        </div>
+                      )}
+                      {panelLead.leadIndustry && (
+                        <div className="flex items-center gap-2.5">
+                          <Icon
+                            name="mdi:domain"
+                            className="w-4 h-4 text-gray-400 shrink-0"
+                          />
+                          <span className="text-sm text-gray-700">
+                            {panelLead.leadIndustry}
+                          </span>
+                        </div>
+                      )}
+                      {panelLead.noOfEmployee && (
+                        <div className="flex items-center gap-2.5">
+                          <Icon
+                            name="mdi:account-group-outline"
+                            className="w-4 h-4 text-gray-400 shrink-0"
+                          />
+                          <span className="text-sm text-gray-700">
+                            {panelLead.noOfEmployee} employees
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-gray-50 rounded-xl p-3">
@@ -5522,11 +6060,10 @@ export default function LeadListPage() {
                   </h2>
                   <p className="text-xs text-gray-500 mt-0.5 truncate">
                     {editingLead
-                      ? `Updating details for: ${
-                          editingLead.companyContactPersonName ||
-                          editingLead.leadOrganisationName ||
-                          "Lead"
-                        }`
+                      ? `Updating details for: ${editingLead.companyContactPersonName ||
+                      editingLead.leadOrganisationName ||
+                      "Lead"
+                      }`
                       : "Fill in the details to create a new lead"}
                   </p>
                 </div>
@@ -5605,11 +6142,10 @@ export default function LeadListPage() {
       {toast &&
         createPortal(
           <div
-            className={`fixed bottom-6 right-6 z-[60] flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
-              toast.type === "success"
+            className={`fixed bottom-6 right-6 z-[60] flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === "success"
                 ? "bg-emerald-600 text-white"
                 : "bg-red-600 text-white"
-            }`}
+              }`}
           >
             <Icon
               name={

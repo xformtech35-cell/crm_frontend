@@ -8,7 +8,9 @@ import { useLead } from "../hooks/useLead";
 import { useOpportunity } from "../hooks/useOpportunity";
 import { useCalendar } from "../hooks/useCalendar";
 import { useTeamMember } from "../hooks/useTeamMember";
+import { useTeam } from "../hooks/useTeam";
 import { getInitials } from "../utils/format";
+
 import { useDashHeaderConfig } from "../hooks/useDashHeaderConfig";
 
 
@@ -95,35 +97,31 @@ export default function DefaultLayout() {
   const selectedTeamMemberId = useAuthStore((s) => s.selectedTeamMemberId);
   const setSelectedTeamMemberId = useAuthStore((s) => s.setSelectedTeamMemberId);
   const [teamMemberList, setTeamMemberList] = useState([]);
+  const [teamsList, setTeamsList] = useState([]);
+  const teamApi = useTeam();
 
   const canViewTeamContext = isAdmin || hasAnyPermission(["teams.view", "users.view", "team_leads.view"]);
 
   useEffect(() => {
     if (canViewTeamContext) {
-      teamMemberApi.getAll().then((res) => {
-        let list = [];
-        if (Array.isArray(res)) {
-          list = res;
-        } else if (Array.isArray(res?.data)) {
-          list = res.data;
-        } else if (Array.isArray(res?.data?.data)) {
-          list = res.data.data;
-        }
-        if (!isAdmin) {
-          list = list.filter((tm) => {
-            const tmEmail = (tm.teamMemberEmail || tm.team_member_email || tm.userEmail || '').toLowerCase();
-            const tmName = (tm.teamMemberName || tm.team_member_name || tm.username || '').toLowerCase();
-            const tmId = tm.teamMemberId != null ? tm.teamMemberId : tm.id;
-            if (tmEmail === 'admin@uwsenviro.com' || tmName.includes('dnyaneshwar') || tmId < 0) {
-              return false;
-            }
-            return true;
-          });
-        }
-        setTeamMemberList(list);
-      }).catch((err) => console.error("Error fetching team members for View Context:", err));
+      Promise.all([
+        teamMemberApi.getAll(),
+        teamApi.getAll()
+      ]).then(([membersRes, teamsRes]) => {
+        let members = Array.isArray(membersRes) ? membersRes : (membersRes?.data || membersRes?.data?.data || []);
+        members = members.filter((tm) => {
+          const tmId = tm.teamMemberId != null ? tm.teamMemberId : tm.id;
+          return tmId != null && tmId >= 0 && !tm.isDeleted && tm.isDeleted !== 1;
+        });
+        setTeamMemberList(members);
+
+        let teams = Array.isArray(teamsRes) ? teamsRes : (teamsRes?.data || teamsRes?.data?.data || []);
+        teams = teams.filter((t) => !t.isDeleted);
+        setTeamsList(teams);
+      }).catch((err) => console.error("Error fetching teams/members for View Context:", err));
     }
   }, [canViewTeamContext, isAdmin]);
+
 
 
 
@@ -1087,10 +1085,17 @@ export default function DefaultLayout() {
                             : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                         }`}
                       >
-                        <span className="truncate max-w-[160px] md:max-w-[200px]">
-                          {selectedTeamMemberId
-                            ? teamMemberList.find((tm) => (tm.userid || tm.teamMemberId) === selectedTeamMemberId)?.teamMemberName || 'Team Member'
-                            : 'Global (All Team Members)'}
+                        <span className="truncate max-w-[160px] md:max-w-[220px]">
+                          {selectedTeamMemberId ? (() => {
+                            const tm = teamMemberList.find((m) => (m.userid || m.teamMemberId) === selectedTeamMemberId);
+                            if (!tm) return 'Team Member';
+                            const team = teamsList.find((t) => t.teamId === tm.teamIdFk);
+                            const isLead = tm.teamMemberRole === 75 || tm.team_member_role === '75';
+                            if (isLead && team) {
+                              return `${team.teamName} (${tm.teamMemberName || tm.username})`;
+                            }
+                            return tm.teamMemberName || tm.username || tm.teamMemberEmail || 'Team Member';
+                          })() : 'Global (All Team Members)'}
                         </span>
                         <Icon
                           name="mdi:chevron-down"
@@ -1102,7 +1107,7 @@ export default function DefaultLayout() {
 
                       {contextDropdownOpen && (
                         <div
-                          className={`absolute right-0 mt-2 w-64 rounded-2xl border shadow-xl py-1.5 z-[100] animate-in fade-in zoom-in-95 duration-150 ${
+                          className={`absolute right-0 mt-2 w-72 max-h-[460px] overflow-y-auto rounded-2xl border shadow-xl py-1.5 z-[100] animate-in fade-in zoom-in-95 duration-150 ${
                             theme === "dark"
                               ? "bg-[#0c0e1c] border-white/10 text-slate-200"
                               : "bg-white border-slate-200 text-slate-700"
@@ -1112,6 +1117,7 @@ export default function DefaultLayout() {
                             Select Team Context
                           </div>
 
+                          {/* Global Option */}
                           <button
                             type="button"
                             onClick={() => {
@@ -1132,50 +1138,120 @@ export default function DefaultLayout() {
                             {!selectedTeamMemberId && <Icon name="mdi:check" className="w-4 h-4 text-purple-600" />}
                           </button>
 
-                          {teamMemberList.length > 0 && (
-                            <div className="px-3.5 py-1 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-white/5 border-y border-slate-100 dark:border-white/10 my-1 flex items-center justify-between">
-                              <span>Department Team Members</span>
-                              <span className="text-[9px] bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 px-1.5 py-0.5 rounded-full">
-                                {teamMemberList.length}
-                              </span>
-                            </div>
+                          {/* TEAMS / DEPARTMENTS SECTION */}
+                          {teamsList.length > 0 && (
+                            <>
+                              <div className="px-3.5 py-1 text-[10px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-wider bg-purple-50/50 dark:bg-purple-900/20 border-y border-purple-100 dark:border-purple-800/30 my-1 flex items-center justify-between">
+                                <span>Departments / Teams</span>
+                                <span className="text-[9px] bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 px-1.5 py-0.5 rounded-full font-bold">
+                                  {teamsList.length} Teams
+                                </span>
+                              </div>
+
+                              {teamsList.map((team) => {
+                                // Find Team Lead for this team
+                                const leadMember = teamMemberList.find(
+                                  (tm) => tm.teamIdFk === team.teamId && (tm.teamMemberRole === 75 || tm.team_member_role === '75' || tm.teamMemberId === team.teamLeadId)
+                                ) || teamMemberList.find((tm) => tm.teamIdFk === team.teamId);
+                                
+                                const leadId = leadMember ? (leadMember.userid || leadMember.teamMemberId) : null;
+                                const isTeamSelected = leadId && selectedTeamMemberId === leadId;
+
+                                return (
+                                  <button
+                                    key={`team-${team.teamId}`}
+                                    type="button"
+                                    onClick={() => {
+                                      if (leadId) {
+                                        setSelectedTeamMemberId(leadId);
+                                        setContextDropdownOpen(false);
+                                        window.location.reload();
+                                      }
+                                    }}
+                                    className={`flex items-center justify-between w-full px-3.5 py-2 text-xs font-semibold transition-colors ${
+                                      isTeamSelected
+                                        ? "bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold"
+                                        : "hover:bg-slate-50 dark:hover:bg-white/5"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 truncate pr-2">
+                                      <Icon name="mdi:account-group" className={`w-4 h-4 shrink-0 ${isTeamSelected ? 'text-purple-600' : 'text-slate-400'}`} />
+                                      <span className="truncate">{team.teamName}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 font-bold">
+                                        Team View
+                                      </span>
+                                      {isTeamSelected && <Icon name="mdi:check" className="w-4 h-4 text-purple-600 shrink-0" />}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </>
                           )}
 
-                          {teamMemberList.map((tm) => {
-                            const id = tm.userid || tm.teamMemberId;
-                            const isSelected = selectedTeamMemberId === id;
-                            const name = tm.teamMemberName || tm.username || tm.teamMemberEmail;
-                            const roleName = tm.team_member_role === '75' ? 'Team Lead' : (tm.team_member_role === '76' ? 'Sales Exec' : (tm.role || 'Member'));
+                          {/* TEAM MEMBERS GROUPED BY DEPARTMENT */}
+                          {teamsList.map((team) => {
+                            const membersOfTeam = teamMemberList.filter((tm) => tm.teamIdFk === team.teamId);
+                            if (membersOfTeam.length === 0) return null;
+
                             return (
-                              <button
-                                key={id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedTeamMemberId(id);
-                                  setContextDropdownOpen(false);
-                                  window.location.reload();
-                                }}
-                                className={`flex items-center justify-between w-full px-3.5 py-2 text-xs font-semibold transition-colors ${
-                                  isSelected
-                                    ? "bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold"
-                                    : "hover:bg-slate-50 dark:hover:bg-white/5"
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 truncate pr-2">
-                                  <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-purple-600' : 'bg-slate-300'}`} />
-                                  <span className="truncate">{name}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300 font-medium">
-                                    {roleName}
+                              <div key={`group-${team.teamId}`}>
+                                <div className="px-3.5 py-1 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-white/5 border-y border-slate-100 dark:border-white/10 my-1 flex items-center justify-between">
+                                  <span>{team.teamName} Members</span>
+                                  <span className="text-[9px] bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-300 px-1.5 py-0.5 rounded-full">
+                                    {membersOfTeam.length}
                                   </span>
-                                  {isSelected && <Icon name="mdi:check" className="w-4 h-4 text-purple-600 shrink-0" />}
                                 </div>
-                              </button>
+
+                                {membersOfTeam.map((tm) => {
+                                  const id = tm.userid || tm.teamMemberId;
+                                  const isSelected = selectedTeamMemberId === id;
+                                  const name = tm.teamMemberName || tm.username || tm.teamMemberEmail;
+                                  const isLead = tm.teamMemberRole === 75 || tm.team_member_role === '75';
+                                  const isAdminRole = tm.teamMemberRole === 74 || tm.team_member_role === '74';
+                                  const roleName = isLead ? 'Team Lead' : (isAdminRole ? 'Admin' : (tm.role || 'Sales Exec'));
+
+                                  return (
+                                    <button
+                                      key={id}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedTeamMemberId(id);
+                                        setContextDropdownOpen(false);
+                                        window.location.reload();
+                                      }}
+                                      className={`flex items-center justify-between w-full px-3.5 py-2 text-xs font-semibold transition-colors ${
+                                        isSelected
+                                          ? "bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold"
+                                          : "hover:bg-slate-50 dark:hover:bg-white/5"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 truncate pr-2 pl-2">
+                                        <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-purple-600' : 'bg-slate-300'}`} />
+                                        <span className="truncate">{name}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                          isLead
+                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300'
+                                            : isAdminRole
+                                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300'
+                                              : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'
+                                        }`}>
+                                          {roleName}
+                                        </span>
+                                        {isSelected && <Icon name="mdi:check" className="w-4 h-4 text-purple-600 shrink-0" />}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             );
                           })}
                         </div>
                       )}
+
                     </div>
                   </div>
                 )}

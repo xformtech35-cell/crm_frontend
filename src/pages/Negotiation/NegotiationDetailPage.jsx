@@ -102,15 +102,13 @@ export default function NegotiationDetailPage() {
           (r.revisionNo || r.quotationRevision || "R0").toUpperCase() === selectedRevCode
         );
 
-        if (matchingRev) {
-          if (matchingRev.quotationNo) {
-            updated.quotationNumber = matchingRev.quotationNo;
-          } else if (selectedRevCode === "R0") {
-            updated.quotationNumber = baseQuotNo;
-          } else {
-            updated.quotationNumber = `${baseQuotNo}/${selectedRevCode}`;
-          }
+        if (selectedRevCode === "R0") {
+          updated.quotationNumber = baseQuotNo;
+        } else {
+          updated.quotationNumber = `${baseQuotNo}/${selectedRevCode}`;
+        }
 
+        if (matchingRev) {
           if (matchingRev.quotationAmount != null && Number(matchingRev.quotationAmount) > 0) {
             updated.quotationAmount = matchingRev.quotationAmount;
           }
@@ -120,14 +118,44 @@ export default function NegotiationDetailPage() {
           if (matchingRev.enquiryDescription) {
             updated.enquiryDescription = matchingRev.enquiryDescription;
           }
-          if (matchingRev.quotationDate) {
-            updated.quotationDate = matchingRev.quotationDate;
+          if (matchingRev.quotationDate || matchingRev.quotationWorkingDate) {
+            const qd = matchingRev.quotationDate || matchingRev.quotationWorkingDate;
+            updated.quotationDate = String(qd).split("T")[0];
+            updated.quotationWorkingDate = String(qd).split("T")[0];
+          }
+          const revSentDate = matchingRev.quotationSentDate || matchingRev.sentQuotationDate;
+          if (revSentDate) {
+            const formattedSent = String(revSentDate).split("T")[0];
+            updated.quotationSentDate = formattedSent;
+            updated.sentQuotationDate = formattedSent;
+          } else if (selectedRevCode === "R0" && (lead?.quotationSentDate || lead?.sentQuotationDate)) {
+            const r0Sent = lead?.quotationSentDate || lead?.sentQuotationDate;
+            updated.quotationSentDate = String(r0Sent).split("T")[0];
+            updated.sentQuotationDate = String(r0Sent).split("T")[0];
+          } else {
+            updated.quotationSentDate = "";
+            updated.sentQuotationDate = "";
           }
         } else {
           if (selectedRevCode === "R0") {
             updated.quotationNumber = baseQuotNo;
+            const r0Sent = lead?.quotationSentDate || lead?.sentQuotationDate;
+            if (r0Sent) {
+              updated.quotationSentDate = String(r0Sent).split("T")[0];
+              updated.sentQuotationDate = String(r0Sent).split("T")[0];
+            } else {
+              updated.quotationSentDate = "";
+              updated.sentQuotationDate = "";
+            }
+            const r0Working = lead?.quotationDate || lead?.quotationWorkingDate;
+            if (r0Working) {
+              updated.quotationDate = String(r0Working).split("T")[0];
+              updated.quotationWorkingDate = String(r0Working).split("T")[0];
+            }
           } else {
             updated.quotationNumber = `${baseQuotNo}/${selectedRevCode}`;
+            updated.quotationSentDate = "";
+            updated.sentQuotationDate = "";
           }
         }
       }
@@ -135,21 +163,6 @@ export default function NegotiationDetailPage() {
     });
   };
 
-  // const handleSaveEdit = async (e) => {
-  //   e.preventDefault();
-  //   try {
-  //     setUpdating(true);
-  //     setError("");
-  //     await leadApi.update(lead.leadId, editedLead);
-  //     await loadLead();
-  //     setIsEditing(false);
-  //   } catch (err) {
-  //     console.error("Error updating lead:", err);
-  //     setError(err.message || "Failed to update lead. Please try again.");
-  //   } finally {
-  //     setUpdating(false);
-  //   }
-  // };
   const handleSaveEdit = async (e) => {
     e.preventDefault();
 
@@ -161,6 +174,8 @@ export default function NegotiationDetailPage() {
         ...editedLead,
         quotationWorkingDate: editedLead.quotationDate || editedLead.quotationWorkingDate,
         quotationDate: editedLead.quotationDate || editedLead.quotationWorkingDate,
+        quotationSentDate: editedLead.quotationSentDate || editedLead.sentQuotationDate || undefined,
+        sentQuotationDate: editedLead.quotationSentDate || editedLead.sentQuotationDate || undefined,
       };
 
       // 1. Update lead
@@ -176,6 +191,18 @@ export default function NegotiationDetailPage() {
         await negotiationApi.uploadQuotationDocuments(
           quotationNumber,
           documentFiles
+        );
+      }
+
+      // 2. Upload files after successful update if any selected
+      if (documentFiles.length > 0) {
+        const selRev = (editedLead?.quotationRevision || "R0").toUpperCase();
+        const baseQuot = (quotationNumber || "").replace(/\/R\d+$/i, "");
+        const targetQuotNo = selRev === "R0" ? baseQuot : `${baseQuot}/${selRev}`;
+        await negotiationApi.uploadQuotationDocuments(
+          targetQuotNo,
+          documentFiles,
+          lead?.leadId
         );
       }
 
@@ -196,16 +223,36 @@ export default function NegotiationDetailPage() {
     }
   };
 
-  // Document handlers
-  // const handleFileChange = (e) => {
-  //   const file = e.target.files[0];
-  //   if (file) {
-  //     setDocumentFile(file);
-  //   }
-  // };
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
     setDocumentFiles(files);
+  };
+
+  const handleDocumentUploadDirect = async (quotationNo, file) => {
+    try {
+      setUploading(true);
+      setUploadProgress(0);
+
+      const interval = setInterval(() => {
+        setUploadProgress((prev) => Math.min(prev + 20, 90));
+      }, 150);
+
+      await negotiationApi.uploadQuotationDocuments(quotationNo, [file], lead?.leadId);
+
+      clearInterval(interval);
+      setUploadProgress(100);
+      setDocumentFiles([]);
+      await loadLead();
+      await loadRevisions();
+      await checkDocumentExists();
+      window.dispatchEvent(new CustomEvent("crm-data-updated"));
+      setTimeout(() => setUploadProgress(0), 500);
+    } catch (err) {
+      console.error("Failed to upload document:", err);
+      alert("Failed to upload document: " + (err.message || "Unknown error"));
+      setUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   const handleUploadDocument = async () => {
@@ -248,16 +295,28 @@ export default function NegotiationDetailPage() {
     if (!window.confirm('Are you sure you want to delete this document?')) return;
 
     try {
-      if (typeof docIdOrQuotationNo === 'number' || (typeof docIdOrQuotationNo === 'string' && /^\d+$/.test(docIdOrQuotationNo))) {
-        await negotiationApi.deleteDocumentById(docIdOrQuotationNo);
-      } else if (typeof docIdOrQuotationNo === 'string' && docIdOrQuotationNo.includes('/')) {
-        await negotiationApi.deleteDocumentsByQuotationNo(docIdOrQuotationNo);
-      } else {
-        await negotiationApi.deleteDocument(id);
+      const docId = typeof docIdOrQuotationNo === 'object' ? docIdOrQuotationNo?.id : docIdOrQuotationNo;
+      if (docId && (typeof docId === 'number' || /^\d+$/.test(String(docId)))) {
+        try {
+          await negotiationApi.deleteDocumentById(Number(docId));
+        } catch (e) {
+          console.warn("deleteDocumentById warning:", e);
+        }
       }
 
-      // Also clear document fields on lead object to prevent fallback caching
-      if (lead?.leadId) {
+      const selRev = (editedLead?.quotationRevision || lead?.quotationRevision || "R0").toUpperCase();
+      const baseQuot = (editedLead?.quotationNumber || lead?.quotationNumber || "").replace(/\/R\d+$/i, "");
+      const targetQuotNo = selRev === "R0" ? baseQuot : `${baseQuot}/${selRev}`;
+
+      if (targetQuotNo) {
+        try {
+          await negotiationApi.deleteDocumentsByQuotationNo(targetQuotNo, lead?.leadId);
+        } catch (e) {
+          console.warn("deleteDocumentsByQuotationNo warning:", e);
+        }
+      }
+
+      if (selRev === "R0" && lead?.leadId) {
         try {
           await leadApi.update(lead.leadId, {
             ...lead,
@@ -272,9 +331,16 @@ export default function NegotiationDetailPage() {
       }
 
       setDocumentExists(false);
+      setRevisions(prev => (prev || []).map(r => {
+        if ((r.revisionNo || r.quotationRevision || "R0").toUpperCase() === selRev) {
+          return { ...r, documents: [] };
+        }
+        return r;
+      }));
       await loadLead();
       await loadRevisions();
       await checkDocumentExists();
+      window.dispatchEvent(new CustomEvent("crm-data-updated"));
     } catch (err) {
       console.error('Delete error:', err);
       setError(err.message || 'Failed to delete document. Please try again.');
@@ -431,6 +497,7 @@ export default function NegotiationDetailPage() {
               error={error}
               documentExists={documentExists}
               onDocumentUpload={handleUploadDocument}
+              onDocumentUploadDirect={handleDocumentUploadDirect}
               onDocumentDelete={handleDeleteDocument}
               onFileChange={handleFileChange}
               uploading={uploading}
@@ -831,7 +898,7 @@ export const RevisionHistorySection = ({ revisions = [], loading, showRevisions,
               <div>
                 <span className="text-[10px] text-gray-400 block mb-0.5 font-bold uppercase tracking-wider">Quotation Sent Date</span>
                 <span className="font-semibold text-gray-700 text-xs">
-                  {formatDateTimeDisplay(lead?.quotationSentDate || activeSelectedRev.createdDate)}
+                  {formatDateDisplay(lead?.quotationSentDate || lead?.sentQuotationDate || activeSelectedRev.sentQuotationDate || activeSelectedRev.quotationSentDate || activeSelectedRev.createdDate)}
                 </span>
               </div>
             </div>
@@ -978,6 +1045,7 @@ const EditForm = ({
   error,
   documentExists,
   onDocumentUpload,
+  onDocumentUploadDirect,
   onDocumentDelete,
   onFileChange,
   uploading,
@@ -996,6 +1064,19 @@ const EditForm = ({
   }
 
   const hasExistingDocs = currentRevDocs.length > 0 && !replaceMode;
+
+  const handleFileSelect = async (e) => {
+    const files = Array.from(e.target?.files || []);
+    if (!files.length) return;
+    if (onFileChange) onFileChange(e);
+
+    if (onDocumentUploadDirect) {
+      const baseQuot = (lead.quotationNumber || "").replace(/\/R\d+$/i, "");
+      const targetQuotNo = selectedRevCode === "R0" ? baseQuot : `${baseQuot}/${selectedRevCode}`;
+      await onDocumentUploadDirect(targetQuotNo, files[0]);
+      setReplaceMode(false);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -1017,7 +1098,7 @@ const EditForm = ({
         </div>
       </div>
 
-      <form id="negotiation-edit-form" onSubmit={onSave} className="flex-1 overflow-y-auto p-6 space-y-6">
+      <form id="negotiation-edit-form" onSubmit={onSave} autoComplete="off" data-lpignore="true" className="flex-1 overflow-y-auto p-6 space-y-6">
         {error && (
           <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-lg text-red-700 text-sm flex items-center">
             <Icon icon="mdi:alert-circle" className="mr-2 text-red-500" />
@@ -1061,8 +1142,8 @@ const EditForm = ({
                   <option value="Lost">Deal Lost (Closed-Lost)</option>
                 </select>
               </div>
-              <FormField label="Quotation Working Date" name="quotationDate" value={lead.quotationDate ? String(lead.quotationDate).split("T")[0] : ""} onChange={onChange} type="date" />
-              <FormField label="Final Quotation Sent Date" name="quotationSentDate" value={formatDate(lead.quotationSentDate) ? String(lead.quotationSentDate).split("T")[0] : ""} onChange={onChange} type="date" />
+              <FormField label="Quotation Working Date" name="quotationDate" value={(lead.quotationDate || lead.quotationWorkingDate) ? String(lead.quotationDate || lead.quotationWorkingDate).split("T")[0] : ""} onChange={onChange} type="date" />
+              <FormField label="Final Quotation Sent Date" name="quotationSentDate" value={(lead.quotationSentDate || lead.sentQuotationDate) ? String(lead.quotationSentDate || lead.sentQuotationDate).split("T")[0] : ""} onChange={onChange} type="date" />
             </div>
           </div>
         </div>
@@ -1111,10 +1192,10 @@ const EditForm = ({
                       )}
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           setReplaceMode(true);
                           if (onDocumentDelete) {
-                            onDocumentDelete(doc.id || doc.quotationNo || selectedRevCode);
+                            await onDocumentDelete(doc.id || doc.quotationNo || selectedRevCode);
                           }
                         }}
                         className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium flex items-center gap-1 transition"
@@ -1133,22 +1214,33 @@ const EditForm = ({
                     <button type="button" onClick={() => setReplaceMode(false)} className="text-blue-600 underline font-semibold">Cancel Replace</button>
                   </div>
                 )}
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                  <Icon icon="mdi:cloud-upload-outline" className="text-4xl text-gray-400 mx-auto mb-2" />
+                <div
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors bg-gray-50/50 cursor-pointer"
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const files = Array.from(e.dataTransfer?.files || []);
+                    if (files.length > 0) {
+                      handleFileSelect({ target: { files } });
+                    }
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => document.getElementById("document-upload")?.click()}
+                >
+                  <Icon icon={uploading ? "mdi:loading" : "mdi:cloud-upload-outline"} className={`text-4xl text-gray-400 mx-auto mb-2 ${uploading ? "animate-spin" : ""}`} />
                   <p className="text-sm font-semibold text-gray-700 mb-1">Attach Revised Quotation PDF for {selectedRevCode}</p>
                   <p className="text-xs text-gray-500 mb-3">Drop revised PDF here or click to browse</p>
                   <input
                     id="document-upload"
                     type="file"
                     multiple
-                    onChange={onFileChange}
+                    onChange={handleFileSelect}
                     className="hidden"
                     accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
                   />
-                  <label htmlFor="document-upload" className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm">
+                  <button type="button" onClick={(e) => { e.stopPropagation(); document.getElementById("document-upload")?.click(); }} className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm">
                     Choose PDF / File
-                  </label>
-                  {documentFile.length > 0 && (
+                  </button>
+                  {documentFile && documentFile.length > 0 && (
                     <div className="mt-3 space-y-1">
                       {documentFile.map((file, index) => (
                         <div key={index} className="text-xs text-blue-700 font-bold bg-blue-50 p-2 rounded border border-blue-100 flex items-center justify-center gap-2">
@@ -1259,7 +1351,7 @@ const FormField = ({ label, name, value, onChange, type = "text", required = fal
     <label className="block text-sm font-medium text-gray-700 mb-1">
       {label} {required && <span className="text-red-500">*</span>}
     </label>
-    <input type={type} name={name} value={value || ""} onChange={onChange} required={required} placeholder={placeholder} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm bg-white" />
+    <input type={type} name={name} value={value || ""} onChange={onChange} required={required} placeholder={placeholder} autoComplete="off" data-lpignore="true" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm bg-white" />
   </div>
 );
 
