@@ -9,39 +9,40 @@ import { getMemberId, getTeamId, getTeamLabel, groupMembersByTeam } from '/src/u
 
 const emptyForm = { groupName: '', teamId: '', assignedMember: '', description: '' };
 
-// Helper to encode/decode team & member metadata in description
-function parseMetadata(desc, groupName = '') {
-  if (desc) {
-    try {
-      if (desc.startsWith('{') && desc.endsWith('}')) {
-        const parsed = JSON.parse(desc);
-        return {
-          teamId: parsed.teamId || '',
-          assignedMember: parsed.assignedMember || '',
-          description: parsed.description || parsed.note || '',
-        };
-      }
-    } catch (e) {}
-  }
-  
-  // Sheet-based automatic team inference for historical groups
-  const gName = (groupName || '').trim().toLowerCase();
-  if (gName.includes('dosing') || gName.includes('sandur') || gName.includes('agitator')) {
-    return { teamId: '35', assignedMember: '', description: desc || '' };
-  }
-  if (gName.includes('wtp') || gName.includes('stp')) {
-    return { teamId: '19', assignedMember: '', description: desc || '' };
-  }
-  
-  return { teamId: '', assignedMember: '', description: desc || '' };
+// Helper to get dynamic team display name from database team entities or metadata
+export function getTeamDisplayName(teamId, metaTeamName, teams = []) {
+  if (!teamId) return 'All Teams';
+  const found = teams.find((t) => String(getTeamId(t)) === String(teamId));
+  if (found) return getTeamLabel(found);
+  if (metaTeamName) return metaTeamName;
+  return `Team #${teamId}`;
 }
 
-function serializeMetadata(teamId, assignedMember, description) {
+// Helper to decode dynamic team & member metadata from database description
+function parseMetadata(desc) {
+  if (!desc) return { teamId: '', teamName: '', assignedMember: '', description: '' };
+  try {
+    if (desc.startsWith('{') && desc.endsWith('}')) {
+      const parsed = JSON.parse(desc);
+      return {
+        teamId: parsed.teamId || '',
+        teamName: parsed.teamName || '',
+        assignedMember: parsed.assignedMember || '',
+        description: parsed.description || parsed.note || '',
+      };
+    }
+  } catch (e) {}
+  return { teamId: '', teamName: '', assignedMember: '', description: desc };
+}
+
+// Helper to encode dynamic team & member metadata for database storage
+function serializeMetadata(teamId, assignedMember, description, teamName) {
   if (!teamId && !assignedMember) {
     return description || '';
   }
   return JSON.stringify({
     teamId: teamId || '',
+    teamName: teamName || '',
     assignedMember: assignedMember || '',
     description: description || '',
   });
@@ -105,8 +106,7 @@ export default function LeadGroup() {
 
   const selectedTeamLabel = useMemo(() => {
     if (!form.teamId) return '';
-    const t = teams.find((item) => String(getTeamId(item)) === String(form.teamId));
-    return t ? getTeamLabel(t) : '';
+    return getTeamDisplayName(form.teamId, '', teams);
   }, [form.teamId, teams]);
 
   const filteredGroups = useMemo(() => {
@@ -122,14 +122,14 @@ export default function LeadGroup() {
 
     if (selectedTeamFilter) {
       list = list.filter((item) => {
-        const meta = parseMetadata(item.description, item.groupName);
+        const meta = parseMetadata(item.description);
         return String(meta.teamId) === String(selectedTeamFilter);
       });
     }
 
     if (selectedMemberFilter) {
       list = list.filter((item) => {
-        const meta = parseMetadata(item.description, item.groupName);
+        const meta = parseMetadata(item.description);
         return (
           meta.assignedMember?.toLowerCase().includes(selectedMemberFilter.toLowerCase()) ||
           meta.assignedMember === selectedMemberFilter
@@ -148,7 +148,7 @@ export default function LeadGroup() {
 
   function openEdit(group) {
     setEditingGroup(group);
-    const meta = parseMetadata(group.description, group.groupName);
+    const meta = parseMetadata(group.description);
     setForm({
       groupName: group.groupName || '',
       teamId: meta.teamId || '',
@@ -175,7 +175,9 @@ export default function LeadGroup() {
     }
 
     setSaving(true);
-    const serializedDesc = serializeMetadata(form.teamId, form.assignedMember, form.description);
+    const selectedTeamObj = teams.find((t) => String(getTeamId(t)) === String(form.teamId));
+    const teamName = selectedTeamObj ? getTeamLabel(selectedTeamObj) : '';
+    const serializedDesc = serializeMetadata(form.teamId, form.assignedMember, form.description, teamName);
 
     try {
       if (editingGroup) {
@@ -341,9 +343,8 @@ export default function LeadGroup() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filteredGroups.map((group, index) => {
-                  const meta = parseMetadata(group.description, group.groupName);
-                  const assignedTeamObj = teams.find((t) => String(getTeamId(t)) === String(meta.teamId));
-                  const teamName = assignedTeamObj ? getTeamLabel(assignedTeamObj) : (meta.teamId ? `Team #${meta.teamId}` : 'All Teams');
+                  const meta = parseMetadata(group.description);
+                  const teamName = getTeamDisplayName(meta.teamId, meta.teamName, teams);
 
                   return (
                     <tr key={group.id} className="hover:bg-gray-50/60 transition-colors duration-150">
@@ -519,7 +520,7 @@ export default function LeadGroup() {
                 ))}
               </select>
             </div>
-            <p className="text-xs text-gray-400 mt-1">Assign this group to Dosing, WTP, or make it shared across all teams</p>
+            <p className="text-xs text-gray-400 mt-1">Assign this group to a specific department or make it shared</p>
           </div>
 
           {/* Assigned Team Member */}

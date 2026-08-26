@@ -10,27 +10,40 @@ import { getMemberId, getTeamId, getTeamLabel, groupMembersByTeam } from '/src/u
 
 const emptyForm = { sourceName: '', teamId: '', assignedMember: '', description: '' };
 
+// Helper to get dynamic team display name from database team entities or metadata
+export function getTeamDisplayName(teamId, metaTeamName, teams = []) {
+  if (!teamId) return 'All Teams';
+  const found = teams.find((t) => String(getTeamId(t)) === String(teamId));
+  if (found) return getTeamLabel(found);
+  if (metaTeamName) return metaTeamName;
+  return `Team #${teamId}`;
+}
+
+// Helper to decode dynamic team & member metadata from database description
 function parseMetadata(desc) {
-  if (!desc) return { teamId: '', assignedMember: '', description: '' };
+  if (!desc) return { teamId: '', teamName: '', assignedMember: '', description: '' };
   try {
     if (desc.startsWith('{') && desc.endsWith('}')) {
       const parsed = JSON.parse(desc);
       return {
         teamId: parsed.teamId || '',
+        teamName: parsed.teamName || '',
         assignedMember: parsed.assignedMember || '',
         description: parsed.description || parsed.note || '',
       };
     }
   } catch (e) {}
-  return { teamId: '', assignedMember: '', description: desc };
+  return { teamId: '', teamName: '', assignedMember: '', description: desc };
 }
 
-function serializeMetadata(teamId, assignedMember, description) {
+// Helper to encode dynamic team & member metadata for database storage
+function serializeMetadata(teamId, assignedMember, description, teamName) {
   if (!teamId && !assignedMember) {
     return description || '';
   }
   return JSON.stringify({
     teamId: teamId || '',
+    teamName: teamName || '',
     assignedMember: assignedMember || '',
     description: description || '',
   });
@@ -92,8 +105,7 @@ export default function LeadSource() {
 
   const selectedTeamLabel = useMemo(() => {
     if (!form.teamId) return '';
-    const t = teams.find((item) => String(getTeamId(item)) === String(form.teamId));
-    return t ? getTeamLabel(t) : '';
+    return getTeamDisplayName(form.teamId, '', teams);
   }, [form.teamId, teams]);
 
   const filteredSources = useMemo(() => {
@@ -161,7 +173,9 @@ export default function LeadSource() {
     }
 
     setSaving(true);
-    const serializedDesc = serializeMetadata(form.teamId, form.assignedMember, form.description);
+    const selectedTeamObj = teams.find((t) => String(getTeamId(t)) === String(form.teamId));
+    const teamName = selectedTeamObj ? getTeamLabel(selectedTeamObj) : '';
+    const serializedDesc = serializeMetadata(form.teamId, form.assignedMember, form.description, teamName);
 
     try {
       if (editingSource) {
@@ -327,8 +341,7 @@ export default function LeadSource() {
               <tbody className="divide-y divide-gray-50">
                 {filteredSources.map((source, index) => {
                   const meta = parseMetadata(source.description);
-                  const assignedTeamObj = teams.find((t) => String(getTeamId(t)) === String(meta.teamId));
-                  const teamName = assignedTeamObj ? getTeamLabel(assignedTeamObj) : (meta.teamId ? `Team #${meta.teamId}` : 'All Teams');
+                  const teamName = getTeamDisplayName(meta.teamId, meta.teamName, teams);
 
                   return (
                     <tr key={source.id} className="hover:bg-gray-50/60 transition-colors duration-150">
