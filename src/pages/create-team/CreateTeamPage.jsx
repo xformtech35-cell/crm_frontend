@@ -78,9 +78,11 @@ export default function CreateTeamPage() {
   };
 
   const getRoleObj = (roleId) => roles.find((r) => String(r.roleId) === String(roleId) || String(r.id) === String(roleId));
-  const getRoleName = (roleId) => {
-    const obj = getRoleObj(roleId);
-    return obj ? (obj.roleName || obj.name) : `Role #${roleId}`;
+  const getRoleName = (roleId, fallbackRoleId) => {
+    const targetId = roleId || fallbackRoleId;
+    if (!targetId) return 'Executive';
+    const obj = getRoleObj(targetId);
+    return obj ? (obj.roleName || obj.name) : `Role #${targetId}`;
   };
 
   const isTeamLeadRole = (roleId, roleNameStr) => {
@@ -92,10 +94,11 @@ export default function CreateTeamPage() {
     const text = query.trim().toLowerCase();
     if (!text) return assignments;
     return assignments.filter((item) => {
+      const memberObj = getMemberObj(item.teamMemberIdFk);
       const teamName = getTeamName(item.teamIdFk).toLowerCase();
       const memberName = getMemberName(item.teamMemberIdFk).toLowerCase();
       const memberEmail = getMemberEmail(item.teamMemberIdFk).toLowerCase();
-      const roleName = getRoleName(item.roleIdFk).toLowerCase();
+      const roleName = getRoleName(item.roleIdFk, memberObj?.teamMemberRole).toLowerCase();
       return teamName.includes(text) || memberName.includes(text) || memberEmail.includes(text) || roleName.includes(text);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -339,8 +342,15 @@ export default function CreateTeamPage() {
         /* Team Cards View */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {groupedByTeam.map((group) => {
-            const teamLeadAssignment = group.assignments.find((a) => isTeamLeadRole(a.roleIdFk));
-            const teamLeadName = teamLeadAssignment ? getMemberName(teamLeadAssignment.teamMemberIdFk) : null;
+            const teamLeadAssignment = group.assignments.find((a) => {
+              const memberObj = getMemberObj(a.teamMemberIdFk);
+              const effectiveRoleId = a.roleIdFk || memberObj?.teamMemberRole;
+              return isTeamLeadRole(effectiveRoleId) ||
+                     String(group.team.teamLeadId || group.team.teamLeadIdFk) === String(a.teamMemberIdFk);
+            });
+            const teamLeadName = teamLeadAssignment
+              ? getMemberName(teamLeadAssignment.teamMemberIdFk)
+              : (group.team.teamLeadId || group.team.teamLeadIdFk ? getMemberName(group.team.teamLeadId || group.team.teamLeadIdFk) : null);
 
             return (
               <div
@@ -387,10 +397,13 @@ export default function CreateTeamPage() {
                       <p className="text-xs text-gray-400 italic py-2">No members assigned to this team.</p>
                     ) : (
                       group.assignments.map((item) => {
+                        const memberObj = getMemberObj(item.teamMemberIdFk);
                         const mName = getMemberName(item.teamMemberIdFk);
                         const mEmail = getMemberEmail(item.teamMemberIdFk);
-                        const rName = getRoleName(item.roleIdFk);
-                        const isLead = isTeamLeadRole(item.roleIdFk, rName);
+                        const effectiveRoleId = item.roleIdFk || memberObj?.teamMemberRole;
+                        const rName = getRoleName(item.roleIdFk, memberObj?.teamMemberRole);
+                        const isLead = isTeamLeadRole(effectiveRoleId, rName) ||
+                                       String(group.team.teamLeadId || group.team.teamLeadIdFk) === String(item.teamMemberIdFk);
 
                         return (
                           <div
@@ -469,11 +482,13 @@ export default function CreateTeamPage() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-white/5">
                 {filteredAssignments.map((item) => {
+                  const memberObj = getMemberObj(item.teamMemberIdFk);
                   const mName = getMemberName(item.teamMemberIdFk);
                   const mEmail = getMemberEmail(item.teamMemberIdFk);
-                  const rName = getRoleName(item.roleIdFk);
+                  const effectiveRoleId = item.roleIdFk || memberObj?.teamMemberRole;
+                  const rName = getRoleName(item.roleIdFk, memberObj?.teamMemberRole);
                   const tName = getTeamName(item.teamIdFk);
-                  const isLead = isTeamLeadRole(item.roleIdFk, rName);
+                  const isLead = isTeamLeadRole(effectiveRoleId, rName);
 
                   return (
                     <tr key={item.createTeamId} className="hover:bg-slate-50/70 transition-colors dark:hover:bg-slate-800/50">

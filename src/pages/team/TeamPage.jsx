@@ -61,7 +61,8 @@ export default function TeamPage() {
     if (!text) return teams;
     return teams.filter((team) => {
       const teamMembers = membersForTeam(getTeamId(team), members, assignments);
-      const leadMember = members.find((m) => Number(getMemberId(m)) === Number(team.teamLeadId));
+      const leadId = team.teamLeadId ?? team.teamLeadIdFk;
+      const leadMember = members.find((m) => Number(getMemberId(m)) === Number(leadId));
       return [getTeamLabel(team), leadMember ? getMemberLabel(leadMember) : '', ...teamMembers.map(getMemberLabel)]
         .join(' ')
         .toLowerCase()
@@ -304,7 +305,8 @@ export default function TeamPage() {
           {filteredTeams.map((team) => {
             const teamId = getTeamId(team);
             const teamMembers = membersForTeam(teamId, members, assignments);
-            const leadMember = members.find((m) => Number(getMemberId(m)) === Number(team.teamLeadId));
+            const leadId = team.teamLeadId ?? team.teamLeadIdFk;
+            const leadMember = members.find((m) => Number(getMemberId(m)) === Number(leadId));
 
             return (
               <div
@@ -410,7 +412,8 @@ export default function TeamPage() {
                 {filteredTeams.map((team) => {
                   const teamId = getTeamId(team);
                   const teamMembers = membersForTeam(teamId, members, assignments);
-                  const leadMember = members.find((m) => Number(getMemberId(m)) === Number(team.teamLeadId));
+                  const leadId = team.teamLeadId ?? team.teamLeadIdFk;
+                  const leadMember = members.find((m) => Number(getMemberId(m)) === Number(leadId));
 
                   return (
                     <tr key={teamId} className="hover:bg-slate-50/70 transition-colors dark:hover:bg-slate-800/50">
