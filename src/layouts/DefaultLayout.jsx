@@ -113,10 +113,27 @@ export default function DefaultLayout() {
           const tmId = tm.teamMemberId != null ? tm.teamMemberId : tm.id;
           return tmId != null && tmId >= 0 && !tm.isDeleted && tm.isDeleted !== 1;
         });
-        setTeamMemberList(members);
 
         let teams = Array.isArray(teamsRes) ? teamsRes : (teamsRes?.data || teamsRes?.data?.data || []);
         teams = teams.filter((t) => !t.isDeleted);
+
+        // For non-admin Team Leads, scope View Context dropdown strictly to their own led department/teams
+        if (!isAdmin && user) {
+          const userEmail = (user.userEmail || user.email || "").toLowerCase();
+          const userId = user.userid || user.id;
+          const myMemberRecords = members.filter(
+            (tm) => (tm.userIdFk && tm.userIdFk === userId) ||
+                    (tm.teamMemberEmail && tm.teamMemberEmail.toLowerCase() === userEmail) ||
+                    (user.teamMemberId && tm.teamMemberId === user.teamMemberId)
+          );
+          const myTeamIds = myMemberRecords.map((tm) => tm.teamIdFk).filter(Boolean);
+          if (myTeamIds.length > 0) {
+            teams = teams.filter((t) => myTeamIds.includes(t.teamId));
+            members = members.filter((tm) => myTeamIds.includes(tm.teamIdFk));
+          }
+        }
+
+        setTeamMemberList(members);
         setTeamsList(teams);
       }).catch((err) => console.error("Error fetching teams/members for View Context:", err));
     }
